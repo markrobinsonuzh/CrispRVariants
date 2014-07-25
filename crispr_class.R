@@ -6,7 +6,12 @@ library(reshape2)
 #library(sangerseqR)
 
 # To do - deal with soft clipping in the target region
-# To do - are empty alignments dealt with correctly?
+# To do - check are empty alignments dealt with correctly?
+# To do - renumber wrt target
+# To do - check for sapply with potential for unwanted simiplification
+# To do - read bam - exclude should be granges?
+
+
 
 writeFastq <- function(outf, vals){
     o <- file(outf, "a")
@@ -55,44 +60,74 @@ abifToTrimmedFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0
     return()
 }
 
-readBam <- function(bam_fname, target_chr, target_start, target_end, merge.chimeras = FALSE,
-                    exclude = IRanges()){
-    # This function classifies reads as on_target if they completely span the target,
-    # region, and off_target otherwise. 
-    #
-    # Note that unmapped reads are discarded by readGAlignments
-    #
-    # "exclude" should be IRanges of regions that should not be counted,
-    #  e.g. primer sequences that have a match in the genome   
-    #
-    # If bam file contains chimeras, (alignment split over two lines), get the "SA" tag 
-    # Only merge if both sequences are from the same chromosome
-        
-    param <- ScanBamParam(what = c("seq"))
-    if (merge.chimeras == TRUE) param <- ScanBamParam(what = c("seq"), tag = "SA")
-    bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
-    if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
+mergeChimericAlns <- function(alns){
+  # Chimeras must have multiple seqs on the same chromosome and strand
+  if (length(alns) == 1) return(alns)
+  if (length(unique(seqnames(alns))) > 1) {
+    print(c("Ignored chimera from different chromosomes", seqnames(alns)))
+    return(alns)
+  }
+  if (length(unique(strand(alns))) > 1) {
+    print(c("Ignored inversion", seqnames(alns))
+    return(alns)
+  }
+     
+  qranges <- unlist(cigarRangesAlongQuerySpace(cigar(alns)))
+  is_aligned <- which(!unlist(explodeCigarOps(cigar(alns))) %in% c("H", "S"))
+  aln_ranges <- qranges[is_aligned]
+  
+  # Aligned regions must not overlap
+  if (! length(findOverlaps(qranges[ops], ignoreSelf = TRUE)) == 0) return(alns)
     
-    bam <- bam[setdiff(1:length(bam), findOverlaps(ranges(bam), exclude)@queryHits)]
-        
-    ###### IF READING IN CHIMERIC, MERGE CHIMERAS BEFORE SEPARATING INTO ON/OFF TARGET
-    #
-    #if (chimeras == TRUE){
-    #    chimeras <- bam[! is.na(mcols(bam)["SA"])]
-    #    chimeras <- split(chimeras, names(chimeras))
-    #    
-    #    # If not the same chromosome, do nothing (off target will be removed next step)
-    #    
-    #       # find difference of start of new segment and end of last
-           
-    #}    
+  # Merge the cigars.  
+  # Is it safe to assume that the original sequence is not hard clipped?    
+  rranges <- cigarRangesAlongReferenceSpace(cigar(alns))   
+  
+  start_ranges <- min(which(width(rranges) > 0)) # The first aligned range
+  start_ranges[1] <- 1 # Or the first range if it's the first section 
+  end_ranges <- which.max(width(rranges)) # The last aligned range, or the last if it's
+  end_ranges[length(end_ranges)] <- length(rranges[[length(rranges)]]) # the last section 
+  gap_lengths <- end(alns)[1:length(alns)-1] - (start(alns)[-1] - 1)
+  
     
-    is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
-                     seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    result <- split(bam, is_on_target)
-    names(result) <- c("on_target", "off_target")
-    result
-}    
+
+}
+
+
+readBam <- function(bam_fname, target_chr, target_start, target_end, merge_chimeras = FALSE,
+                    exclude = GRanges()){
+  # This function reads a bam file and classifies reads as on_target if they 
+  # completely span the target, region, and off_target otherwise. 
+  #
+  # Note that unmapped reads are discarded by readGAlignments, 
+  # and are not counted as "off-target" reads
+  #
+  # "exclude" should be a GRanges object of regions that should not be counted,
+  #  e.g. primer or cloning vector sequences that have a match in the genome   
+  #
+  # If merge_chimeras = TRUE, chimeric reads (alignments with a large gap, split 
+  # over two lines) are merged if both sequences are from the same chromosome, 
+  # do not overlap, and are aligned to the same strand.
+  # It is assumed that sequences with two alignments are chimeras, not alternate mappings
+
+
+  param <- ScanBamParam(what = c("seq"))
+  bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
+  if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
+  
+  bam <- bam[setdiff(1:length(bam), findOverlaps(bam, exclude)@queryHits)]
+      
+  if (merge_chimeras == TRUE){
+    # Split the bam file by seq name, preserving the original order
+    bam_by_name <-split(bam, factor(names(bam), levels = unique(names(bam))))
+    result <- sapply(bam_by_name, mergeChimericAlns)
+  }  
+  is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
+                   seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
+  result <- split(bam, is_on_target)
+  names(result) <- c("on_target", "off_target")
+  result
+}   
 
 reverseCigar <- function(cigar){
    cigar.widths <- rev(strsplit(cigar, '[A-Z]')[[1]])
@@ -167,7 +202,7 @@ CrisprRun$methods(
     cig_ends <- target_end - target_start  + cig_starts
     locs <- .self$findDeletions(cig_starts, cig_ends)
 
-    temp <- cigarNarrow(cigar(alns), locs$starts, locs$ends)
+    temp <- cigarNarrow(cigar(alns), locs$starts, locs$ends)    
     new_starts <-  attr(temp, "rshift") + 1 + clip_starts 
     # + 1 as rshift is number removed not starting point
     
@@ -207,19 +242,20 @@ CrisprRun$methods(
       # depending upon the mapper
       
       is_del <- rep(0, length(starts_wrt_read))
-      
       del_chars <- c("N", "D")
-      del_locs <- sapply(seq_along(starts_wrt_read), function(i){
+      
+      del_locs <- lapply(seq_along(starts_wrt_read), function(i){
           rs <- starts_wrt_read[i]
           re <- ends_wrt_read[i]
           fo <- findOverlaps(.self$ref_ranges[[i]], IRanges(rs, re))@queryHits
           fo
       })
       
-      target_ops <- sapply(seq_along(del_locs), function(i){
+      target_ops <- lapply(seq_along(del_locs), function(i){
+           
           .self$cigar_ops[[i]][del_locs[[i]]]
       })
-      
+
       start_del <- sapply(target_ops, function(x) x[1] %in% del_chars)
       end_del <- sapply(target_ops, function(x) tail(x, n = 1) %in% del_chars)
       dels <- cbind(start_del, end_del)
@@ -368,7 +404,7 @@ CrisprSet$methods(
   },
   
   heatmapCigarFreqs = function(as_percent = FALSE, x_size = 10, x_axis_title = NULL,
-                               x_angle = 90, annotate_counts = TRUE, show.plot = TRUE){
+                               x_angle = 90, annotate_counts = TRUE){
     
     counts <- melt(.self$cigar_freqs)
     colnames(counts) <- c("Cigar", "Sample","Count")
@@ -436,20 +472,5 @@ CrisprSet$methods(
     new_numbering <- c(seq(-1*target_loc,-1), c(1:(length(target_seq[[1]]) - target_loc)))
   }
 )
-
-
-
-#____________________________________________
-
-#target_start <- 14016350
-#target_end <- 14016400
-#chrom <- "chr14"
-
-#Get the reference sequence
-
-#library("BSgenome.Drerio.UCSC.danRer7")
-#danRer7 <- BSgenome.Drerio.UCSC.danRer7
-#ref <- getSeq(danRer7, chrom, target_start, target_end)
-
 
 
