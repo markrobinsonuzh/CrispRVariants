@@ -7,10 +7,7 @@ library(reshape2)
 
 # To do - deal with soft clipping in the target region
 # To do - check are empty alignments dealt with correctly?
-# To do - renumber wrt target
-# To do - check for sapply with potential for unwanted simiplification
-# To do - 
- 
+# To do - renumber wrt target 
 
 
 writeFastq <- function(outf, vals){
@@ -115,7 +112,8 @@ CrisprRun$methods(
         
     off_target <<- galns[["off_target"]]
     on_target <- galns[["on_target"]]
-    if (is.null(on_target)) return()
+        
+    if (length(on_target) == 0) return()
 
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(on_target))
     query_ranges <<- cigarRangesAlongQuerySpace(cigar(on_target))
@@ -181,19 +179,15 @@ CrisprRun$methods(
     # Chimeras must have multiple seqs on the same chromosome and strand
     if (length(aln_set) == 1) return(aln_set)
     
-    print("chimera")
-    print(cigar(aln_set))
-    
     if (length(unique(seqnames(aln_set))) > 1) {     
       # How to tell which is the main alignment here if not in the SAM flag?
-      print(c("Ignored chimera from different chromosomes", seqnames(aln_set)))
+      new_name <- "chimera:different_chrs"
       return(aln_set)
     }
     
     # Case: inversion (possibly overlapping)
     if (length(unique(strand(aln_set))) > 1) {
       # Note - haven't considered inversion + something else
-      print("Inversion")
       main_strand <- strand(aln_set)[1]
       new_name <- "chimera:inversion"
       return(aln_set)
@@ -209,7 +203,6 @@ CrisprRun$methods(
    
     .self$read_types[names(aln_set)[1]] <- new_name
 
-    print(new_name)
     return(aln_set)
     
     #___________________________________
@@ -245,10 +238,9 @@ CrisprRun$methods(
     
     clip_starts <- rep(0, length(alns))
     is_clipped <- which(sapply(.self$cigar_ops, '[[', 1) == "S")
-    clip_starts[is_clipped] <- sapply(width(.self$query_ranges[is_clipped]), '[[', 1)
-    
+    clip_starts[is_clipped] <- unlist(lapply(width(.self$query_ranges[is_clipped]), '[[', 1))
     cig_starts <- target_start - (start(alns) - 1)
-    cig_ends <- target_end - target_start  + cig_starts
+    cig_ends <- target_end - target_start  + cig_starts  
     locs <- .self$findDeletions(cig_starts, cig_ends)
 
     temp <- cigarNarrow(cigar(alns), locs$starts, locs$ends)    
@@ -279,7 +271,7 @@ CrisprRun$methods(
     
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigs)
     cigar_ops <<- explodeCigarOps(cigs)
-
+    
     alns <<- GAlignments(seqnames = seqnames(alns), pos=attr(temp, "rshift"),
                  cigar = cigs, names = names(alns), strand = strand(alns),
                  seqlengths = seqlengths(alns), seq = seqs)
@@ -300,8 +292,7 @@ CrisprRun$methods(
           fo
       })
       
-      target_ops <- lapply(seq_along(del_locs), function(i){
-           
+      target_ops <- lapply(seq_along(del_locs), function(i){   
           .self$cigar_ops[[i]][del_locs[[i]]]
       })
 
@@ -310,8 +301,7 @@ CrisprRun$methods(
       dels <- cbind(start_del, end_del)
             
       new_starts <- rep(0, length(starts_wrt_read)) 
-      new_ends <- rep(0, length(ends_wrt_read))
-           
+      new_ends <- rep(0, length(ends_wrt_read))    
       for (i in 1:nrow(dels)){
           r <- unname(dels[i,])
           
@@ -347,7 +337,7 @@ CrisprRun$methods(
   },
   
   getInsertionSeqs = function(){ 
-    ins <- sapply(.self$cigar_ops, function(x) which(x == "I"))
+    ins <- lapply(.self$cigar_ops, function(x) which(x == "I"))
     idxs <- unlist(sapply(seq_along(ins), function(i) rep(i, length(ins[[i]]))) )
     tseqs <- as.character(mcols(.self$alns)$seq)[idxs]    
     
@@ -356,7 +346,7 @@ CrisprRun$methods(
         return()
     }    
     qranges <- unlist(.self$query_ranges[ins])
-    ins_seqs <- sapply(seq_along(tseqs), function(i) as.character(Views(tseqs[i],qranges[i])))    
+    ins_seqs <- sapply(seq_along(tseqs), function(i) as.character(Views(tseqs[i],qranges[i]))) 
     ins_starts <- start(unlist(.self$ref_ranges[ins]))
   
     df <- data.frame(start = ins_starts, seq = ins_seqs)
