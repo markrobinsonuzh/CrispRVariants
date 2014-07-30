@@ -9,8 +9,8 @@ library(reshape2)
 # To do - check are empty alignments dealt with correctly?
 # To do - renumber wrt target
 # To do - check for sapply with potential for unwanted simiplification
-# To do - read bam - exclude should be granges?
-
+# To do - 
+ 
 
 
 writeFastq <- function(outf, vals){
@@ -60,74 +60,7 @@ abifToTrimmedFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0
     return()
 }
 
-mergeChimericAlns <- function(alns){
-  # Chimeras must have multiple seqs on the same chromosome and strand
-  if (length(alns) == 1) return(alns)
-  if (length(unique(seqnames(alns))) > 1) {
-    print(c("Ignored chimera from different chromosomes", seqnames(alns)))
-    return(alns)
-  }
-  if (length(unique(strand(alns))) > 1) {
-    print(c("Ignored inversion", seqnames(alns))
-    return(alns)
-  }
-     
-  qranges <- unlist(cigarRangesAlongQuerySpace(cigar(alns)))
-  is_aligned <- which(!unlist(explodeCigarOps(cigar(alns))) %in% c("H", "S"))
-  aln_ranges <- qranges[is_aligned]
-  
-  # Aligned regions must not overlap
-  if (! length(findOverlaps(qranges[ops], ignoreSelf = TRUE)) == 0) return(alns)
-    
-  # Merge the cigars.  
-  # Is it safe to assume that the original sequence is not hard clipped?    
-  rranges <- cigarRangesAlongReferenceSpace(cigar(alns))   
-  
-  start_ranges <- min(which(width(rranges) > 0)) # The first aligned range
-  start_ranges[1] <- 1 # Or the first range if it's the first section 
-  end_ranges <- which.max(width(rranges)) # The last aligned range, or the last if it's
-  end_ranges[length(end_ranges)] <- length(rranges[[length(rranges)]]) # the last section 
-  gap_lengths <- end(alns)[1:length(alns)-1] - (start(alns)[-1] - 1)
-  
-    
 
-}
-
-
-readBam <- function(bam_fname, target_chr, target_start, target_end, merge_chimeras = FALSE,
-                    exclude = GRanges()){
-  # This function reads a bam file and classifies reads as on_target if they 
-  # completely span the target, region, and off_target otherwise. 
-  #
-  # Note that unmapped reads are discarded by readGAlignments, 
-  # and are not counted as "off-target" reads
-  #
-  # "exclude" should be a GRanges object of regions that should not be counted,
-  #  e.g. primer or cloning vector sequences that have a match in the genome   
-  #
-  # If merge_chimeras = TRUE, chimeric reads (alignments with a large gap, split 
-  # over two lines) are merged if both sequences are from the same chromosome, 
-  # do not overlap, and are aligned to the same strand.
-  # It is assumed that sequences with two alignments are chimeras, not alternate mappings
-
-
-  param <- ScanBamParam(what = c("seq"))
-  bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
-  if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
-  
-  bam <- bam[setdiff(1:length(bam), findOverlaps(bam, exclude)@queryHits)]
-      
-  if (merge_chimeras == TRUE){
-    # Split the bam file by seq name, preserving the original order
-    bam_by_name <-split(bam, factor(names(bam), levels = unique(names(bam))))
-    result <- sapply(bam_by_name, mergeChimericAlns)
-  }  
-  is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
-                   seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-  result <- split(bam, is_on_target)
-  names(result) <- c("on_target", "off_target")
-  result
-}   
 
 reverseCigar <- function(cigar){
    cigar.widths <- rev(strsplit(cigar, '[A-Z]')[[1]])
@@ -164,25 +97,141 @@ CrisprRun = setRefClass(
              "cigar_ops",
              "off_target",
              "long_dels",
-             "insertions")
+             "insertions", 
+             "read_types")
 )
 
 CrisprRun$methods(
   initialize = function(bam_fname, target_chr, target_start, target_end, rc = FALSE, 
-                        name = NULL){
+                        name = NULL, count_unmapped = TRUE, merge_chimeras = FALSE,
+                        exclude = GRanges()){
     
-      name <<- ifelse(is.null(name), bam_fname, name)
-      
-      galns <- readBam(bam_fname, target_chr, target_start, target_end)
-      off_target <<- galns[["off_target"]]
-      on_target <- galns[["on_target"]]
-      if (is.null(on_target)) return()
+    name <<- ifelse(is.null(name), bam_fname, name)
+    galns <- readBam(bam_fname, target_chr, target_start, target_end, merge_chimeras, exclude)
+    if (count_unmapped == TRUE){
+      param <- ScanBamParam(what = c("qname"), flag=scanBamFlag(isUnmappedQuery=TRUE))
+      read_types[scanBam(bam_fname, param = param)[[1]]$qname] <<- "unmapped"
+    }
+        
+    off_target <<- galns[["off_target"]]
+    on_target <- galns[["on_target"]]
+    if (is.null(on_target)) return()
 
-      ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(on_target))
-      query_ranges <<- cigarRangesAlongQuerySpace(cigar(on_target))
-      cigar_ops <<- explodeCigarOps(cigar(on_target)) 
-      .self$readsToTarget(on_target, target_start, target_end, rc)
-      .self$getInsertionSeqs()
+    ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(on_target))
+    query_ranges <<- cigarRangesAlongQuerySpace(cigar(on_target))
+    cigar_ops <<- explodeCigarOps(cigar(on_target)) 
+    .self$readsToTarget(on_target, target_start, target_end, rc)
+    .self$getInsertionSeqs()
+  },
+  
+  readBam = function(bam_fname, target_chr, target_start, target_end, merge_chimeras = FALSE,
+                     exclude = GRanges()){
+    # This function reads a bam file and classifies reads as on_target if they 
+    # completely span the target, region, and off_target otherwise. 
+    #
+    # Note that unmapped reads are discarded by readGAlignments, 
+    # and are not counted as "off-target" reads
+    #
+    # "exclude" should be a GRanges object of regions that should not be counted,
+    #  e.g. primer or cloning vector sequences that have a match in the genome   
+    #
+    # If merge_chimeras = TRUE, chimeric reads (alignments with a large gap, split 
+    # over two lines) are merged if both sequences are from the same chromosome, 
+    # do not overlap, and are aligned to the same strand.
+    # It is assumed that sequences with two alignments are chimeras, not alternate mappings
+  
+    param <- ScanBamParam(what = c("seq"))
+    bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
+    read_types <<- sapply(unique(names(bam)), function(x) NULL)
+    
+    if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
+    
+    fo <- findOverlaps(bam, exclude)@queryHits
+    bam <- bam[setdiff(1:length(bam), fo)]
+    read_types[fo] <<- "excluded"
+               
+    if (merge_chimeras == TRUE){
+      # Split the bam file by seq name, preserving the original order
+      bam_by_name <-split(bam, factor(names(bam), levels = unique(names(bam))))
+      result <- lapply(bam_by_name, .self$mergeChimericAlns)
+    }  
+    is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
+                     seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
+    
+    result <- split(bam, is_on_target)
+    names(result) <- c("on_target", "off_target")
+
+    read_types[which(names(read_types) %in% names(result$off_target))] <<- "off_target"
+    
+    # Classify both reads of a chimera as on target if one is
+    read_types[which(names(read_types) %in% names(result$on_target))] <<- "on_target"
+    
+    result
+  },   
+  
+  mergeChimericAlns = function(aln_set){  
+    # Case: Aligned regions overlap
+    #  1-2-3-4-5
+    #      3-4-5-6-7
+    #
+    # Case: Inversion:
+    # 1-2-3-4-5
+    #            6-5-4-3 
+    
+    # Chimeras must have multiple seqs on the same chromosome and strand
+    if (length(aln_set) == 1) return(aln_set)
+    
+    print("chimera")
+    print(cigar(aln_set))
+    
+    if (length(unique(seqnames(aln_set))) > 1) {     
+      # How to tell which is the main alignment here if not in the SAM flag?
+      print(c("Ignored chimera from different chromosomes", seqnames(aln_set)))
+      return(aln_set)
+    }
+    
+    # Case: inversion (possibly overlapping)
+    if (length(unique(strand(aln_set))) > 1) {
+      # Note - haven't considered inversion + something else
+      print("Inversion")
+      main_strand <- strand(aln_set)[1]
+      new_name <- "chimera:inversion"
+      return(aln_set)
+    }
+   
+    # (start ranges 2 onwards) - (end ranges 1 - second last):
+    gap_lengths <- start(aln_set)[-1] - (end(aln_set)[1:(length(aln_set)-1)] - 1)
+
+    # Rename alns
+    if (all(gap_lengths < 0)){ new_name <- "chimera:duplication"
+    }else if (all(gap_lengths > 0)){ new_name <- "chimera:long_gap"
+    }else new_name <- "chimera:complex"
+   
+    .self$read_types[names(aln_set)[1]] <- new_name
+
+    print(new_name)
+    return(aln_set)
+    
+    #___________________________________
+    # To do:
+    
+    # Merge the cigars instead of flagging?
+    # Is it safe to assume that the original sequence is not hard clipped?   
+  
+    # Remove the clipped ranges from regions to be merged
+    #qranges <- unlist(cigarRangesAlongQuerySpace(cigar(alns)))
+    #is_aligned <- which(!unlist(explodeCigarOps(cigar(alns))) %in% c("H", "S"))
+    #aln_ranges <- qranges[is_aligned]
+    #rranges <- cigarRangesAlongReferenceSpace(cigar(alns))   
+    
+    #start_ranges <- min(which(width(rranges) > 0)) # The first aligned range
+    #start_ranges[1] <- 1 # Or the first range if it's the first section 
+    #end_ranges <- sapply(width(rranges), function(x) max(which(x > 0))) # The last aligned,
+    ## or the last if it's the last aligned range,
+    #end_ranges[length(end_ranges)] <- length(rranges[[length(rranges)]])
+    
+     #___________________________________
+   
   },
   
   readsToTarget = function(alns, target_start, target_end, rc){
@@ -297,9 +346,11 @@ CrisprRun$methods(
       return(list(starts = new_starts, ends = new_ends)) 
   },
   
-  getInsertionSeqs = function(){
+  getInsertionSeqs = function(){ 
     ins <- sapply(.self$cigar_ops, function(x) which(x == "I"))
-    tseqs <- as.character(mcols(.self$alns)$seq)[sapply(ins, length) > 0]
+    idxs <- unlist(sapply(seq_along(ins), function(i) rep(i, length(ins[[i]]))) )
+    tseqs <- as.character(mcols(.self$alns)$seq)[idxs]    
+    
     if (length(tseqs) == 0) {
         insertions <<- data.frame(start = character(), seq = character(), count = character())
         return()
@@ -307,6 +358,7 @@ CrisprRun$methods(
     qranges <- unlist(.self$query_ranges[ins])
     ins_seqs <- sapply(seq_along(tseqs), function(i) as.character(Views(tseqs[i],qranges[i])))    
     ins_starts <- start(unlist(.self$ref_ranges[ins]))
+  
     df <- data.frame(start = ins_starts, seq = ins_seqs)
     df$seq <- as.character(df$seq)
     insertions <<- aggregate(rep(1, nrow(df)), by = as.list(df), FUN = table)
