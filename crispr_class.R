@@ -8,6 +8,7 @@ library(reshape2)
 # To do - deal with soft clipping in the target region
 # To do - check are empty alignments dealt with correctly?
 # To do - renumber wrt target 
+# To do - check is.null, change to na?
 
 
 writeFastq <- function(outf, vals){
@@ -140,29 +141,30 @@ CrisprRun$methods(
   
     param <- ScanBamParam(what = c("seq"))
     bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
-    read_types <<- sapply(unique(names(bam)), function(x) NULL)
+    read_types <<- sapply(unique(names(bam)), function(x) NA)
     
     if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
     
     fo <- findOverlaps(bam, exclude)@queryHits
+    read_types[unique(names(bam[fo]))] <<- "excluded"
     bam <- bam[setdiff(1:length(bam), fo)]
-    read_types[fo] <<- "excluded"
-               
+                   
     if (merge_chimeras == TRUE){
       # Split the bam file by seq name, preserving the original order
       bam_by_name <-split(bam, factor(names(bam), levels = unique(names(bam))))
       result <- lapply(bam_by_name, .self$mergeChimericAlns)
     }  
+        
     is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
                      seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    
     result <- split(bam, is_on_target)
     names(result) <- c("on_target", "off_target")
-
-    read_types[which(names(read_types) %in% names(result$off_target))] <<- "off_target"
     
-    # Classify both reads of a chimera as on target if one is
-    read_types[which(names(read_types) %in% names(result$on_target))] <<- "on_target"
+    # Note that a read can currently be classified as "excluded" if it's a chimera
+    # and half is excluded
+    remaining <- names(which(is.na(read_types) | read_types == "excluded"))
+    read_types[remaining[remaining %in% names(result$off_target)]] <<- "off_target"
+    read_types[remaining[remaining %in% names(result$on_target)]] <<- "on_target"
     
     result
   },   
@@ -201,8 +203,7 @@ CrisprRun$methods(
     }else if (all(gap_lengths > 0)){ new_name <- "chimera:long_gap"
     }else new_name <- "chimera:complex"
    
-    .self$read_types[names(aln_set)[1]] <- new_name
-
+    read_types[names(aln_set)[1]] <<- new_name
     return(aln_set)
     
     #___________________________________
@@ -280,7 +281,7 @@ CrisprRun$methods(
   
   findDeletions = function(starts_wrt_read, ends_wrt_read){
       # Deletions may be coded as either "D" or "N" (splice junction), 
-      # depending upon the mapper
+      # depending upon the mapping software
       
       is_del <- rep(0, length(starts_wrt_read))
       del_chars <- c("N", "D")
