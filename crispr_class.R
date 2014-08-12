@@ -81,15 +81,7 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-"){
     result
 }
 
-variantsToEnsFormat <- function(vars_by_type){
-    # Ensembl requires end = start - 1 for insertions
-    
-    
-    
-    #ins.ens <- data.frame(chrom = 18, start = ins$start, end = ins$end -1 , 
-    #                      allele = sprintf("-/%s", ins$var), strand = "+")
 
-}
 
 
 
@@ -379,56 +371,95 @@ CrisprRun$methods(
     
   },
   
-  getVariants = function(ref_genome, txdb = NA, chrom = NA){
-      # Get a data frame of variants and their coordinates for predicting effects,
-      # one variant per line
-      
-      # RefGenome is a BSGenome obj
-      
-      if (is.na(chrom)){
-          chrom <- as.character(seqnames(.self$alns)[1])
-      }
-      
-      # Some code duplication with getInsertionSeqs, condense, store results?
-      dels <- lapply(.self$cigar_ops, function(x) which(x %in% c("D", "N")))       
-      del_idxs <- unlist(sapply(seq_along(dels), function(i) rep(i, length(dels[[i]]))))
-      del_ranges <- do.call(c, lapply(seq_along(dels), function(i) {
-                            .self$ref_ranges[[i]][dels[[i]]]}))
-      genomic_starts <- start(del_ranges) + start(.self$alns[del_idxs])
-      
-      dels <- data.frame(read = del_idxs, start = genomic_starts, 
-                         end = start(.self$alns[del_idxs]) + end(del_ranges), var = "DEL")
-      
-      # Insertions computed at initialisation
-      ins_starts <- .self$insertions$genomic_start[.self$ins_key]
-      ins <- data.frame(read = names(.self$ins_key), start = ins_starts,
-                        end = ins_starts, # ends are genomic ends 
-                        var = .self$insertions$seq[.self$ins_key])
-       
-      # Mismatches - check for mismatches and the read ranges with "M" (match/mismatch)
-      get_start <- min(start(.self$alns))
-      get_end <- max(end(.self$alns))
-      ref_seq <- getSeq(ref_genome, chrom, get_start, get_end)
-      matches <- lapply(.self$cigar_ops, function(x) which(x == "M"))
-      match_ranges <- .self$query_ranges[matches]
-      key <- rep(1:length(match_ranges), lapply(match_ranges, length))
-      match_ranges <- unlist(match_ranges)
-      match_seqs <- subseq(mcols(.self$alns)$seq[key], start(match_ranges), end(match_ranges))
-
-      ref_offset <- start(.self$alns) - get_start
-      ref_ranges_ <- unlist(shift(.self$ref_ranges[matches], ref_offset))
-      ref_seqs <- as(Views(ref_seq, ref_ranges_), "DNAStringSet")
+  getVariants = function(ref_genome, chrom = NA, ensembl = FALSE, strand = "+"){
+    # Get a data frame of variants and their coordinates for predicting effects,
+    # one variant per line
     
-      idxs <- which(ref_seqs != match_seqs)
-      mm <- do.call(rbind,lapply(idxs, function(i){
-        r1 <- as.matrix(ref_seqs[i])
-        m1 <- as.matrix(match_seqs[i])
-        neq <- m1 != r1
-        genomic_locs <- get_start + (start(ref_ranges_)[i] - 1) + (which(neq) -1 )
-        list(read = key[i], start = genomic_locs, ref = r1[neq], query = m1[neq])
-        }))
-  
-     return(list(insertions = ins, deletions = dels, mismatches = mm))
+    # RefGenome is a BSGenome obj
+    
+    # Get the reference sequence
+    if (is.na(chrom)){
+      chrom <- as.character(seqnames(.self$alns)[1])
+      if (! grepl("chr", chrom)){          
+        chrom <- paste0("chr", chrom)
+      }
+    }
+    
+    get_start <- min(start(.self$alns))
+    get_end <- max(end(.self$alns))
+    ref_seq <- getSeq(ref_genome, chrom, get_start, get_end)
+    ref_offset <- start(.self$alns) - get_start
+    
+    # Get deletions:
+    # Some code duplication with getInsertionSeqs, condense, store results?
+    dels <- lapply(.self$cigar_ops, function(x) which(x %in% c("D", "N")))       
+    del_idxs <- rep(1:length(dels), lapply(dels, length))
+    del_ranges <- do.call(c, lapply(seq_along(dels), function(i) {
+                          .self$ref_ranges[[i]][dels[[i]]]}))    
+    del_seqs <- as.character(Views(ref_seq, shift(del_ranges, ref_offset[del_idxs])))
+
+    genomic_starts <- start(del_ranges) + start(.self$alns[del_idxs])
+    
+    dels <- data.frame(read = del_idxs, chromosome = chrom, start = genomic_starts, 
+                       end = start(.self$alns[del_idxs]) + end(del_ranges),
+                       deleted = del_seqs, stringsAsFactors = FALSE)
+    
+    # Get insertions: already computed at initialisation
+    ins_starts <- .self$insertions$genomic_start[.self$ins_key]
+    ins <- data.frame(read = as.integer(names(.self$ins_key)), chromosome = chrom, 
+                      start = ins_starts, end = ins_starts, # ends are genomic ends 
+                      var = .self$insertions$seq[.self$ins_key], stringsAsFactors = FALSE)
+     
+    # Get mismatches - check for mismatches and the read ranges with "M" (match/mismatch)
+    matches <- lapply(.self$cigar_ops, function(x) which(x == "M"))
+    match_ranges <- .self$query_ranges[matches]
+    key <- rep(1:length(match_ranges), lapply(match_ranges, length))
+    match_ranges <- unlist(match_ranges)
+    match_seqs <- subseq(mcols(.self$alns)$seq[key], start(match_ranges), end(match_ranges))
+    
+    ref_ranges_ <- unlist(shift(.self$ref_ranges[matches], ref_offset))
+    ref_seqs <- as(Views(ref_seq, ref_ranges_), "DNAStringSet")
+    
+    idxs <- which(ref_seqs != match_seqs)
+       
+    mm <- do.call(rbind, lapply(idxs, function(i){
+            r1 <- as.matrix(ref_seqs[i])
+            m1 <- as.matrix(match_seqs[i])
+            neq <- m1 != r1
+            genomic_locs <- get_start + (start(ref_ranges_)[i] - 1) + (which(neq) -1 )
+            data.frame(read = key[i], chromosome = chrom, start = genomic_locs, 
+                 ref = r1[neq], query = m1[neq])
+            }))
+      
+    if (ensembl == TRUE){
+        return(getVarsEnsemblFormat(vars, strand))
+    } else{
+      return(list(insertions = ins, deletions = dels, mismatches = mm))
+    }
+  },
+
+  getVarsEnsemblFormat = function(vars, strand = "+"){
+    # Ensembl requires end = start - 1 for insertions
+    # End points are included
+    
+    vins <- vars$insertions
+    ins <- data.frame(chrom = vins$chromosome, start = vins$start, end = vins$end -1 , 
+                      allele = sprintf("-/%s", vins$var), strand = strand, id = vins$read)
+    
+    vdels <- vars$deletions
+    dels <- data.frame(chrom = vdels$chromosome, start = vdels$start, end = vdels$end,
+                       allele = sprintf("%s/-", vdels$deleted), strand = strand, 
+                       id = vdels$read)
+                       
+    vmm <- vars$mismatches
+    mm <- data.frame(chrom = vmm$chromosome, start = vmm$start, end = vmm$start + 1,
+                     allele = sprintf("%s/%s", vmm$ref, vmm$query), strand = strand, 
+                     id = vmm$read)
+                     
+    vars <- rbind(ins,dels,mm)
+    vars <- vars[order(vars$id),]
+    vars$id <- names(.self$alns[vars$id])
+    vars
   },
   
   renumberCigars = function(cut_base, relative_locs, genomic_locs = NULL, genomic = FALSE){
