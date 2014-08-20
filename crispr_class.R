@@ -1,6 +1,5 @@
 library(GenomicAlignments)
 library(Rsamtools)
-library(parallel)
 library(ggplot2)
 library(reshape2)
 
@@ -17,6 +16,8 @@ library(reshape2)
 # Default mapping function
 # figure out sangerseqR dependency
 # TO DO - ADD THE CIGAR TO THE INSERTION TABLE IN THE CRISPR_RUN CLASS?
+# To do - check that insertion_site table has "cigar" column
+# To do - deal with non-ATGC characters?
 
 
 writeFastq <- function(outf, vals){
@@ -90,15 +91,55 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-"){
     result
 }
 
-plotCondensedAlignments <- function(ref, alns, ins_sites, show.plot = FALSE){
+plotAlignments <- function(ref, alns, ins_sites, show.plot = FALSE, target_loc = 18){
   # ref: the reference sequence
   # alns: named vector of aligned sequences, with insertions removed
   # ins_sites:  table of insertion_sites, must include cols named "start" and "cigar"
   # Insertion locations are determined by matching ins_sites$cigar with names(alns)
+  # All characters other than ACTG are labelled N
   
-  print(ref)
-  print(alns)
-  print(ins_sites)
+  # Reverse alignment order, as ggplot geom_tile plots bottom up
+  aln_chrs <- strsplit(c(rev(alns), Reference = as.character(ref)), "")
+  temp <- t(as.data.frame(aln_chrs))
+  rownames(temp) <- names(aln_chrs)
+  m <- melt(temp)
+  ambig <- which(! m$value %in% c("A", "C", "T", "G", "N", "-"))
+  m$value <- as.character(m$value)
+  m[ambig, "value"] <- "N"  
+  m$value <- factor(m$value, levels = c("A", "C", "T", "G", "N", "-"))  
+  m$isref <- as.character(ifelse(m$Var1 == "Reference", 1, 0.75))
+  m_cols <- c("#e41a1c", "#377eb8", "#4daf4a", "#000000", "#CCCCCC","#FFFFFF", "#FFFFFF")
+  names(m_cols) <- c("A", "C", "T", "G", "N","-", "+")
+  m$cols <- m_cols[m$value]
+  
+  # Colours and shapes for the insertion markers
+  shapes <- c(21,23,25) 
+  colours <- c("#332288","#88CCEE","#44AA99",
+              "#117733","#999933","#DDCC77","#661100",
+              "#CC6677","#882255", "#AA4499")
+  
+  # Make a data frame of insertion locations
+  ins_ord <- match(ins_sites$cigar, names(aln_chrs))
+  ins_points <- data.frame(x = ins_sites[!is.na(ins_ord),"start"] - 0.5,
+                           y = na.omit(ins_ord) + 0.45)
+  ins_points$shapes <- as.factor(rep(shapes, 8)[1:nrow(ins_points)])
+  ins_points$colours <- as.factor(rep(colours, 3)[1:nrow(ins_points)])
+
+  p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols))+
+     geom_tile(aes(alpha = isref), height = 0.5)+ 
+     geom_text(aes(label = value), size = 2.5) + 
+     scale_alpha_manual(values = c(0.5,1), guide = "none") + 
+     #scale_x_continuous(expand = c(0,0.5), breaks = set_breaks, labels = set_vals) + # expand is the distance from the axis, multiplicative + additive
+     ylab(NULL) + xlab("Location") +
+     theme_bw() + theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 8),
+                        axis.title.x = element_text(vjust = -0.5))
+     
+  p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours), colour = "#000000")  +
+     scale_shape_manual(values = shapes, guide = "none") +
+     scale_fill_identity(breaks = c("A", "C", "T", "G", "N","-"), labels = c("A", "C", "T", "G", "N","-"))
+  p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", linetype = "dotted")
+  p
+  
 }
 
 
@@ -680,7 +721,7 @@ CrisprSet$methods(
         !("cigar" %in% colnames(.self$insertion_sites))){
       .self$getInsertions() 
     }
-    plotCondensedAlignments(.self$ref, seqs, .self$insertion_sites, show.plot = FALSE)    
+    plotAlignments(.self$ref, seqs, .self$insertion_sites, show.plot = FALSE)    
   },
   
   getInsertions = function(with_cigars = TRUE){
