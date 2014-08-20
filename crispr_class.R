@@ -6,19 +6,17 @@ library(reshape2)
 
 # sangerseqR should be in "sugests"
 
-# To do - deal with soft clipping in the target region
+# To do - deal with soft clipping in the target region?
 # To do - renumber wrt target 
 # To do - check is.null, change to na?
-# getVariants without relying on BSGenome obj?
-# Store cigar ops and ranges as data frame?
 # To do - design of getVarsEnsemblFormat - make fully separate from getVariants
 # To do - check for consistent naming, e.g. ref versus genome
 # To do - check that reference is reverse complemented where necessary
-# To do - how to deal with paired 
-# To do - warn with plotting if multiple guides
+# To do - deal with paired 
+# To do - warn with plotting if multiple guides?
 # Default mapping function
 # figure out sangerseqR dependency
-# consensusString method for alignment plot?
+# TO DO - ADD THE CIGAR TO THE INSERTION TABLE IN THE CRISPR_RUN CLASS?
 
 
 writeFastq <- function(outf, vals){
@@ -78,13 +76,6 @@ reverseCigar <- function(cigar){
    paste0(cigar.widths,cigar.ops, collapse = "")
 }
 
-#reverseRanges <- function(ranges){
-#  r_wdths <- rev(width(ranges))
-#  starts <- cumsum(c(1,r_wdths[1:length(r_wdths)-1]))
-#  IRanges(start=starts, width=r_wdths)    
-#}
-
-
 seqsToAln <- function(cigar, dnaseq, del_char = "-"){
     # Remove insertion sequences
     wrt_ref <- cigarRangesAlongReferenceSpace(cigar)[[1]]
@@ -97,6 +88,17 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-"){
       }
     result <- paste0(segs, collapse = "")
     result
+}
+
+plotCondensedAlignments <- function(ref, alns, ins_sites, show.plot = FALSE){
+  # ref: the reference sequence
+  # alns: named vector of aligned sequences, with insertions removed
+  # ins_sites:  table of insertion_sites, must include cols named "start" and "cigar"
+  # Insertion locations are determined by matching ins_sites$cigar with names(alns)
+  
+  print(ref)
+  print(alns)
+  print(ins_sites)
 }
 
 
@@ -267,6 +269,7 @@ CrisprRun$methods(
     # Note that alignments and cigars are reversed if strand is -ve,
     #  but start is still genomic
     
+    print(sprintf("narrowing %s", .self$name))
     
     clip_starts <- rep(0, length(alns))
     is_clipped <- which(sapply(.self$cigar_ops, '[[', 1) == "S")
@@ -274,7 +277,7 @@ CrisprRun$methods(
     cig_starts <- target_start - (start(alns) - 1)
     cig_ends <- target_end - target_start  + cig_starts  
     
-    locs <- .self$findDeletions(cig_starts, cig_ends)
+    print(system.time(locs <- .self$findDeletions(cig_starts, cig_ends)))
     temp <- cigarNarrow(cigar(alns), locs$starts, locs$ends)    
     new_starts <-  attr(temp, "rshift") + 1 + clip_starts 
     # + 1 as rshift is number removed not starting point
@@ -327,6 +330,8 @@ CrisprRun$methods(
       #
       # Deletions may be coded as either "D" or "N" (splice junction), 
       # depending upon the mapping software
+      
+      print(sprintf("finding deletions"))
       
       is_del <- rep(0, length(starts_wrt_read))
       del_chars <- c("N", "D")
@@ -563,7 +568,6 @@ CrisprRun$methods(
       }
   },
   
-  
   getShortCigars = function(match_string = "No mutation"){
       idxs <- sapply(.self$cigar_ops, function(x) which(x != "M"))
       ops <- sapply(seq_along(idxs), function(i) .self$cigar_ops[[i]][idxs[[i]]])
@@ -609,10 +613,15 @@ CrisprSet = setRefClass(
 
 CrisprSet$methods(
   initialize = function(bam_fnames, ref, target_chr, target_start, target_end, rc = FALSE,
-                        short_cigars = FALSE, names = NULL){
-    ref <<- ref
-    crispr_runs <<- sapply(bam_fnames, CrisprRun$new, target_chr, target_start, 
-                           target_end, rc = rc) 
+                        short_cigars = FALSE, names = NULL, exclude_ranges = GRanges(), 
+                        merge_chimeras = TRUE){
+    
+    ref <<- ref 
+    crispr_runs <<- lapply(bam_fnames, CrisprRun$new, target_chr, target_start, 
+                           target_end, rc = rc, exclude_ranges = exclude_ranges,
+                           merge_chimeras = merge_chimeras) 
+    
+    
     if (! is.null(names)) names(.self$crispr_runs) <- names
     nonempty_runs <<-  sapply(.self$crispr_runs, function(x) {
                               ! class(x$alns) == "uninitializedField"})
@@ -621,10 +630,10 @@ CrisprSet$methods(
    
   countCigars = function(short = FALSE, ...){
     if (short == TRUE){
-      cig.by.run <- sapply(.self$crispr_runs[.self$nonempty_runs], 
+      cig.by.run <- lapply(.self$crispr_runs[.self$nonempty_runs], 
                             function(crun) crun$getShortCigars(...) )
     }else {
-      cig.by.run <- sapply(.self$crispr_runs[.self$nonempty_runs], 
+      cig.by.run <- lapply(.self$crispr_runs[.self$nonempty_runs], 
                             function(crun) cigar(crun$alns))
     }
     unique_cigars <- unique(unlist(cig.by.run))
@@ -660,38 +669,55 @@ CrisprSet$methods(
     g
   },
   
-  plotVariants = function(){
-    # TO DO - HOW TO PASS LOTS OF OPTIONAL ARGS?
+  plotVariants = function(freq_cutoff = 0, top_n = nrow(.self$cigar_freqs)){
+    # var_freq_cutoff = i (integer) only plot variants that occur >= i times
+    # top_n = total number of variants to plot
     
-    alns <- .self$makePairwiseAlns()
-    
+    upto <- min(top_n, max(which(rowSums(.self$cigar_freqs) >= freq_cutoff)))
+    cig_freqs <- .self$cigar_freqs[1:upto,]
+    alns <- .self$makePairwiseAlns(cig_freqs)
+    if (class(.self$insertion_sites) == "uninitializedField" | 
+        !("cigar" %in% colnames(.self$insertion_sites))){
+      .self$getInsertions() 
+    }
+    plotCondensedAlignments(.self$ref, seqs, .self$insertion_sites, show.plot = FALSE)    
   },
   
-  findAllInsertions = function(){
-    all_ins <- lapply(.self$crispr_runs, function(x) x$insertions)
-    ins_nms <- unlist(sapply(seq_along(all_ins), function(i) rep(names(all_ins[i]), nrow(all_ins[[i]]))))
-    all_ins <- do.call(rbind, all_ins)
-    all_ins <- cbind(all_ins, ins_nms)[not_del]
+  getInsertions = function(with_cigars = TRUE){
+    all_ins <- do.call(rbind, lapply(.self$crispr_runs, function(x) x$insertions))
+    
+    if (with_cigars == TRUE){
+      # Get the cigars matching the insertion sites
+      cigar <- unlist(lapply(.self$crispr_runs, function(x) {
+                ik <- x$ins_key 
+                v <- data.frame(ik, cigar(x$alns[as.integer(names(ik))]))
+                v <- v[!duplicated(v),]
+                as.character(v[order(v$ik),2])
+              }))
+      all_ins <- cbind(all_ins, cigar)
+    }
+    
     insertion_sites <<- all_ins[order(all_ins$start, all_ins$seq),]
   },
   
-  makePairwiseAlns = function(...){
+  makePairwiseAlns = function(cig_freqs = .self$cigar_freqs, ...){
     # Get alignments by cigar string, make the alignment for the consensus
+
     # TO DO - REPRESENTATION OF LONG DELETIONS
     
-    x <- sapply(.self$crispr_runs, function(x) mcols(x$alns)$seq)
-    all_seqs <- as.character(do.call(c, unlist(x, use.names = FALSE)))
-    all_cigs <- unlist(sapply(.self$crispr_runs, function(x) cigar(x$alns)), use.names =FALSE)
+    x <- lapply(.self$crispr_runs, function(x) mcols(x$alns)$seq)
+    all_seqs <- do.call(c, unlist(x, use.names = FALSE))
+    all_cigs <- unlist(lapply(.self$crispr_runs, function(x) cigar(x$alns)), use.names =FALSE)
+    
     not_del <- unlist(lapply(.self$crispr_runs, function(x) x$long_dels), use.names = FALSE) != 1
     seq_by_cig <- split(all_seqs[not_del], all_cigs[not_del])
     
     # Order to match cigar frequencies
-    seq_by_cig <- seq_by_cig[na.omit(match(rownames(.self$cigar_freqs), names(seq_by_cig)))]
+    seq_by_cig <- seq_by_cig[na.omit(match(rownames(cig_freqs), names(seq_by_cig)))]
     
-    # TO DO - proper consensus seq, now just taking most frequent
-    seqs <- sapply(seq_by_cig, function(x) {
-                   tt <- table(x)
-                    names(tt)[which.max(tt)]})
+    # Possible improvement: use consensusMatrix to give alpha values in the plot
+    seqs <- lapply(seq_by_cig, consensusString)
+    
     alns <- mapply(seqsToAln, names(seqs), seqs, ...)
     alns 
     
