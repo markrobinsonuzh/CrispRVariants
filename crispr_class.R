@@ -21,6 +21,7 @@ library(gridExtra)
 # To do - make read classification optional?
 # Can I assume that all reads in a set have different names?
 # Warning that normal cigar misleading in aln plots
+# Take is.na out of plotAlignments?
 
 
 amino_colours <- matrix(c("H", "#5555ff", "#8282D2", "#7070FF",
@@ -143,39 +144,60 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_st
 
 cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 10, 
                              x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE,
-                             add_blank = TRUE){
+                             col_sums = TRUE, colours = "yellowred"){
   # add_blank - should a blank row be added to the top?  
-  #(useful for aligning heatmap with variants plot)
+  #(useful for aligning heatmap with variants plot) if col_sums = FALSE
     
-  if (add_blank == TRUE){
-    cigar_freqs <- rbind(rep(NA, ncol(cigar_freqs)), cigar_freqs)
+  cig_freqs <- cigar_freqs
+  if (col_sums == TRUE){
+    # Make space for totals to be added
+    cig_freqs <- rbind(Total = rep(NA, ncol(cigar_freqs)), cigar_freqs)
   }
-     
-  counts <- melt(cigar_freqs)
   
+  counts <- melt(cig_freqs)  
   colnames(counts) <- c("Cigar", "Sample","Count")
   counts$Cigar <- factor(counts$Cigar, levels = rev(levels(counts$Cigar)))
 
   if (as_percent == TRUE){
-    m <- apply(.self$cigar_freqs, 2, function(x) x/sum(x))  
+    m <- apply(cigar_freqs, 2, function(x) x/sum(x))  
+    if (col_sums == TRUE){
+      m <- rbind(Total = rep(NA, ncol(m)), m)
+    }
     m <- melt(m)
     colnames(m) <- c("Cigar", "Sample","Percentage")  
     m$Cigar <- factor(m$Cigar, levels = rev(levels(m$Cigar)))
     g <- ggplot(m, aes(x = Sample, y = Cigar, fill = Percentage)) + geom_tile()
   }
-  else{
+  else{    
     g <- ggplot(counts, aes(x = Sample, y = Cigar, fill = Count)) + geom_tile()
   }
+  
   if (annotate_counts == TRUE){
-      g <- g + geom_text(data = counts, aes(label = Count, fill = NULL))
+    counts$ff <- "plain"
+    if (col_sums == TRUE){ 
+      idxs <- which(is.na(counts$Count))
+      counts$Count[idxs] <- colSums(cigar_freqs)
+      counts$ff[idxs] <- "bold"
+      
+      xranges <- ggplot_build(g)$panel$ranges[[1]]$x.range  
+      box_coords <- data.frame(xmin = min(xranges), xmax = max(xranges), 
+                               ymin = nrow(cig_freqs) -0.5, ymax = nrow(cig_freqs) + 0.5)
+                               
+      g <- g + geom_rect(data=box_coords, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
+                        ymax = ymax, x = NULL, y = NULL),
+                         color = "black", size = 1, fill = "transparent")       
+    }
+    g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff))
   }
   g <- g + ylab(NULL) + xlab(x_axis_title) + theme_bw() +
        theme(axis.text.x = element_text(size = x_size, angle = x_angle))
-       
+        
+  if (colours == "yellowred"){     
+    hmcols<-colorRampPalette(c("white","gold","orange","orangered","red", "darkred"))(50) 
+    g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white") 
+  }            
   return(g)
 }
-
-
 
 
 getCodonFrame <- function(txdb, target_chr, target_start, target_end){
@@ -194,7 +216,7 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   
   # ref: the reference sequence
   # alns: named vector of aligned sequences, with insertions removed
-  # ins_sites:  table of insertion_sites, must include cols named "start" and "cigar"
+  # ins_sites:  table of insertion_sites, must include cols named "start", "cigar" and "seq"
   # pam_loc: location of PAM with respect to the target site
   # Insertion locations are determined by matching ins_sites$cigar with names(alns)
   # All characters other than ACTG are labelled N
@@ -218,11 +240,13 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   colours <- c("#332288","#88CCEE","#44AA99",
               "#117733","#999933","#DDCC77","#661100",
               "#CC6677","#882255", "#AA4499")
-  
+    
   # Make a data frame of insertion locations
-  ins_ord <- match(ins_sites$cigar, names(aln_chrs))
+  ins_ord <- match(ins_sites$cigar, names(aln_chrs))  
   ins_points <- data.frame(x = ins_sites[!is.na(ins_ord),"start"] - 0.5,
-                           y = na.omit(ins_ord) + 0.45)
+                           y = na.omit(ins_ord) + 0.45,
+                           seq = ins_sites[!is.na(ins_ord),"seq"])
+
   ins_points$shapes <- as.factor(rep(shapes, 8)[1:nrow(ins_points)])
   ins_points$colours <- as.factor(rep(colours, 3)[1:nrow(ins_points)])
 
@@ -234,21 +258,25 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
      #scale_x_continuous(expand = c(0,0.5), breaks = set_breaks, labels = set_vals) + # expand is the distance from the axis, multiplicative + additive
      ylab(NULL) + xlab("Location") +
      theme_bw() + theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 8),
-                        axis.title.x = element_text(vjust = -0.5))
+                        axis.title.x = element_text(vjust = -0.5), legend.position = "bottom")
      
   p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours),
                       colour = "#000000", size = ins_size)  +
      scale_shape_manual(values = shapes, guide = "none") +
+     #scale_shape_manual(values = ins_points$shapes, labels = ins_points$seq, name = "") +
      scale_fill_identity(breaks = c("A", "C", "T", "G", "N","-"), labels = c("A", "C", "T", "G", "N","-"))
+     #scale_fill_manual(labels = ins_points$seq, values = ins_points$colours, name = "")
   p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", linetype = "dotted")
   
+  
   # If pam_loc is given, highlight the pam in the reference
+  #  - 0.5 for tile boundaries not centres
   
   if (! is.na(pam_start)){    
     if (is.na(pam_end)){
       pam_end <- pam_start + 2
     }
-    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end,
+    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.5,
                          ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.1),
                          ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.1))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
@@ -921,7 +949,6 @@ CrisprSet$methods(
         !("cigar" %in% colnames(.self$insertion_sites))){
       .self$getInsertions() 
     }
-
     p <- plotAlignments(.self$ref, alns, .self$insertion_sites, ...)    
     return(p)
   },
@@ -932,13 +959,9 @@ CrisprSet$methods(
     } else {
       all_ins <- do.call(rbind, lapply(.self$crispr_runs, function(x) {
                 ik <- x$ins_key 
-                print(ik)
                 v <- data.frame(ik, cigar(x$alns[as.integer(names(ik))]))
-                print(v)
                 v <- v[!duplicated(v),]
                 v <- v[order(v$ik),]
-                print(v)
-                print(x$insertions)
                 cbind(x$insertions[v[,1],], cigar = v[,2])
               }))
     }
