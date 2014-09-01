@@ -22,6 +22,7 @@ library(gridExtra)
 # Can I assume that all reads in a set have different names?
 # Warning that normal cigar misleading in aln plots
 # Take is.na out of plotAlignments?
+# automatic layout heights and widths - absolute for gene track?
 
 
 amino_colours <- matrix(c("H", "#5555ff", "#8282D2", "#7070FF",
@@ -180,8 +181,9 @@ cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 10,
       counts$ff[idxs] <- "bold"
       
       xranges <- ggplot_build(g)$panel$ranges[[1]]$x.range  
+      yranges <- ggplot_build(g)$panel$ranges[[1]]$y.range  
       box_coords <- data.frame(xmin = min(xranges), xmax = max(xranges), 
-                               ymin = nrow(cig_freqs) -0.5, ymax = nrow(cig_freqs) + 0.5)
+                               ymin = nrow(cig_freqs) -0.5, ymax = max(yranges))
                                
       g <- g + geom_rect(data=box_coords, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                         ymax = ymax, x = NULL, y = NULL),
@@ -212,7 +214,8 @@ nucleotideToAA <- function(seqs, txdb, target_start, target_end){
 }
 
 plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, target_loc = 18,
-                           pam_start = NA, pam_end = NA, ins_size = 4){
+                           pam_start = NA, pam_end = NA, ins_size = 4, legend_cols = 3,
+                           xlab = NULL){
   
   # ref: the reference sequence
   # alns: named vector of aligned sequences, with insertions removed
@@ -236,37 +239,48 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   m$cols <- m_cols[m$value]
 
   # Colours and shapes for the insertion markers
-  shapes <- c(21,23,25) 
-  colours <- c("#332288","#88CCEE","#44AA99",
-              "#117733","#999933","#DDCC77","#661100",
-              "#CC6677","#882255", "#AA4499")
-    
-  # Make a data frame of insertion locations
+  shps <- c(21,23,25) 
+  clrs <- c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7",
+            "#332288","#88CCEE","#44AA99","#117733","#999933","#DDCC77","#661100",
+            "#CC6677","#882255", "#AA4499")
+                                        
+  # Make a data frame of insertion locations, format seqs to fixed width for nicer legends
   ins_ord <- match(ins_sites$cigar, names(aln_chrs))  
+  seqs <- ins_sites[!is.na(ins_ord),"seq"]
+  max_seq_ln <- max(sapply(seqs, nchar)) + 2 
+  seqs <- sprintf(paste0("%-",max_seq_ln,"s"), seqs)
+  
   ins_points <- data.frame(x = ins_sites[!is.na(ins_ord),"start"] - 0.5,
                            y = na.omit(ins_ord) + 0.45,
-                           seq = ins_sites[!is.na(ins_ord),"seq"])
+                           seq = seqs)
 
-  ins_points$shapes <- as.factor(rep(shapes, 8)[1:nrow(ins_points)])
-  ins_points$colours <- as.factor(rep(colours, 3)[1:nrow(ins_points)])
+  ins_points$shapes <- as.factor(1:nrow(ins_points))
+  ins_points$colours <- as.factor(rep(clrs, 3)[1:nrow(ins_points)])
+  fill_clrs <- rep(clrs, 3)[1:nrow(ins_points)]
+  fill_shps <- rep(shps, 17)[1:nrow(ins_points)]
+  legend_nrow <- ceiling(nrow(ins_points)/ legend_cols)
 
   tile_height <- 0.5
   p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols))+
      geom_tile(aes(alpha = isref), height = tile_height)+ 
-     geom_text(aes(label = value), size = 2.5) + 
+     geom_text(aes(label = value), size = 4) + 
      scale_alpha_manual(values = c(0.5,1), guide = "none") + 
      #scale_x_continuous(expand = c(0,0.5), breaks = set_breaks, labels = set_vals) + # expand is the distance from the axis, multiplicative + additive
-     ylab(NULL) + xlab("Location") +
+     ylab(NULL) + xlab(xlab) +
      theme_bw() + theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 8),
                         axis.title.x = element_text(vjust = -0.5), legend.position = "bottom")
      
   p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours),
                       colour = "#000000", size = ins_size)  +
-     scale_shape_manual(values = shapes, guide = "none") +
-     #scale_shape_manual(values = ins_points$shapes, labels = ins_points$seq, name = "") +
-     scale_fill_identity(breaks = c("A", "C", "T", "G", "N","-"), labels = c("A", "C", "T", "G", "N","-"))
-     #scale_fill_manual(labels = ins_points$seq, values = ins_points$colours, name = "")
+     scale_fill_identity() +
+     scale_shape_manual(name = "", values = fill_shps, breaks = ins_points$shapes, labels = ins_points$seq) +
+     guides(shape = guide_legend(ncol = legend_cols, override.aes = list(fill = fill_clrs, size = 6))) 
+     p <- p + theme(legend.key = element_blank(), legend.text = element_text(size = 16),
+                    legend.key.height = unit((legend_nrow * 0.25), "lines"),
+                    legend.margin = unit(4, "lines"))
+      
   p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", linetype = "dotted")
+  
   
   
   # If pam_loc is given, highlight the pam in the reference
@@ -276,18 +290,29 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
     if (is.na(pam_end)){
       pam_end <- pam_start + 2
     }
-    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.5,
+    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.4,
                          ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.1),
                          ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.1))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                         ymax = ymax, x = NULL, y = NULL),
                          color = "red", size = 1, fill = "transparent") 
+   
   }
   
   if (show_plot == TRUE){
     print(p)
   }
   return(p)
+}
+
+.tableInsertionSeqs <- function(insertion_points, ncol = 4){
+  # insertion_points should have shape, colour, and seq columns
+  
+  
+       #scale_shape_manual(values = ins_points$shapes, labels = ins_points$seq, name = "") +
+       #scale_fill_manual(labels = ins_points$seq, values = ins_points$colours, name = "")
+
+
 }
 
 panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p, 
@@ -325,7 +350,7 @@ panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p,
   #return(arrangeGrob(p2, p3, ncol = 2, widths = col.widths))
 
   return(grid.arrange(p1, arrangeGrob(p2, p3, ncol = 2, widths = col.widths), 
-         nrow = 2, heights = c(5, 8)))
+         nrow = 2, heights = c(2, 8)))
 
 }
 
