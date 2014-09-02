@@ -20,9 +20,12 @@ library(gridExtra)
 # To do - indel realignment around target loc
 # To do - make read classification optional?
 # Can I assume that all reads in a set have different names?
-# Warning that normal cigar misleading in aln plots
+# Warning that normal cigar misleading in aln plots (or indicate start if not target_start)
 # Take is.na out of plotAlignments?
 # automatic layout heights and widths - absolute for gene track?
+# Allow panelplot to take a gene instead of fetching all
+# Remove hard coding of plots where possible
+
 
 
 amino_colours <- matrix(c("H", "#5555ff", "#8282D2", "#7070FF",
@@ -64,6 +67,10 @@ writeFastq <- function(outf, vals){
 
 abifToTrimmedFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05, 
                                min_seq_len = 20, offset = 33){
+    
+    # This is an R implementation of Wibowo Arindrarto's abifpy.py trimming module,
+    # which itself implement's Richard Mott's trimming algorithm
+    # https://github.com/bow/abifpy
         
     sangerseqr <- require(sangerseqR)
     stopifnot(sangerseqr == TRUE)
@@ -143,7 +150,7 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_st
     result
 }
 
-cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 10, 
+cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16, 
                              x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE,
                              col_sums = TRUE, colours = "yellowred"){
   # add_blank - should a blank row be added to the top?  
@@ -189,10 +196,13 @@ cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 10,
                         ymax = ymax, x = NULL, y = NULL),
                          color = "black", size = 1, fill = "transparent")       
     }
-    g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff))
+    g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff), size = 6)
   }
   g <- g + ylab(NULL) + xlab(x_axis_title) + theme_bw() +
-       theme(axis.text.x = element_text(size = x_size, angle = x_angle))
+       theme(axis.text.x = element_text(size = 16, angle = x_angle),
+             legend.text = element_text(size = 16),
+             legend.title = element_text(size = 16),
+             legend.key.height = unit(5, "lines"))
         
   if (colours == "yellowred"){     
     hmcols<-colorRampPalette(c("white","gold","orange","orangered","red", "darkred"))(50) 
@@ -214,7 +224,7 @@ nucleotideToAA <- function(seqs, txdb, target_start, target_end){
 }
 
 plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, target_loc = 18,
-                           pam_start = NA, pam_end = NA, ins_size = 4, legend_cols = 3,
+                           pam_start = NA, pam_end = NA, ins_size = 6, legend_cols = 3,
                            xlab = NULL){
   
   # ref: the reference sequence
@@ -244,32 +254,50 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
             "#332288","#88CCEE","#44AA99","#117733","#999933","#DDCC77","#661100",
             "#CC6677","#882255", "#AA4499")
                                         
-  # Make a data frame of insertion locations, format seqs to fixed width for nicer legends
-  ins_ord <- match(ins_sites$cigar, names(aln_chrs))  
-  seqs <- ins_sites[!is.na(ins_ord),"seq"]
-  max_seq_ln <- max(sapply(seqs, nchar)) + 2 
-  seqs <- sprintf(paste0("%-",max_seq_ln,"s"), seqs)
-  
+  # Make a data frame of insertion locations, 
+  ins_ord <- match(ins_sites$cigar, names(aln_chrs))    
+ 
   ins_points <- data.frame(x = ins_sites[!is.na(ins_ord),"start"] - 0.5,
-                           y = na.omit(ins_ord) + 0.45,
-                           seq = seqs)
+                           y = na.omit(ins_ord) + 0.45, 
+                           seq = ins_sites[!is.na(ins_ord),"seq"])
 
+  # Merge multiple insertions at single plotting location, format to fixed width
+  ins_points <- ins_points[!duplicated(ins_points),]
+  
+  xy_locs <- paste(ins_points$x, ins_points$y, sep = "_")
+  seqs <- ins_sites[!is.na(ins_ord),"seq"]
+  splits <- split(ins_points$seq, xy_locs)
+  x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
+  new_seqs <- unlist(x)[unique(xy_locs)]
+  max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
+  new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
+  
+  ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
+  ins_points$seq <- new_seqs
+
+  # Specify colours and shapes for insertion symbols
   ins_points$shapes <- as.factor(1:nrow(ins_points))
   ins_points$colours <- as.factor(rep(clrs, 3)[1:nrow(ins_points)])
   fill_clrs <- rep(clrs, 3)[1:nrow(ins_points)]
   fill_shps <- rep(shps, 17)[1:nrow(ins_points)]
   legend_nrow <- ceiling(nrow(ins_points)/ legend_cols)
 
-  tile_height <- 0.5
+  # Aligned sequences
+  tile_height <- 0.55
   p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols))+
      geom_tile(aes(alpha = isref), height = tile_height)+ 
-     geom_text(aes(label = value), size = 4) + 
+     geom_text(aes(label = value), size = 5) + 
      scale_alpha_manual(values = c(0.5,1), guide = "none") + 
-     #scale_x_continuous(expand = c(0,0.5), breaks = set_breaks, labels = set_vals) + # expand is the distance from the axis, multiplicative + additive
+     scale_x_continuous(expand = c(0,0.25)) + #, breaks = set_breaks, labels = set_vals) + 
+     # expand is the distance from the axis, multiplicative + additive
      ylab(NULL) + xlab(xlab) +
-     theme_bw() + theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 8),
+     theme_bw() + theme(axis.text.y = element_text(size = 16),axis.text.x = element_text(size = 16),
                         axis.title.x = element_text(vjust = -0.5), legend.position = "bottom")
      
+  # Line for the cut site
+  p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", size = 1)# linetype = "dashed",
+     
+  # Indicate insertions   
   p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours),
                       colour = "#000000", size = ins_size)  +
      scale_fill_identity() +
@@ -277,26 +305,21 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
      guides(shape = guide_legend(ncol = legend_cols, override.aes = list(fill = fill_clrs, size = 6))) 
      p <- p + theme(legend.key = element_blank(), legend.text = element_text(size = 16),
                     legend.key.height = unit((legend_nrow * 0.25), "lines"),
-                    legend.margin = unit(4, "lines"))
+                    legend.margin = unit(2, "lines"))
       
-  p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", linetype = "dotted")
-  
-  
-  
+
   # If pam_loc is given, highlight the pam in the reference
   #  - 0.5 for tile boundaries not centres
-  
   if (! is.na(pam_start)){    
     if (is.na(pam_end)){
       pam_end <- pam_start + 2
     }
     pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.4,
-                         ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.1),
-                         ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.1))
+                         ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.2),
+                         ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.2))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                         ymax = ymax, x = NULL, y = NULL),
                          color = "red", size = 1, fill = "transparent") 
-   
   }
   
   if (show_plot == TRUE){
@@ -305,27 +328,17 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   return(p)
 }
 
-.tableInsertionSeqs <- function(insertion_points, ncol = 4){
-  # insertion_points should have shape, colour, and seq columns
-  
-  
-       #scale_shape_manual(values = ins_points$shapes, labels = ins_points$seq, name = "") +
-       #scale_fill_manual(labels = ins_points$seq, values = ins_points$colours, name = "")
-
-
-}
-
 panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p, 
-                      col.widths = c(2, 1)){
+                      col.widths = c(2, 1), fig_height = NULL){
 
-  
-  print("starting panel plot")
   # Make the gene plot
   require(ggbio)
+  
   genes <- genes(txdb)
   target <- GRanges(target_chr, IRanges(target_start, target_end))
   wh <- genes[findOverlaps(genes, target)@queryHits]  
-  p1 <- autoplot(txdb, wh)
+  gene_id <- do.call(paste, mcols(wh)$gene_id)
+  p1 <- autoplot(txdb, wh, label = FALSE)
   
   #Pull off the y limits from the transcript plot
   yranges <- ggplot_build(p1)$panel$ranges[[1]]$y.range  
@@ -334,24 +347,26 @@ panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p,
                           ymin = yranges[1], ymax = yranges[2])
     
   p1 <-  p1 + geom_rect(data = target_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
-                 colour = "red", fill = NA) + theme_bw()
+                 colour = "red", fill = NA, size = 1) + theme_bw() + ggtitle(gene_id) + 
+                 theme(axis.text.x = element_text(size = 20), text = element_text(size = 20))
+                 
 
   p1 <- ggplotGrob(as.list(attributes(p1))$ggplot)
   
-  heat_p <- heat_p + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+  aln_p <- aln_p + theme(plot.margin = unit(c(0.25,0.25,10,0.5), "lines")) # T R B L
+  heat_p <- heat_p + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())  
 
-  p2 <- ggplotGrob(aln_p)
-  p3 <- ggplotGrob(heat_p)
-
-  maxHeight = grid::unit.pmax(p2$heights[2:5], p3$heights[2:5])
-  p2$heights[2:5] <- as.list(maxHeight)
-  p3$heights[2:5] <- as.list(maxHeight)
-
-  #return(arrangeGrob(p2, p3, ncol = 2, widths = col.widths))
+  p2 <- ggplot_gtable(ggplot_build(aln_p))
+  p3 <- ggplot_gtable(ggplot_build(heat_p))
+ 
+  p3$heights <- p2$heights
+  
+  gen_ht <- 3
+  aln_ht <- ifelse(is.null(fig_height), 8, fig_height - gen_ht)
 
   return(grid.arrange(p1, arrangeGrob(p2, p3, ncol = 2, widths = col.widths), 
-         nrow = 2, heights = c(2, 8)))
-
+         nrow = 2, heights = c(gen_ht, aln_ht)))
+  
 }
 
 
