@@ -25,6 +25,10 @@ library(gridExtra)
 # automatic layout heights and widths - absolute for gene track?
 # Allow panelplot to take a gene instead of fetching all
 # Remove hard coding of plots where possible
+# Allow dot args in init and dispatch to appropriate function
+# TO DO - make it easier to be consistent with renumbering - store option
+# Multiple guide on different strands?
+# pass default args to setlabels
 
 
 
@@ -151,8 +155,13 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_st
 }
 
 cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16, 
-                             x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE,
-                             col_sums = TRUE, colours = "yellowred"){
+                           x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE,
+                           col_sums = TRUE, colours = "yellowred", legend_text_size = 16){
+  
+  # legend_text_size applies to title and text, alternatively can be changed 
+  # in finished plot using "theme"
+  
+  # ADD BLANK NO LONGER EXISTS
   # add_blank - should a blank row be added to the top?  
   #(useful for aligning heatmap with variants plot) if col_sums = FALSE
     
@@ -199,9 +208,9 @@ cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16,
     g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff), size = 6)
   }
   g <- g + ylab(NULL) + xlab(x_axis_title) + theme_bw() +
-       theme(axis.text.x = element_text(size = 16, angle = x_angle),
-             legend.text = element_text(size = 16),
-             legend.title = element_text(size = 16),
+       theme(axis.text.x = element_text(size = x_size, angle = x_angle),
+             legend.text = element_text(size = legend_text_size),
+             legend.title = element_text(size = legend_text_size),
              legend.key.height = unit(5, "lines"))
         
   if (colours == "yellowred"){     
@@ -217,15 +226,17 @@ getCodonFrame <- function(txdb, target_chr, target_start, target_end){
   require(VariantAnnotation)
   refLocsToLocalLocs(GRanges(target_chr, IRanges(target_start, target_end)), txdb)
   
+  # check that all transcripts have the same frame
+  
 }
 
 nucleotideToAA <- function(seqs, txdb, target_start, target_end){
     
 }
 
-plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, target_loc = 18,
-                           pam_start = NA, pam_end = NA, ins_size = 6, legend_cols = 3,
-                           xlab = NULL){
+plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, 
+                           target_loc = 17, pam_start = NA, pam_end = NA, 
+                           ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL){
   
   # ref: the reference sequence
   # alns: named vector of aligned sequences, with insertions removed
@@ -253,10 +264,10 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   clrs <- c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7",
             "#332288","#88CCEE","#44AA99","#117733","#999933","#DDCC77","#661100",
             "#CC6677","#882255", "#AA4499")
-                                        
+                                           
   # Make a data frame of insertion locations, 
   ins_ord <- match(ins_sites$cigar, names(aln_chrs))    
- 
+  
   ins_points <- data.frame(x = ins_sites[!is.na(ins_ord),"start"] - 0.5,
                            y = na.omit(ins_ord) + 0.45, 
                            seq = ins_sites[!is.na(ins_ord),"seq"])
@@ -288,11 +299,18 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
      geom_tile(aes(alpha = isref), height = tile_height)+ 
      geom_text(aes(label = value), size = 5) + 
      scale_alpha_manual(values = c(0.5,1), guide = "none") + 
-     scale_x_continuous(expand = c(0,0.25)) + #, breaks = set_breaks, labels = set_vals) + 
-     # expand is the distance from the axis, multiplicative + additive
      ylab(NULL) + xlab(xlab) +
      theme_bw() + theme(axis.text.y = element_text(size = 16),axis.text.x = element_text(size = 16),
                         axis.title.x = element_text(vjust = -0.5), legend.position = "bottom")
+     
+  if (is.null(xtick_labs)){   
+     # expand is the distance from the axis, multiplicative + additive
+     p <- p + scale_x_continuous(expand = c(0,0.25))  
+  } else {
+    p <- p + scale_x_continuous(expand = c(0,0.25), breaks = 1:nchar(ref),
+                                labels = xtick_labs) 
+  }  
+     
      
   # Line for the cut site
   p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", size = 1)# linetype = "dashed",
@@ -305,8 +323,7 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
      guides(shape = guide_legend(ncol = legend_cols, override.aes = list(fill = fill_clrs, size = 6))) 
      p <- p + theme(legend.key = element_blank(), legend.text = element_text(size = 16),
                     legend.key.height = unit((legend_nrow * 0.25), "lines"),
-                    legend.margin = unit(2, "lines"))
-      
+                    legend.margin = unit(0.5, "cm"))
 
   # If pam_loc is given, highlight the pam in the reference
   #  - 0.5 for tile boundaries not centres
@@ -329,7 +346,15 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
 }
 
 panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p, 
-                      col.widths = c(2, 1), fig_height = NULL){
+                                col.widths = c(2, 1), fig_height = NULL, 
+                                plot_margin = NULL, gene_text_size = 20){
+
+  # Plot_margin must be a unit object, and will be applied to the alignment plot.  
+  # The vertical margins of the heatmap are constrained to equal those of the alignment plot
+  
+  if (is.null(plot_margin)){
+    plot_margin <- unit(c(0.25,0.25,10,0.5), "lines") # T R B L
+  }
 
   # Make the gene plot
   require(ggbio)
@@ -339,7 +364,6 @@ panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p,
   wh <- genes[findOverlaps(genes, target)@queryHits]  
   gene_id <- do.call(paste, mcols(wh)$gene_id)
   p1 <- autoplot(txdb, wh, label = FALSE)
-  
   #Pull off the y limits from the transcript plot
   yranges <- ggplot_build(p1)$panel$ranges[[1]]$y.range  
   xranges <- ggplot_build(p1)$panel$ranges[[1]]$x.range
@@ -347,23 +371,22 @@ panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p,
                           ymin = yranges[1], ymax = yranges[2])
     
   p1 <-  p1 + geom_rect(data = target_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
-                 colour = "red", fill = NA, size = 1) + theme_bw() + ggtitle(gene_id) + 
-                 theme(axis.text.x = element_text(size = 20), text = element_text(size = 20))
+                 colour = "red", fill = NA, size = 1) + theme_minimal() + ggtitle(gene_id) + 
+                 theme(axis.text.x = element_text(size = gene_text_size), 
+                 text = element_text(size = gene_text_size))
                  
 
   p1 <- ggplotGrob(as.list(attributes(p1))$ggplot)
   
-  aln_p <- aln_p + theme(plot.margin = unit(c(0.25,0.25,10,0.5), "lines")) # T R B L
+  aln_p <- aln_p + theme(plot.margin = plot_margin)
   heat_p <- heat_p + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())  
 
   p2 <- ggplot_gtable(ggplot_build(aln_p))
   p3 <- ggplot_gtable(ggplot_build(heat_p))
  
-  p3$heights <- p2$heights
-  
+  p3$heights <- p2$heights  
   gen_ht <- 3
   aln_ht <- ifelse(is.null(fig_height), 8, fig_height - gen_ht)
-
   return(grid.arrange(p1, arrangeGrob(p2, p3, ncol = 2, widths = col.widths), 
          nrow = 2, heights = c(gen_ht, aln_ht)))
   
@@ -387,14 +410,16 @@ CrisprRun = setRefClass(
              "long_dels",
              "insertions",
              "ins_key", 
-             "read_types")
+             "read_types",
+             "cigar_labels")
 )
 
 CrisprRun$methods(
   initialize = function(bam_fname, target_chr, target_start, target_end, rc = FALSE, 
                         name = NULL, count_unmapped = TRUE, merge_chimeras = FALSE,
                         exclude_ranges = GRanges(), exclude_names = NA, ...){
-                        
+    
+    # Cigars don't work as is for plotting, so set cigar_label attribute                    
     # ... args for merging chimeras
     
     name <<- ifelse(is.null(name), bam_fname, name)
@@ -838,9 +863,41 @@ CrisprRun$methods(
     vars
   },
   
-  getShortCigars = function(match_string = "No mutation", genome_to_target = NULL, rc = FALSE){
+  getCigarLabels = function(short = TRUE, match_string = "No variant", 
+                            genome_to_target = NULL, rc = FALSE, target_start = NULL,
+                            target_end = NULL, default_cigar = FALSE){
     # start_to_target, if provided, is a vector with names being genomic start coords
     # and values being coords with respect to the target site  
+    
+    # Sets / returns cigar labels
+    
+    
+    if (! class(.self$cigar_labels) == "uninitializedField"){
+      return(.self$cigar_labels)
+    }
+    
+    if (default_cigar == TRUE){
+      cigar_labels <<- cigar(.self$alns)
+      return(.self$cigar_labels)
+    }
+    
+    ###########################################
+    # TO DO - RECORD STARTING POSITION OFFSET
+    
+    if (short == FALSE & is.null(genome_to_target)){
+      # NEED TO GET THE OFFSET FROM THE REFERENCE START, THIS IS SIMILAR TO 
+      # THE GET VARIANTS CODE
+        
+      cigar_labels <<- cigar(.self$alns)
+      return(.self$cigar_labels)
+    }
+    
+    ########################################
+    
+    
+    print(head(cigar(.self$alns)))
+    print(rc)
+    
     idxs <- lapply(.self$cigar_ops, function(x) which(x != "M"))
     ops <- lapply(seq_along(idxs), function(i) .self$cigar_ops[[i]][idxs[[i]]])
     rranges <- .self$ref_ranges[idxs]
@@ -853,37 +910,25 @@ CrisprRun$methods(
       
     } else {
       gen_ranges <- .self$genome_ranges[idxs]     
+      #start <- genome_to_target[as.character(unlist(start(gen_ranges)))]
+      #end <- genome_to_target[as.character(unlist(end(gen_ranges)))]
       
       if (rc == FALSE){
         start <- genome_to_target[as.character(unlist(start(gen_ranges)))]
         end <- genome_to_target[as.character(unlist(end(gen_ranges)))]
-      
+    
       }else {
         start <- genome_to_target[as.character(unlist(end(gen_ranges)))]
         end <- genome_to_target[as.character(unlist(start(gen_ranges)))]
       }
-    }  
+    }
+     
     
     info <- data.frame(op = unlist(ops), qwidth = unlist(width(qranges)), 
               start = start, end = end, rwidth = unlist(width(rranges)), 
               long_del = .self$long_dels[cig_idxs])
               
     getShortOp <- function(mutn){
-       # if (mutn["long_del"] == 1){
-       #   sprintf('%s-%s:D', as.numeric(mutn["start"]),  as.numeric(mutn["end"]))
-       # }else if (mutn["op"] %in% c("N", "D")){ 
-       #   sprintf('%s:%sD', as.numeric(mutn["start"]), as.numeric(mutn["rwidth"]))
-       # }else if (mutn["op"] == "I"){
-       #   sprintf('%s:%sI', as.numeric(mutn["start"]), as.numeric(mutn["qwidth"]))
-       # }
-       
-       #if (mutn["long_del"] == 1){
-       #  sprintf('(%s,%s):D', as.numeric(mutn["start"]),  as.numeric(mutn["end"]))
-       #}else if (mutn["op"] %in% c("N", "D")){ 
-       #  sprintf('%s:%sD', as.numeric(mutn["start"]), as.numeric(mutn["rwidth"]))
-       #}else if (mutn["op"] == "I"){
-       #  sprintf('%s:%sI', as.numeric(mutn["start"]), as.numeric(mutn["qwidth"]))
-       #}
        if (mutn["op"] %in% c("N", "D")){ 
          sprintf('%s:%sD', as.numeric(mutn["start"]), as.numeric(mutn["rwidth"]))
        }else if (mutn["op"] == "I"){
@@ -897,8 +942,10 @@ CrisprRun$methods(
     short_ops <- split(short_ops, cig_idxs)
     short_ops <- sapply(short_ops, function(x) do.call(paste, c(as.list(x),sep = ",")))
     result[as.numeric(names(short_ops))] <- short_ops
+    cigar_labels <<- result
     result
   }
+  
 )
 
 #_______________________________________________________________________________________
@@ -918,35 +965,33 @@ CrisprSet = setRefClass(
 CrisprSet$methods(
   initialize = function(bam_fnames, ref, target_chr, target_start, target_end, rc = FALSE,
                         short_cigars = FALSE, names = NULL, exclude_ranges = GRanges(), 
-                        exclude_names = NULL, merge_chimeras = TRUE, 
-                        renumbered = FALSE, target_loc = NA, ...){
+                        exclude_names = NULL, merge_chimeras = TRUE, renumbered = FALSE, 
+                        target_loc = NA, match_string = "no variant", ...){
     
     # TO DO - DECIDE WHETHER TO KEEP EMPTY RUNS
-    target <<- GRanges(target_chr, IRanges(target_start, target_end))
-    
+    strand <- ifelse(rc == TRUE, "-", "+")
+    target <<- GRanges(target_chr, IRanges(target_start, target_end), strand = strand)    
     ref <<- ref 
     crispr_runs <<- lapply(bam_fnames, CrisprRun$new, target_chr, target_start, 
                            target_end, rc = rc, exclude_ranges = exclude_ranges,
                            exclude_names = exclude_names, merge_chimeras = merge_chimeras,
-                           ...) 
-    
+                            ...) 
     
     if (! is.null(names)) names(.self$crispr_runs) <- names
     nonempty_runs <<-  sapply(.self$crispr_runs, function(x) {
                               ! class(x$alns) == "uninitializedField"})
     
     .self$crispr_runs <<- .self$crispr_runs[.self$nonempty_runs]
-    .self$countCigars(short_cigars, renumbered, target_loc, target_start, target_end, rc)
+    cig_by_run <- .self$.setCigarLabels(renumbered = renumbered, target_loc = target_loc,
+                           target_start = target_start, target_end = target_end, 
+                           rc = rc, match_string = match_string)
+    .self$.countCigars(cig_by_run)
   },
-   
-  countCigars = function(short = FALSE, renumbered = FALSE, target_loc = NA, target_start = NA,
-                         target_end = NA, rc = FALSE, ...){
-    
-    # Note that this function does not consider starts, two alignments starting at
-    # different locations but sharing a cigar string are considered equal
-    
-    if (short == TRUE){
-      g_to_t = NA
+  
+  .setCigarLabels = function(renumbered = FALSE, target_loc = NA, target_start = NA,
+                            target_end = NA, rc = FALSE, match_string = "no variant"){
+      g_to_t <- NULL
+      
       if (renumbered == TRUE){
         if (any(is.na(c(target_loc, target_start, target_end, rc)))){
           stop("Must specify target_loc (cut site), target_start, target_end and rc
@@ -954,15 +999,22 @@ CrisprSet$methods(
         }
         g_to_t <- genomeToTargetLocs(target_loc, target_start, target_end, rc)
       }
-          
-      cig.by.run <- lapply(.self$crispr_runs,#[.self$nonempty_runs], 
-                    function(crun) crun$getShortCigars(genome_to_target = g_to_t, ...))
-    }else {
-      cig.by.run <- lapply(.self$crispr_runs,#[.self$nonempty_runs], 
-                            function(crun) cigar(crun$alns))
+      cig_by_run <- lapply(.self$crispr_runs,
+            function(crun) crun$getCigarLabels(match_string = match_string, rc = rc,
+                                               genome_to_target = g_to_t))      
+      return(cig_by_run)
+  }, 
+   
+  .countCigars = function(cig_by_run = NULL){
+    # Note that this function does not consider starts, two alignments starting at
+    # different locations but sharing a cigar string are considered equal
+    
+    if (is.null(cig_by_run)){
+      cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$getCigarLabels)
     }
-    unique_cigars <- unique(unlist(cig.by.run))
-    m <- as.matrix(sapply(cig.by.run, function(x) table(x)[unique_cigars]))
+    
+    unique_cigars <- unique(unlist(cig_by_run))
+    m <- as.matrix(sapply(cig_by_run, function(x) table(x)[unique_cigars]))
     m[is.na(m)] <- 0
     rownames(m) <- unique_cigars
     m <- m[order(rowSums(m), decreasing = TRUE),]
@@ -970,14 +1022,21 @@ CrisprSet$methods(
   },
   
   heatmapCigarFreqs = function(as_percent = FALSE, x_size = 10, x_axis_title = NULL,
-                               x_angle = 90, annotate_counts = TRUE){
+                               x_angle = 90, annotate_counts = TRUE, 
+                               freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), ...){
     
-    p <- cigarFrequencyHeatmap(.self$cigar_freqs, as_percent, x_size, x_axis_title,
-                               x_angle, annotate_counts)
+    upto <- min(top_n, max(which(rowSums(.self$cigar_freqs) >= freq_cutoff)))
+    cig_freqs <- .self$cigar_freqs[1:upto,]
+    
+    p <- cigarFrequencyHeatmap(cig_freqs, as_percent, x_size, x_axis_title,
+                               x_angle, annotate_counts, ...)
     return(p)
   },
   
-  plotVariants = function(freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), ...){
+  plotVariants = function(freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), 
+                          short_cigars = FALSE, renumbered = FALSE, show_genomic = FALSE,
+                          ...){
+                          
     # var_freq_cutoff = i (integer) only plot variants that occur >= i times
     # top_n = total number of variants to plot
     # ... arguments for plotAlignments
@@ -989,7 +1048,21 @@ CrisprSet$methods(
         !("cigar" %in% colnames(.self$insertion_sites))){
       .self$getInsertions() 
     }
-    p <- plotAlignments(.self$ref, alns, .self$insertion_sites, ...)    
+    
+    # How should the x-axis be numbered? 
+    # Baseline should be numbers, w optional genomic locations
+    if (renumbered == TRUE){
+      genomic_coords <- c(start(.self$target):end(.self$target))
+      target_coords <- .self$genome_to_target[as.character(genomic_coords)]
+      
+      if (as.character(strand(.self$target)) == "-"){
+        target_coords <- rev(target_coords)
+      }
+      p <- plotAlignments(.self$ref, alns, .self$insertion_sites, 
+                           xtick_labs = target_coords, ...)
+    } else {
+      p <- plotAlignments(.self$ref, alns, .self$insertion_sites, ...)    
+    }
     return(p)
   },
   
@@ -998,8 +1071,8 @@ CrisprSet$methods(
       all_ins <- do.call(rbind, lapply(.self$crispr_runs, function(x) x$insertions))
     } else {
       all_ins <- do.call(rbind, lapply(.self$crispr_runs, function(x) {
-                ik <- x$ins_key 
-                v <- data.frame(ik, cigar(x$alns[as.integer(names(ik))]))
+                ik <- x$ins_key
+                v <- data.frame(ik, x$getCigarLabels()[as.integer(names(ik))])
                 v <- v[!duplicated(v),]
                 v <- v[order(v$ik),]
                 cbind(x$insertions[v[,1],], cigar = v[,2])
@@ -1012,7 +1085,9 @@ CrisprSet$methods(
     # Get alignments by cigar string, make the alignment for the consensus
 
     cigs <- unlist(lapply(.self$crispr_runs, function(x) cigar(x$alns)), use.names = FALSE)
-    splits <- split(seq_along(cigs), cigs)  
+    cig_labels <- unlist(lapply(.self$crispr_runs, function(x) x$getCigarLabels()), use.names = FALSE)
+    names(cigs) <- cig_labels # calling by name with duplicates returns the first match
+    splits <- split(seq_along(cig_labels), cig_labels)
     splits <- splits[match(rownames(cig_freqs), names(splits))]
     
     x <- lapply(.self$crispr_runs, function(x) x$alns)
@@ -1031,10 +1106,15 @@ CrisprSet$methods(
       starts[i] <- start[1]
     }  
    
-
-   alns <- mapply(seqsToAln, names(splits), seqs, aln_start = starts, 
+   alns <- mapply(seqsToAln, cigs[names(splits)], seqs, aln_start = starts, 
                target_start = start(.self$target), target_end = end(.self$target), ...)
    alns
+  },
+  
+  plotVariantOverview = function(){
+  
+    # heatmap must take same filtering args, OR be able to match the alignment names
+  
   },
   
   genomeToTargetLocs = function(target_loc, target_start, target_end, rc = FALSE){
