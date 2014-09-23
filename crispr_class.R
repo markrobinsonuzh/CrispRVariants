@@ -487,27 +487,40 @@ CrisprRun = setRefClass(
 )
 
 CrisprRun$methods(
-  initialize = function(bam_fname, target_chr, target_start, target_end, rc = FALSE, 
+  initialize = function(bam, target_chr, target_start, target_end, rc = FALSE, 
                         name = NULL, count_unmapped = TRUE, merge_chimeras = FALSE,
                         exclude_ranges = GRanges(), exclude_names = NA, ...){
+    
+    # bam can either be GAlignments or the filename to read
     
     # Cigars don't work as is for plotting, so set cigar_label attribute                    
     # ... args for merging chimeras
     
     name <<- ifelse(is.null(name), bam_fname, name)
-    galns <- readBam(bam_fname, target_chr, target_start, target_end, merge_chimeras, 
-                     exclude_ranges, exclude_names, ...)
     
-    if (count_unmapped == TRUE){
-      param <- ScanBamParam(what = c("qname"), flag=scanBamFlag(isUnmappedQuery=TRUE))
-      read_types[scanBam(bam_fname, param = param)[[1]]$qname] <<- "unmapped"
-    }
-        
-    off_target <<- galns[["off_target"]]
-    on_target <- galns[["on_target"]]
-        
-    if (length(on_target) == 0) return()
 
+    if (class(bam) == "character"){
+    
+      galns <- readBam(bam, target_chr, target_start, target_end, merge_chimeras, 
+                       exclude_ranges, exclude_names, ...)
+    
+      if (count_unmapped == TRUE){
+        param <- ScanBamParam(what = c("qname"), flag=scanBamFlag(isUnmappedQuery=TRUE))
+        read_types[scanBam(bam, param = param)[[1]]$qname] <<- "unmapped"
+      }
+        
+      off_target <<- galns[["off_target"]]
+      on_target <- galns[["on_target"]]
+        
+      if (length(on_target) == 0) return()
+    
+    } else if (class(bam) == "GAlignments"){
+      on_target <- bam
+    
+    } else {
+      stop("bam can only be a filename or a GAlignments object")
+    
+    }
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(on_target))
     query_ranges <<- cigarRangesAlongQuerySpace(cigar(on_target))
     
@@ -1280,41 +1293,48 @@ CrisprMultiplex$methods(
 
   },
     
-  readMultiplexBam = function(bam_fname, targets, merge_chimeras = FALSE, 
-                              exclude_ranges = GRanges(), exclude_names = NA, ...){
+  readMultiplexBam = function(bam_fname, crispr_targets, pcr_targets = NA, tolerance = 4,
+                              merge_chimeras = FALSE, exclude_ranges = GRanges(),
+                              exclude_names = NA, mapq = NA, ...){
     
+    # mapq - remove reads with quality equal or below this value
+    
+    # allow pcr_tolerance on either side of the pcr target
   
     # targets: GRanges 
   
     # ReadGAlignments doesn't return unmapped reads, isUnmappedQuery doesn't work
     
-    param <- ScanBamParam(what = c("seq"))
-    bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
+    if (is.na(mapq)){
+      param <- ScanBamParam(what = c("seq"))
+      bam <- readGAlignments(bam_fname, param = param, use.names = TRUE) 
+    } else {
+      param <- ScanBamParam(what = c("seq", "mapq"))
+      bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
+      bam <- bam[mcols(bam)$mapq > mapq]
+    }
     
-    # Merge chimeras
+    #____________________________________________
+    # Deal with chimeras
     
-    # Find indices of reads with the same name
-    #  (assuming no multimapping, these are chimeras)
-    repeated <- split(1:length(bam), names(bam))  ## SLOWEST STEP
-    rr <- unlist(repeated, use.names = FALSE)    
-    nms <- rle(names(bam[rr]))
-    same_name <- rep(nms$lengths > 1, nms$lengths)
-    chimeras <- rr[same_name]
+    # Find chimeras (assuming no multimapping, these are chimeras)
+    chimera_idxs <- which(names(bam) %in% names(bam)[duplicated(names(bam))]) 
+    chimera_idxs <- chimera_idxs[order(as.factor(names(bam)[chimera_idxs]))]
     
     # Do all reads within a chimera map to the same chromosome?
-    nms <- rle(names(bam[chimeras])) 
+    nms <- rle(names(bam)[chimera_idxs]) 
     nms_codes <- rep(1:length(nms$lengths), nms$lengths)
-    sqs <- seqnames(bam[chimeras])
+    sqs <- seqnames(bam)[chimera_idxs]
     sqs_codes <- rep(1:length(sqs@lengths), sqs@lengths)
     codes <- rle(paste(nms_codes, sqs_codes, sep = "."))
     one_chr <- rep(codes$lengths, codes$lengths) == rep(nms$lengths, nms$lengths)
   
-    # And onto the same strand (i.e. not inversion)
-    strds <- strand(bam[chimeras])
+    # And onto the same strand? (i.e. not inversion)
+    strds <- strand(bam)[chimera_idxs]
     same_strd <- rep(strds@lengths, strds@lengths) == rep(nms$lengths, nms$lengths)
     
     # Are single chr chimeras gaps? (start(n+1) > end(n))
-    del_lns <- start(bam[chimeras[-1]]) - end(bam[chimeras][-length(chimeras)]) 
+    del_lns <- start(bam)[chimera_idxs[-1]] - end(bam)[chimera_idxs[-length(chimera_idxs)]]
     is_after <- c(TRUE, del_lns > 0 )
     change_pts <- cumsum(nms$lengths) + 1 # note starts from second and includes last
     change_pts <- c(1, change_pts[1:length(change_pts) -1])
@@ -1322,14 +1342,11 @@ CrisprMultiplex$methods(
     codes <- rle(paste(nms_codes, is_after, sep = "."))
     has_genome_gap <- rep(codes$lengths, codes$lengths) == rep(nms$lengths, nms$lengths)
     
-    
-    
     # Is the same read segment used in multiple sections of a chimera?
     # For merge-able alignments, the sum of the widths of the aligned regions of read n-1
     # should be less than or equal to the first aligned base of read n wrt the full seq
     # Note that hard-clipped regions don't appear in the cigarRanges
- 
-    cigars <- cigar(bam[chimeras])
+    cigars <- cigar(bam)[chimera_idxs]
     first_aligned <- rep(1, length(cigars))
     clipped_start <- grepl("^[0-9]+[HS]", cigars)
     
@@ -1350,116 +1367,50 @@ CrisprMultiplex$methods(
     gap_codes <- rle(paste(gaps >= 0, nms_codes, sep = "."))
     has_read_gap <- rep(gap_codes$lengths, gap_codes$lengths) == rep(nms$lengths, nms$lengths)
 
-
-
-          
     
-     # Merge long gap chimeras
+    ######
+    # To do - merge these
+    mergeable <- chimera_idxs[one_chr & same_strd & has_genome_gap & has_read_gap]
+    chimeras <- bam[mergeable]
+    
+    # Remove all, not just the mergeable?
+    bam <- bam[-chimera_idxs]
 
-    # Remove the clipped regions
-    #unclipped <- width(cigarRangesAlongPairwiseSpace(cigars)) > 0
+    #____________________________________________   
+    # Distribute reads between targets
     
+    if (! is.na(pcr_targets)){
+      # No "equal" option for findOverlaps.GAlignments,
+      # error combining "maxgap" and type = "within"
+      
+      # Add check that targets can be distinguished with this tolerance
+      
+      hits_pcr <- findOverlaps(as(bam,"GRanges"), pcr_targets, ignore.strand = TRUE,
+                               type = "equal", maxgap = tolerance)
+      if (any(duplicated(hits_pcr@queryHits))){
+        warn("Cannot distinguish pcr targets with this tolerance")
+      }
+      cts <- start(crispr_targets)[hits_pcr@subjectHits]
+      cte <- end(crispr_targets)[hits_pcr@subjectHits]
+      qh <- start(bam)[hits_pcr@queryHits]
+      qe <- end(bam)[hits_pcr@queryHits]
+      
+      
+    }
     
-    
-    # Temporary fix while restructuring
-    chimeras2 <- chimeras
-    chimeras <- chimeras[one_chr & same_strd & has_genome_gap & has_read_gap]
-    bam <- bam[-chimeras2]
 
+  
+    ## Find reads that partially cover the target site 
+    #partially_on_target <- factor(as.character((start(bam) <= target_start | end(bam) >= target_end) & 
+    #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
+    #partial_names <- split(names(bam), partially_on_target)    
+    #names(partial_names) <- c("partial", "off_target")  
        
-    
-    
-    
-    hits_target <- findOverlaps(bam, targets)
-    includes_target <- findOverlaps(targets, bam, type = "within")
-    
-    # If merging chimeras, search for them amongst the not target reads
-    
-    # If merging chimeras, want to keep partial matches, as they may span when merged
+    ## Split reads into fully on-target and off-target    
+    #is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
+    #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
 
-    
-    non_target <- setdiff(1:length(bam), includes_target@subjectHits)    
-    
-    
-    # Convoluted, but faster than matching includes_target against non_target
-    chimeras <- match(names(bam[non_target]), names(bam[includes_target@subjectHits]))
-    non_target_order <- which(! is.na(chimeras))
-    chimera_order <- order(chimeras[non_target_order])
-    non_target_order <- non_target_order[chimera_order]
-    chimeras <- chimeras[non_target_order]
-    
-    targets <- includes_target@subjectHits[unique(chimeras)]
-    
-    
-    
-    non_target_lengths <- lapply(non_targets, length)
-    rep(1:length(non_targets), non_target_lengths + 1)
-    
-    
-    non_targets <- split(bam[non_target_order], chimeras)
-    
-    
-    
-    temp <- Map(c, targets, non_targets)
-    
-    
-    
-    #chimeras <- match(names(bam[non_target]), names(bam[includes_target@subjectHits]))
-    #chimera.idxs <- which(! is.na(chimeras))
-    #chimeras <- chimeras[chimera.idxs]
-    
-    
-    # ignore chimeras with 3 pieces - no, 2 long deletions is fine
-    #three_frag_chimera <- which(table(names(bam)[chimeras]) > 1)
-    
-  
-  
-  
-  
-  
-  
 
-    read_types <<- sapply(unique(names(bam)), function(x) NA)
-    
-    # Exclude by range
-    fo <- findOverlaps(bam, exclude_ranges)@queryHits
-    read_types[unique(names(bam[fo]))] <<- "excluded"
-    bam <- bam[setdiff(seq_along(bam), fo)]
-    
-    if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
-    
-    # Exclude by name   
-    excluden <- which(names(bam) %in% exclude_names)     
-    read_types[unique(excluden)] <<- "excluded"
-    bam <- bam[setdiff(seq_along(bam), excluden)]     
-    
-    if (merge_chimeras == TRUE){
-      # Split the bam file by seq name, preserving the original order
-      bam_by_name <-split(bam, factor(names(bam), levels = unique(names(bam))))
-      result <- unlist(lapply(bam_by_name, .self$annotateChimericAlns, ...), use.names = FALSE)
-      bam <- bam[result]
-    }  
-     
-    # Find reads that partially cover the target site 
-    partially_on_target <- factor(as.character((start(bam) <= target_start | end(bam) >= target_end) & 
-                     seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    partial_names <- split(names(bam), partially_on_target)    
-    names(partial_names) <- c("partial", "off_target")  
-       
-    # Split reads into fully on-target and off-target    
-    is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
-                     seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    result <- split(bam, is_on_target)
-    names(result) <- c("on_target", "off_target")
-    
-    # Note that a read can currently be classified as "excluded" if it's a chimera
-    # and half is excluded
-    
-    remaining <- names(which(is.na(read_types) | read_types == "excluded"))
-    read_types[remaining[remaining %in% names(result$off_target)]] <<- "off_target"
-    read_types[remaining[remaining %in% partial_names$partial]] <<- "partially_on_target"
-    read_types[remaining[remaining %in% names(result$on_target)]] <<- "on_target"
-    result
   }   
   
 )
