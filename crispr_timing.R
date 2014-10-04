@@ -93,7 +93,7 @@ system.time(hits_pcr2 <- subsetByOverlaps(bam, pcr_w_tol, type = "within", ignor
 system.time(hits_pcr3 <- findOverlaps(bam, pcr_targets) #2.123
 system.time(hits_pcr4 <- findOverlaps(as(bam, "GRanges"), pcr_targets, ignore.strand = TRUE)) # 1.379 
 system.time(hits_pcr5 <- findOverlaps(as(bam, "GRanges"), pcr_targets, ignore.strand = TRUE, type = "equal")) # 1.17
-system.time(hits_pcr6 <- findOverlaps(as(bam, "GRanges"), pcr_targets, ignore.strand = TRUE, type = "equal", maxgap = 10)) # 1.922
+system.time(hits_pcr6 <- findOverlaps(as(bam, "GRanges"), pcr_targets, ignore.strand = TRUE, type = "equal", maxgap = 10))
 
 
  #nms <- rle(names(bam[rr]))
@@ -105,5 +105,27 @@ system.time(hits_pcr6 <- findOverlaps(as(bam, "GRanges"), pcr_targets, ignore.st
     # Remove the clipped regions
     #unclipped <- width(cigarRangesAlongPairwiseSpace(cigars)) > 0
     
+system.time(which(sapply(cigar_ops, '[[', 1) == "S")) # Map(f2, c(1:1000)) 0.110
+system.time(grepl("^[0-9]+[HS]", cigar(alns))) # Map(f1, c(1:1000) 0.031 
 
+ system.time(width(query_ranges[is_clipped]))
+#   user  system elapsed 
+#  0.005   0.000   0.005 
+
+
+system.time(width(query_ranges)[is_clipped])
+# user  system elapsed 
+#0.008   0.000   0.008 
+
+
+# needless apply!
+
+f1 <- function(i) rep(1:length(ops), sum(ins))
+> f2 <- function(i) rep(1:length(ops),lapply(ops, length))[unlist(ins)]
+> system.time(Map(f1, c(1:1000)))
+   user  system elapsed 
+  0.420   0.007   0.427 
+> system.time(Map(f2, c(1:1000)))
+   user  system elapsed 
+  0.437   0.012   0.449 
 
