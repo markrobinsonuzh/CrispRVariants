@@ -129,3 +129,6 @@ f1 <- function(i) rep(1:length(ops), sum(ins))
    user  system elapsed 
   0.437   0.012   0.449 
 
+# cut from original chimera code
+# gap_lengths <- start(aln_set)[-1] - (end(aln_set)[1:(length(aln_set)-1)] - 1)
+
