@@ -5,7 +5,7 @@ library(gridExtra)
 
 
 plotChimeras <- function(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 12,  
-                         title_size = 16, legend_title = "Chromosome"){
+                         title_size = 16, legend_title = "Chromosome", annotate = NA){
   # max_gap: if genomic segments are separated by more than max_gap, 
   #          a gap in the y-axis will be introduced
   
@@ -23,17 +23,32 @@ plotChimeras <- function(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 
   
   # Split by strand and add offset for hard clipping
   hclipl <- as.numeric(gsub(".*[A-Z].*", 0, gsub("[H].*","", cigars)))
-  hclipr <- as.numeric(gsub("^$", 0, gsub('.*[MS]|H$', "", cigars))) 
   is_plus <- as.vector(strand(genomic_locs) == "+")
-  m_qry_plus <- shift(m_qry[is_plus], hclipl[is_plus])
-  m_qry_minus <- shift(m_qry[!is_plus], hclipr[!is_plus])
+  two_strands <- length(unique(is_plus)) > 1
+
+  m_qry[is_plus] <- shift(m_qry[is_plus], hclipl[is_plus])
+  
+  if (two_strands) { 
+    hclipr <- as.numeric(gsub("^$", 0, gsub('.*[MS]|H$', "", cigars))) 
+    m_qry[!is_plus] <- shift(m_qry[!is_plus], hclipr[!is_plus])  
+  } else {
+    m_qry[!is_plus] <- shift(m_qry[!is_plus], hclipl[!is_plus])
+  }
+  
   plus_min <- c(which(is_plus), which(!is_plus))
+  plus_min <- rep(plus_min, lapply(m_qry, length))
   ord <- order(plus_min)
 
-  xs <- mapply(seq, start(m_qry_plus), end(m_qry_plus))
-  xs <- c(xs, mapply(function(x,y) rev(seq(x,y)), start(m_qry_minus), end(m_qry_minus),
-          SIMPLIFY = FALSE))[ord]
-  ys <- mapply(seq, start(m_ref[plus_min]), end(m_ref[plus_min]))[ord]
+  xs <- mapply(seq, unlist(start(m_qry[is_plus])), unlist(end(m_qry[is_plus])))
+  if (two_strands){
+    xs <- c(xs, mapply(function(x,y) rev(seq(x,y)), unlist(start(m_qry[!is_plus])), 
+          unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
+  } else {
+    xs <- c(xs, mapply(function(x,y) seq(x,y), unlist(start(m_qry[!is_plus])), 
+          unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
+  }
+  
+  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)))[ord]
   chrs <- seqnames(genomic_locs)[plus_min][ord]
   
   # Introduce gaps for aligned segments separated by more than max_gap
@@ -52,10 +67,18 @@ plotChimeras <- function(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 
   
   ymax <- pt_coords$y[y_sums]
   ymin <- na.omit(c(1, pt_coords$y[y_sums +1]))
-  box_coords <- data.frame(xmin = sapply(xs, min), xmax = sapply(xs, max), ymax = ymax,
-                           ymin = ymin, chrs = as.factor(chrs))
-   
+  
+  # Make boxes around single cigar segments so indels can be distinguished from chimeras
+  m_qry_range <- range(m_qry)
+  m_qry_start <- unlist(start(m_qry_range))
+  m_qry_end <- unlist(end(m_qry_range))
+  
+  box_coords <- data.frame(xmin = m_qry_start, xmax = m_qry_end, chrs = seqnames(genomic_locs),
+                           ymin = pt_coords[pt_coords$x %in% m_qry_start, "y"],
+                           ymax = pt_coords[pt_coords$x %in% m_qry_end, "y"])
+                           
   gap_starts <- y_sums[which(offsets >= max_gap) -1]
+
   chr_box_coords <- data.frame(ymin = pt_coords[gap_starts, "y"], 
                                ymax = pt_coords[gap_starts + 1, "y"])
    
@@ -72,6 +95,8 @@ plotChimeras <- function(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 
                         + pt_coords[zip[i-1], "ylabs"])}))
   
   xbreaks <- seq(min(pt_coords$x), max(pt_coords$x), by = tick_sep)
+  
+  # Plotting
   p <- ggplot(pt_coords, aes(x=x,y=y)) + geom_point() +
        geom_rect(data = box_coords, aes(xmin = xmin, xmax = xmax, 
                   ymin = ymin, ymax = ymax, x = NULL, y = NULL, fill = chrs, colour = chrs), 
@@ -85,12 +110,11 @@ plotChimeras <- function(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 
                           axis.text.y=element_text(size=text_size),
                           axis.text.x=element_text(size=text_size),
                           plot.margin = unit(c(1, 1, 1, 1), "lines")) 
-                          
-  p <- p + geom_rect(data = chr_box_coords, aes(xmin = min(pt_coords$x), 
+  if (nrow(chr_box_coords) > 0){                         
+    p <- p + geom_rect(data = chr_box_coords, aes(xmin = min(pt_coords$x), 
                     xmax = max(pt_coords$x), ymin = ymin, ymax = ymax, y = NULL, x = NULL), 
                     fill = "gray", alpha = 0.2, colour = "gray", linetype = "dotted") +
-       scale_x_continuous(expand = c(0,0), breaks = xbreaks) 
-  p 
-  
-  
+         scale_x_continuous(expand = c(0,0), breaks = xbreaks) 
+  }
+  p
 }

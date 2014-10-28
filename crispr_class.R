@@ -16,7 +16,6 @@ library(gridExtra)
 # Default mapping function
 # TO DO - ADD THE CIGAR TO THE INSERTION TABLE IN THE CRISPR_RUN CLASS?
 # To do - check that insertion_site table has "cigar" column
-# To do - deal with non-ATGC characters
 # To do - indel realignment around target loc
 # Can I assume that all reads in a set have different names?
 # Warning that normal cigar misleading in aln plots (or indicate start if not target_start)
@@ -32,12 +31,18 @@ library(gridExtra)
 # store renumbered = yes / no - make sure it's consistent between functions?
 # less memory if cigars weren't duplicated
 # CHIMERAS: ARE OPTIONS (merge, exclude, tag) MUTUALLY EXCLUSIVE? TAG and MERGE can be together?
-# Better name for removeChimeras
+# Better name for classifyChimeras
 # to do - why does pcdh10a fail??
+# To do - check if there are more groups / insertion sites than colour (combinations)
+# To do - consistency - sometimes called "target_loc", sometimes "cut_site"
+# Warning if writing to non-empty file?
+# Wrapper for the panel plots to ensure consistent rows?
+
+
 # Show method for CrisprRun, CrisprMultiplex
 # Filter by mapq for CrisprRun and argument for CrisprSet, as in CrisprMultiplex
-
-
+# getAttr function for CrisprSet lapply(cruns, function(x) x$nm, nm)?
+# verbose abifToFastq
 
 amino_colours <- matrix(c("H", "#5555ff", "#8282D2", "#7070FF",
                           "K", "#ffcc77", "#145AFF", "#4747B8",
@@ -185,7 +190,13 @@ mergeChimeras <- function(bam, chimera_idxs){
   
 }
 
-removeChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRUE, 
+
+getInterChimeraSeq <- function(bam, chimera_idxs){
+  
+
+}
+
+classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRUE, 
                            verbose = TRUE, tag = FALSE, name = NA){    
     
     # Exclude: remove chimeras from bam file
@@ -203,6 +214,7 @@ removeChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRUE,
     # 1-2-3-4-5
     #            9-8-7-6 
     
+    mcols(bam)$type <- NA
     
     if (exclude & tag) {
       stop("'tag' and 'exclude' are mutually exclusive.  
@@ -213,7 +225,7 @@ removeChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRUE,
     if (length(chimera_idxs) == 0) return(bam)
     
     if (exclude & !merge) return(bam[-chimera_idxs])
-        
+    
     # Do all reads within a chimera map to the same chromosome?
     nms <- rle(names(bam)[chimera_idxs]) 
     nms_codes <- rep(1:length(nms$lengths), nms$lengths)
@@ -224,7 +236,8 @@ removeChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRUE,
     
     # And onto the same strand? (i.e. not inversion)
     strds <- strand(bam)[chimera_idxs]
-    same_strd <- rep(strds@lengths, strds@lengths) == rep(nms$lengths, nms$lengths)
+    strd_rle <- rle(paste0(nms_codes, strds))
+    same_strd <- rep(strd_rle$lengths, strd_rle$lengths) == rep(nms$lengths, nms$lengths)  
   
     # Are single chr chimeras gaps? (start(n+1) > end(n))
     del_lns <- start(bam)[chimera_idxs[-1]] - end(bam)[chimera_idxs[-length(chimera_idxs)]]
@@ -260,28 +273,38 @@ removeChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRUE,
     gap_codes <- rle(paste(gaps >= 0, nms_codes, sep = "."))
     has_read_gap <- rep(gap_codes$lengths, gap_codes$lengths) == rep(nms$lengths, nms$lengths)
 
-    mergeable <- chimera_idxs[one_chr & same_strd & has_genome_gap & has_read_gap]
+    # Rearrangements: where the first aligned base of the second segment is 
+    # earlier than the first 
+    rearr <- first_aligned[-1] - first_aligned[-length(first_aligned)]
+    rearr <- c(1, rearr)
+    rearr[change_pts] <- 1
+
+    mergeable <- chimera_idxs[one_chr & same_strd & has_genome_gap & has_read_gap & !rearr]
     
     if (verbose == TRUE){ 
+      format_zero <- function(x) ifelse(is.nan(x), 0, x)
       nchm <- length(chimera_idxs)
       noc <- sum(one_chr == "TRUE")
       nss <- sum(one_chr & !same_strd == "TRUE")
       ngdup <- sum(!has_genome_gap & one_chr & same_strd == TRUE)
       nrdup <- sum(has_genome_gap & one_chr & same_strd & ! has_read_gap == "TRUE")
-      mrg <- sum(one_chr & same_strd & has_genome_gap & has_read_gap == "TRUE")
+      nrearr <- sum(has_genome_gap & one_chr & same_strd & has_read_gap & rearr == "TRUE")
+      mrg <- sum(one_chr & same_strd & has_genome_gap & has_read_gap & ! rearr == "TRUE")
       if (! is.na(name)) cat(sprintf("Chimera statistics for %s:\n", name))  
       cat(sprintf(paste0("%s (%.2f%%) chimeras in %s reads\n",  
       "  %s (%.2f%%) map to the same chromosome\n", 
       "    %s (%.2f%%) map to different strands (inversions)\n",
       "    %s (%.2f%%) genomic duplications (different read locs mapped to same genomic loc)\n",
       "    %s (%.2f%%) read duplications (different genomic locs mapped to same read loc)\n",
+      "    %s (%.2f%%) rearrangements (end of read maps before start)\n",
       "    %s (%.2f%%) are long gaps (can be merged)\n\n"),
-      nchm, nchm/length(bam)*100, length(bam),
-      noc, noc/nchm*100,
-      nss, nss/noc*100,
-      ngdup, ngdup/noc*100,
-      nrdup, nrdup/noc*100,
-      mrg, mrg/noc*100))    
+      nchm, format_zero(nchm/length(bam)*100), length(bam),
+      noc, format_zero(noc/nchm*100),
+      nss, format_zero(nss/noc*100),
+      ngdup, format_zero(ngdup/noc*100),
+      nrdup, format_zero(nrdup/noc*100),
+      nrearr, format_zero(nrearr/noc*100),
+      mrg, format_zero(mrg/noc*100)))    
     }
       
    if (tag == TRUE){
@@ -336,27 +359,125 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_st
     result
 }
 
-cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16, 
+plotAlleleFreqs <- function(allele_freqs, size = pt_size){
+  alleles <- colSums(allele_freqs != 0)  
+  als <- data.frame(Allele = alleles, Sample =names(alleles))
+  p <- ggplot(als, aes(x=Sample, y = Allele, group = Group, colour = Group)) 
+      + geom_line() + geom_point(size = pt_size) + theme_bw()
+
+}
+
+barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL, 
+                               group_colours = NULL, legend_text_size = 10){
+  
+  
+  clrs <- bar_colours
+  if (is.null(clrs)){
+    clrs <- c("#D92120", "#E6642C", "#E68E34", "#D9AD3C", "#B5BD4C", "#7FB972",
+              "#63AD99", "#55A1B1", "#488BC2", "#4065B1", "#413B93", "#781C81")
+  }
+  ac <- allele_counts
+  if (!is.null(group)){
+    group <- rev(group)
+    if (is.null(group_colours)){
+     group_colours <- c("#332288","#661100","#0072B2","#117733","#882255","#D55E00",
+                        "#AA4499", "#009E73","#56B4E9","#CC79A7","#44AA99","#999933",
+                        "#CC6677", "#E69F00","#88CCEE")
+    }
+    gp_cols <- group_colours[rev(group)]
+  }
+  
+  uniq <- rowSums(ac) == 1
+  ac <- ac[!uniq,, drop = FALSE]
+  ac <- rbind(ac, "Unique" = colSums(allele_counts[uniq,, drop = FALSE]))
+  af <- melt(sweep(ac, 2, colSums(ac), "/"))
+  colnames(af) <- c("Variant", "Sample", "Percent")
+  af$Sample <- factor(af$Sample, level = rev(unique(af$Sample)))
+  p <- ggplot(af, aes(x = Sample, y = Percent, fill = Variant)) + geom_bar(stat = "Identity") + 
+       scale_fill_manual(values = clrs[1:nrow(ac)]) +  xlab(NULL) + ylab(NULL) + 
+       scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
+       theme_bw() + coord_flip() + 
+       theme(legend.position = "bottom", legend.title = element_blank(), 
+             legend.text = element_text(size = legend_text_size),
+             plot.margin = unit(c(1,0,0.5,0),"lines"))
+       
+  if (! is.null(group)){
+    p <- p + theme(axis.text.y=element_text(colour= gp_cols))
+    #hlines <- seq_along(group)[!duplicated(group)]
+    #hlines <- hlines[2:length(hlines)] - 0.5
+    #p <- p + geom_vline(xintercept= hlines, colour = "black", size = 1.5)
+  }
+  
+  g <- ggplot(als, aes(x=1, y=1:nrow(als), label = Allele)) + geom_text(size = 4) + 
+         geom_tile(fill = "transparent", colour = "black", size = 1) + 
+         theme_minimal() + xlab(NULL) + ylab(NULL) + ggtitle("Variant alleles") +
+         scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
+         theme(axis.ticks = element_blank(), axis.text = element_blank(),
+               panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+               plot.title = element_text(vjust = -0.4, hjust = 1.1),
+               plot.margin = unit(c(1,0,0.5,0),"lines"))
+      
+  pgrob <- ggplotGrob(p)
+  ggrob <- ggplotGrob(g)
+  ggrob$heights <- pgrob$heights  
+  
+  grid.arrange(pgrob, ggrob, ncol = 2, widths = c(9,1))
+
+  # table
+  dat <- data.frame(Sample = colnames(allele_counts), 
+           Vals = c(colSums(allele_counts),colSums(allele_counts != 0)), 
+           Col = rep(c("Variants","Alleles"), each = ncol(allele_counts)))
+
+  q <- ggplot(dat, aes(x= Col, y = Sample, label = Vals)) + 
+       geom_text() + geom_tile(fill = "transparent", colour = "black", size = 1) + 
+       theme_minimal() + xlab(NULL) + ylab(NULL) + 
+       theme(axis.text.x = element_text(angle = 90))
+
+  #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+
+
+               
+     # g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff), 
+     #                  size = plot_text_size)
+}
+
+
+
+cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16, y_size = 16, 
                            x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE,
                            col_sums = TRUE, colours = "yellowred", legend_text_size = 16,
-                           plot_text_size = 6){
-  
+                           plot_text_size = 8, group = NULL, group_colours = NULL){
+
   # legend_text_size applies to title and text, alternatively can be changed 
   # in finished plot using "theme"
-  
-  # ADD BLANK NO LONGER EXISTS
-  # add_blank - should a blank row be added to the top?  
-  #(useful for aligning heatmap with variants plot) if col_sums = FALSE
-    
+      
   cig_freqs <- cigar_freqs
   if (col_sums == TRUE){
     # Make space for totals to be added
     cig_freqs <- rbind(Total = rep(NA, ncol(cigar_freqs)), cigar_freqs)
   }
   
+  # If a sample group is supplied, reorder the columns of counts  
+  if (!is.null(group)){
+    group <- as.factor(group)  
+    cig_freqs <- cig_freqs[,order(group)]
+
+    if (is.null(group_colours)){
+              
+      clrs <- c("#332288","#661100","#117733","#882255","#D55E00", 
+                "#0072B2","#AA4499","#009E73","#56B4E9","#CC79A7",
+                "#44AA99","#999933","#CC6677", "#E69F00","#88CCEE")
+      clrs <- clrs[group]
+    } else { 
+      clrs <- group_colours[group] 
+    }   
+  }
+  
   counts <- melt(cig_freqs)  
   colnames(counts) <- c("Cigar", "Sample","Count")
   counts$Cigar <- factor(counts$Cigar, levels = rev(levels(counts$Cigar)))
+
 
   if (as_percent == TRUE){
     m <- apply(cigar_freqs, 2, function(x) x/sum(x))  
@@ -391,16 +512,23 @@ cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16,
     g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff), 
                        size = plot_text_size)
   }
-  g <- g + ylab(NULL) + xlab(x_axis_title) + theme_bw() +
-       theme(axis.text.x = element_text(size = x_size, angle = x_angle),
-             legend.text = element_text(size = legend_text_size),
-             legend.title = element_text(size = legend_text_size),
-             legend.key.height = unit(5, "lines"))
-        
+ 
   if (colours == "yellowred"){     
     hmcols<-colorRampPalette(c("white","gold","orange","orangered","red", "darkred"))(50) 
     g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white") 
-  }            
+  }   
+  
+  g <- g + ylab(NULL) + xlab(x_axis_title) + theme_bw() +
+       theme(axis.text.x = element_text(size = x_size, angle = x_angle, hjust = 1),
+             axis.text.y = element_text(size = y_size),
+             legend.text = element_text(size = legend_text_size),
+             legend.title = element_text(size = legend_text_size),
+             legend.key.height = unit(5, "lines"))         
+             
+  if (! is.null(group)){
+    g <- g + theme(axis.text.x=element_text(colour= clrs))
+  }
+  
   return(g)
 }
 
@@ -419,9 +547,10 @@ nucleotideToAA <- function(seqs, txdb, target_start, target_end){
 }
 
 plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, 
-                           target_loc = 17, pam_start = NA, pam_end = NA, 
+                           target_loc = 18, pam_start = NA, pam_end = NA, 
                            ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
-                           plot_text_size = 6){
+                           xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
+                           legend_text_size = 16, highlight_guide=TRUE, guide_loc = NULL){
   
   # ref: the reference sequence
   # alns: named vector of aligned sequences, with insertions removed
@@ -437,22 +566,21 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   if (! length(unique(lapply(aln_chrs, length))) == 1){
     stop("The reference sequence and the alignments must all have the same length")
   }
-  
+    
   temp <- t(as.data.frame(aln_chrs))
   rownames(temp) <- names(aln_chrs)
   m <- melt(temp)
   ambig_codes <- c('K','M','R','Y','S','W','B','V','H','D')
   ambig <- which(! m$value %in% c("A", "C", "T", "G", "N", "-"))
   
-  m$value <- as.character(m$value)
-  #m[ambig, "value"] <- "N"  
-  
+  m$value <- as.character(m$value)  
   m$value <- factor(m$value, levels = c(c("A", "C", "T", "G", "N", "-"), ambig_codes))  
   m$isref <- as.character(ifelse(m$Var1 == "Reference", 1, 0.75))
-  m_cols <- c(c("#e41a1c", "#377eb8", "#4daf4a", "#000000", "#CCCCCC","#FFFFFF"),
+  m_cols <- c(c("#4daf4a", "#377eb8", "#e41a1c", "#000000", "#CCCCCC","#FFFFFF"),
               rep("#CCCCCC", length(ambig_codes)))
   names(m_cols) <- c(c("A", "C", "T", "G", "N","-"), ambig_codes)
   m$cols <- m_cols[m$value]
+  m$text_cols <- ifelse(m$cols == "#000000" & m$isref == 1, "#FFFFFF", "#000000")
   
   # Colours and shapes for the insertion markers and tiles
   shps <- c(21,23,25) 
@@ -460,33 +588,39 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
             "#332288","#88CCEE","#44AA99","#117733","#999933","#DDCC77","#661100",
             "#CC6677","#882255", "#AA4499")
 
-  # black = #000000 white = #FFFFFF 
 
   # Plot aligned sequences
   tile_height <- 0.55
-  p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols))+
-     geom_tile(aes(alpha = isref), height = tile_height)+ 
-     geom_text(aes(label = value), size = plot_text_size) + 
-     scale_alpha_manual(values = c(0.5,1), guide = "none") + 
-     ylab(NULL) + xlab(xlab) +
-     theme_bw() + theme(axis.text.y = element_text(size = 16), 
-                        axis.text.x = element_text(size = 16),#, family = "mono"), mono doesn't fix?
-                        axis.title.x = element_text(vjust = -0.5), legend.position = "bottom")
      
+  p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols)) +
+               geom_tile(aes(alpha = isref), height = tile_height) + 
+       geom_text(aes(label = value, colour = text_cols), size = plot_text_size) + 
+       scale_alpha_manual(values = c(0.5,1), guide = "none") + 
+       ylab(NULL) + xlab(xlab) + scale_colour_identity() + 
+       theme_bw() + theme(axis.text.y = element_text(size = axis_text_size), 
+                          axis.text.x = element_text(size = axis_text_size), 
+                          axis.title.x = element_text(vjust = -0.5), 
+                          legend.position = "bottom")
+         
   if (is.null(xtick_labs)){   
      # expand is the distance from the axis, multiplicative + additive
      p <- p + scale_x_continuous(expand = c(0,0.25))  
   } else {
-    p <- p + scale_x_continuous(expand = c(0,0.25), breaks = 1:nchar(ref),
-                                labels = xtick_labs) 
-  }  
-      
+    if (is.null(xtick_breaks)) {
+      stopifnot(length(xtick_labs == nchar(ref)))
+      p <- p + scale_x_continuous(expand = c(0,0.25), breaks = 1:nchar(ref),
+                                  labels = xtick_labs) 
+    } else {
+      p <- p + scale_x_continuous(expand = c(0,0.25), breaks = xtick_breaks,
+                                  labels = xtick_labs) 
+    }
+  }
+  
   # Add line for the cut site
-  p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "red", size = 1)# linetype = "dashed",
-                                           
+  p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "black", size = 2)# linetype = "dashed",
+                                     
   # Make a data frame of insertion locations 
   if (nrow(ins_sites) > 0){
-
     
     ins_ord <- match(ins_sites$cigar, names(aln_chrs))    
   
@@ -516,34 +650,57 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
   
     legend_nrow <- ceiling(nrow(ins_points)/ legend_cols)
 
- 
     # Indicate insertions   
     p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours),
                       colour = "#000000", size = ins_size)  +
-     scale_fill_identity() +
+     scale_fill_identity() + 
      scale_shape_manual(name = "", values = fill_shps, breaks = ins_points$shapes, labels = ins_points$seq) +
-     guides(shape = guide_legend(ncol = legend_cols, override.aes = list(fill = fill_clrs, size = 6))) 
-     p <- p + theme(legend.key = element_blank(), legend.text = element_text(size = 16),
-                    legend.key.height = unit((legend_nrow * 0.25), "lines"),
+     guides(shape = guide_legend(nrow = legend_nrow, override.aes = list(fill = fill_clrs, size = 8)))#,
+     p <- p + theme(legend.key = element_blank(), 
+                    legend.text = element_text(size = legend_text_size),
                     legend.margin = unit(2, "lines"))
 
   } else{
     p <- p + scale_fill_identity() 
   }
+
+
+  if (highlight_guide){
+  ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.25)
+  ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.25)
+  
+  if (is.null(guide_loc)){
+    xmin <- target_loc - 17.5
+    xmax <- xmin + 23
+  } else {
+    xmin <- start(guide_loc) - 0.5
+    xmax <- end(guide_loc) + 0.5
+  }
+
+  guide_df <- data.frame(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
+  p <- p + geom_rect(data = guide_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, 
+                     ymax = ymax, color = "black", x = NULL, y = NULL),
+                      size = 2, fill = "transparent") 
+  }
+
   # If pam_loc is given, highlight the pam in the reference
   #  - 0.5 for tile boundaries not centres
   if (! is.na(pam_start)){    
     if (is.na(pam_end)){
       pam_end <- pam_start + 2
     }
-    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.4,
+    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.5,
                          ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.2),
                          ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.2))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                         ymax = ymax, x = NULL, y = NULL),
-                         color = "red", size = 1, fill = "transparent") 
+                         color = "black", size = 3, fill = "transparent") 
+    p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
+               xmin = pam_df$xmin, xmax = pam_df$xmax, 
+               ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
   }
-  
+      
+
   if (show_plot == TRUE){
     print(p)
   }
@@ -551,27 +708,33 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
 }
 
 panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p, 
-                                col.widths = c(2, 1), fig_height = NULL, 
-                                plot_margin = NULL, gene_text_size = 20){
+                      col_widths = c(2, 1), fig_height = NULL, row_ht_ratio = c(1,6), 
+                      panel_margin = unit(c(0.25,0.25,0.25,0.25), "lines"), gene_text_size = 20, 
+                      aln_p_margin = unit(c(0.25,0,10,0.5), "lines")){
 
   # Plot_margin must be a unit object, and will be applied to the alignment plot.  
   # The vertical margins of the heatmap are constrained to equal those of the alignment plot
-  
-  if (is.null(plot_margin)){
-    plot_margin <- unit(c(0.25,0.25,10,0.5), "lines") # T R B L
-  }
+
+  aln_hts <- if (is.null(fig_height)){ row_ht_ratio 
+             }else { fig_height/sum(row_ht_ratio)*row_ht_ratio } 
 
   # lock the plot area heights of the alignment and heatmap
   heat_p <- heat_p + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) 
   
   #aln_p <- aln_p + annotation_custom(grob = linesGrob(), xmin = -Inf, xmax = 5, 
   #     ymin = -Inf, ymax = 10)             
-              
+             
+  aln_p <- aln_p + theme(plot.margin = aln_p_margin)            
   p2 <- ggplotGrob(aln_p)
-  p2$layout$clip[p2$layout$name=="panel"] <- "off"
+  #p2$layout$clip[p2$layout$name=="panel"] <- "off"
   
   p3 <- ggplotGrob(heat_p)
+  #p3$layout$clip[p3$layout$name=="panel"] <- "off"
+  #p2$heights <- p3$heights  
+  
   p3$heights <- p2$heights  
+  
+  
   # Make the gene plot
   require(ggbio)
   genes <- genes(txdb)
@@ -593,25 +756,23 @@ panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p,
     p1 <-  p1 + geom_rect(data = target_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
                  colour = "red", fill = NA, size = 1) + theme_minimal() + ggtitle(gene_id) + 
                  theme(axis.text.x = element_text(size = gene_text_size), 
-                 text = element_text(size = gene_text_size)) 
+                 text = element_text(size = gene_text_size),
+                 panel.margin = panel_margin) 
      # Add some space at the bottom of the panel 
     #p1 <- p1 + theme(plot.margin = unit(c(1,1,10,1), "lines"))
     p1 <- as.list(attributes(p1))$ggplot
-    p1$layout$clip[p1$layout$name=="panel"] <- "off"
+    #p1$layout$clip[p1$layout$name=="panel"] <- "off"
     p1 <- ggplotGrob(p1)
    
   }
    
-  gen_ht <- 5
-  aln_ht <- ifelse(is.null(fig_height), 8, fig_height - gen_ht)
-  
   # newpage heatmap means names clip again
   
   # nested arrange grob?
-  return(grid.arrange(p1, arrangeGrob(p2, p3, ncol = 2, widths = col.widths), 
-         nrow = 2, heights = c(gen_ht, aln_ht), newpage = FALSE))
+  return(grid.arrange(p1, arrangeGrob(p2, p3, ncol = 2, widths = col_widths), 
+         nrow = 2, heights = aln_hts, newpage = FALSE))
   
-  #return(arrangeGrob(p1, arrangeGrob(p2, p3, ncol = 2, widths = col.widths), 
+  #return(arrangeGrob(p1, arrangeGrob(p2, p3, ncol = 2, widths = col_widths), 
   #       nrow = 2, heights = c(gen_ht, aln_ht), newpage = FALSE))
   
 }
@@ -652,6 +813,7 @@ CrisprRun$methods(
     .read_types <<- list()
     
     name <<- ifelse(is.null(name), bam, name)
+
     if (verbose == TRUE) cat(sprintf("Initialising %s\n", .self$name))
 
     if (class(bam) == "character"){
@@ -679,7 +841,7 @@ CrisprRun$methods(
     query_ranges <<- cigarRangesAlongQuerySpace(cigar(on_target))
     
     cigar_ops <<- CharacterList(explodeCigarOps(cigar(on_target)))
-    .self$readsToTarget(on_target, target_start, target_end, rc)
+    .self$readsToTarget(on_target, target_start, target_end, rc, verbose)
     .self$getInsertionSeqs()
   },
   
@@ -730,8 +892,9 @@ CrisprRun$methods(
     if (any(c(merge_chimeras, exclude_chimeras, tag_chimeras)) == TRUE){      
       if (tag_chimeras == TRUE){
         chimera_idxs <- findChimeras(bam)
-        bam <- removeChimeras(bam, chimera_idxs, exclude = FALSE, merge = FALSE, 
+        bam <- classifyChimeras(bam, chimera_idxs, exclude = FALSE, merge = FALSE, 
                               tag = tag_chimeras, verbose = vb, name = name)
+        
         if (merge_chimeras == TRUE){
         
         }
@@ -743,7 +906,7 @@ CrisprRun$methods(
         }
         
       } else {
-        bam <- removeChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
+        bam <- classifyChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
                               tag = tag_chimeras, verbose = vb, name = name)
       }
       if (verbose == TRUE){
@@ -779,9 +942,6 @@ CrisprRun$methods(
     .read_types[remaining[remaining %in% names(result$on_target)]] <<- "on_target"
     result
   },   
-  
-  
-
   
   readsToTarget = function(alns, target_start, target_end, rc, verbose = TRUE){
     # Narrow the reads and cigar strings to the target region, set these attributes
@@ -839,12 +999,12 @@ CrisprRun$methods(
        rshift <- target_end - target_start - ( locs$ends - locs$starts - lshift)           
        genome_start <- as.integer(genome_start + lshift + rshift)
     }
-            
+   
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigs)
     cigar_ops <<- CharacterList(explodeCigarOps(cigs))
     alns <<- GAlignments(seqnames = seqnames(alns), pos= genome_start, cigar = cigs, 
                 names = names(alns), strand = strand(alns), seqlengths = seqlengths(alns),
-                seq = seqs) 
+                seq = seqs, type = mcols(alns)$type) 
    },
   
   countIndels = function(){
@@ -910,6 +1070,20 @@ CrisprRun$methods(
     names(ins_key) <<- idxs
   },
   
+  getInsertionsTable = function(){
+    ins_starts <- .self$insertions$genomic_start[.self$ins_key]
+    
+    if (length(ins_starts) == 0){
+        ins <- data.frame()
+    } else {
+      ins <- data.frame(read = as.integer(names(.self$ins_key)), chromosome = chrom, 
+                        start = ins_starts, end = ins_starts, 
+                        inserted = .self$insertions$seq[.self$ins_key], stringsAsFactors = FALSE)
+    }
+    
+  },
+  
+  
   .checkNonempty = function(){
     if (class(.self$alns) == "uninitializedField"){
       message("No on target alignments")
@@ -950,8 +1124,9 @@ CrisprRun$methods(
     }
         
     # Get deletions:
-    dels <- lapply(.self$cigar_ops, function(x) which(x %in% c("D", "N")))       
-    del_idxs <- rep(1:length(dels), lapply(dels, length))
+    dels <- crun$cigar_ops %in% c("D", "N")
+    del_idxs <- rep(seq_along(dels), sum(dels))
+    
     if (length(del_idxs) == 0){
       dels <- data.frame()
     }else{
@@ -1046,18 +1221,19 @@ CrisprRun$methods(
     vars
   },
   
-  getCigarLabels = function(short = TRUE, match_string = "no variant", 
+  getCigarLabels = function(short = TRUE, match_label = "no variant", 
                             genome_to_target = NULL, rc = FALSE, target_start = NULL,
-                            target_end = NULL){
+                            target_end = NULL, ref = NULL, split_non_indel = TRUE, 
+                            mismatch_label = "SNV", cut_site = 18){
     
     # Sets / returns cigar labels                        
+    # If short = only consider insertions and deletions (except for wildtype?)
                             
     # genome_to_target, if provided, is a vector with names being genomic start coords
     # and values being coords with respect to the target site  
     
     # Shorten? -> Renumber?  If not renumbered, record starting location when different from 
     # target start
-    
     
     if (! class(.self$cigar_labels) == "uninitializedField"){
       return(.self$cigar_labels)
@@ -1069,11 +1245,18 @@ CrisprRun$methods(
     
     if (short == FALSE | is.null(genome_to_target)){
       if (rc == TRUE){
+        # Note: genome_ranges for rc are written rightmost to leftmost
+        
         start_offset <- target_end - unlist(lapply(.self$genome_ranges, function(x) max(end(x))),
                                             use.names = FALSE)
+        start_offset_new <- target_end - max(end(.self$genome_ranges))
+        #print(c(start_offset_new, start_offset, start_offset_new == start_offset))
+        
       } else {
         start_offset <- unlist(lapply(.self$genome_ranges, function(x) min(start(x))), 
                                use.names = FALSE) - target_start
+        start_offset_new <-  min(start(.self$genome_ranges)) - target_start 
+        #print(start_offset_new == start_offset)                      
       }
       is.nonzero <- start_offset != 0
       start_offset[is.nonzero] <- sprintf("(%s)", start_offset[is.nonzero])
@@ -1085,34 +1268,25 @@ CrisprRun$methods(
       }
     }
     
-    
-    ###########################################
-    # TO DO - RECORD STARTING POSITION OFFSET
-    
-    if (short == FALSE & is.null(genome_to_target)){
-      # NEED TO GET THE OFFSET FROM THE REFERENCE START, THIS IS SIMILAR TO 
-      # THE GET VARIANTS CODE
-        
-      cigar_labels <<- cigar(.self$alns)
-      return(.self$cigar_labels)
-    }
-    
-    ########################################
-    
+    #idxs <- .self$cigar_ops != "M"
+    #ops <- .self$cigar_ops[idxs]
+    #rranges <- .self$ref_ranges[idxs]
+    #qranges <- .self$query_ranges[idxs]
+    #cig_idxs <- rep(1:length(idxs), lapply(idxs, length))
+    #cig_idxs <- .self$long_dels[rep(1:length(idxs), sum(idxs == TRUE))]
+       
     idxs <- lapply(.self$cigar_ops, function(x) which(x != "M"))
     ops <- lapply(seq_along(idxs), function(i) .self$cigar_ops[[i]][idxs[[i]]])
     rranges <- .self$ref_ranges[idxs]
     qranges <- .self$query_ranges[idxs]
-    cig_idxs <- rep(1:length(idxs), lapply(idxs, length))
+    cig_idxs <- rep(1:length(idxs), lapply(idxs, length))   
+       
          
     if (is.null(genome_to_target)){
       start <- unlist(start(rranges))
       end <- unlist(end(rranges))
-      
-      
     } else {
       gen_ranges <- .self$genome_ranges[idxs]     
-      
       if (rc == FALSE){
         start <- genome_to_target[as.character(unlist(start(gen_ranges)))]
         end <- genome_to_target[as.character(unlist(end(gen_ranges)))]
@@ -1135,14 +1309,31 @@ CrisprRun$methods(
        }
        
     }
-    result <- rep(match_string, length(idxs))
+    result <- rep(match_label, length(idxs))
     if (nrow(info) == 0) return(result)
     short_ops <- apply(info, 1, getShortOp)
     short_ops <- split(short_ops, cig_idxs)
     short_ops <- sapply(short_ops, function(x) do.call(paste, c(as.list(x),sep = ",")))
     result[as.numeric(names(short_ops))] <- short_ops
+    if (split_non_indel){
+      result <- .splitNonIndel(ref, result, match_label, mismatch_label, cut_site)
+    }
     cigar_labels <<- result
     result
+  },
+  
+  .splitNonIndel = function(ref, cig_labels, match_label = "no variant", 
+                             mismatch_label = "SNV", cut_site = 18){
+    no_var <- which(cig_labels == match_label & mcols(.self$alns)$seq != ref)
+    if (length(no_var) == 0) return(cig_labels)
+        
+    no_var_seqs <- as.matrix(mcols(.self$alns)$seq[no_var])
+    rr <- strsplit(as.character(ref), "")[[1]]
+    result <- apply(no_var_seqs, 1, function(x) sprintf("%s:%s", mismatch_label, 
+                     paste(which((x != rr & x != "N")) - cut_site -1, collapse = ",")))
+   
+    cig_labels[no_var] <- result 
+    return(cig_labels)       
   }
   
 )
@@ -1158,20 +1349,25 @@ CrisprSet = setRefClass(
              "nonempty_runs",
              "cigar_freqs",
              "target",
-             "genome_to_target")
+             "genome_to_target",
+             "pars")
 )
 
 CrisprSet$methods(
   initialize = function(bam_fnames, ref, target_chr, target_start, target_end, rc = FALSE,
                         short_cigars = FALSE, names = NULL, exclude_ranges = GRanges(), 
-                        exclude_names = NULL, merge_chimeras = TRUE, renumbered = FALSE, 
-                        target_loc = NA, match_string = "no variant", verbose = TRUE, ...){
+                        exclude_names = NA, merge_chimeras = TRUE, renumbered = FALSE, 
+                        target_loc = NA, match_label = "no variant", verbose = TRUE, ...){
     
     # TO DO - DECIDE WHETHER TO KEEP EMPTY RUNS
     strand <- ifelse(rc == TRUE, "-", "+")
     target <<- GRanges(target_chr, IRanges(target_start, target_end), strand = strand)    
     ref <<- ref 
+    pars <<- list("match_label" = match_label, "target_loc" = target_loc, 
+                  "mismatch_label" = "SNV", "renumbered" = renumbered)
     
+    #pars <<- modifyList(pars, ...)   
+        
     if (verbose == TRUE) cat("Reading bam files\n")
     crispr_runs <<- lapply(bam_fnames, CrisprRun$new, target_chr, target_start, 
                            target_end, rc = rc, exclude_ranges = exclude_ranges,
@@ -1188,12 +1384,13 @@ CrisprSet$methods(
     if (verbose == TRUE) cat("Renaming cigar strings and counting indels\n")
     cig_by_run <- .self$.setCigarLabels(renumbered = renumbered, target_loc = target_loc,
                            target_start = target_start, target_end = target_end, 
-                           rc = rc, match_string = match_string)
+                           rc = rc, match_label = match_label, ref = ref)
     .self$.countCigars(cig_by_run)
   },
   
   .setCigarLabels = function(renumbered = FALSE, target_loc = NA, target_start = NA,
-                            target_end = NA, rc = FALSE, match_string = "no variant"){
+                            target_end = NA, rc = FALSE, match_label = "no variant",
+                            ref = NULL){
       g_to_t <- NULL
       
       if (renumbered == TRUE){
@@ -1203,17 +1400,20 @@ CrisprSet$methods(
         }
         g_to_t <- genomeToTargetLocs(target_loc, target_start, target_end, rc)
       }
+      
+      cut_site <- ifelse(is.na(target_loc), 18, target_loc)
+      
       cig_by_run <- lapply(.self$crispr_runs,
-            function(crun) crun$getCigarLabels(match_string = match_string, rc = rc,
-                                               genome_to_target = g_to_t))      
+            function(crun) crun$getCigarLabels(match_label = match_label, rc = rc,
+                                               genome_to_target = g_to_t, ref = ref, 
+                                               cut_site = cut_site))     
       return(cig_by_run)
   }, 
    
-  .countCigars = function(cig_by_run = NULL){
+  .countCigars = function(cig_by_run = NULL, nonvar_first = TRUE){
     # Note that this function does not consider starts, two alignments starting at
     # different locations but sharing a cigar string are considered equal
     
-     
     if (is.null(cig_by_run)){
       cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$getCigarLabels())
     }
@@ -1225,31 +1425,52 @@ CrisprSet$methods(
     
     m[is.na(m)] <- 0
     m <- m[order(rowSums(m), decreasing = TRUE),, drop = FALSE]
+    
+    if (nonvar_first){    
+      is_ref <- grep(.self$pars["match_label"], rownames(m))
+      is_snv <- grep(.self$pars["mismatch_label"], rownames(m))
+      new_order <- setdiff(1:nrow(m), c(is_ref,is_snv))
+      m <- m[c(is_ref, is_snv, setdiff(1:nrow(m), c(is_ref,is_snv))),,drop = FALSE]
+    }
+    
     cigar_freqs <<- m
   },
   
-  heatmapCigarFreqs = function(as_percent = FALSE, x_size = 10, x_axis_title = NULL,
-                               x_angle = 90, annotate_counts = TRUE, 
+  .getFilteredCigarTable = function(top_n, freq_cutoff){
+    rs <- rowSums(.self$cigar_freqs)
+    minfreq <- rs >= freq_cutoff
+    topn <- rank(-rs) <= top_n
+    cig_freqs <- .self$cigar_freqs[minfreq & topn ,, drop = FALSE] 
+    return(cig_freqs) 
+  },
+  
+  countVariantAlleles = function(counts_t = NULL){
+    if (is.null(counts_t)) counts_t <- .self$cigar_freqs
+    counts_t <- counts_t[!rownames(counts_t) == .self$pars["match_label"],,drop = FALSE]
+    alleles <- colSums(counts_t != 0)    
+    return(data.frame(Allele = alleles, Sample = names(alleles)))
+  },
+  
+  heatmapCigarFreqs = function(as_percent = FALSE, x_size = 16, y_size = 16, 
+                               x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE, 
                                freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), ...){
     
-    upto <- min(top_n, max(which(rowSums(.self$cigar_freqs) >= freq_cutoff)))
-    cig_freqs <- .self$cigar_freqs[1:upto,, drop = FALSE]
-    
-    p <- cigarFrequencyHeatmap(cig_freqs, as_percent, x_size, x_axis_title,
+    cig_freqs <- .getFilteredCigarTable(top_n, freq_cutoff)
+    p <- cigarFrequencyHeatmap(cig_freqs, as_percent, x_size, y_size, x_axis_title,
                                x_angle, annotate_counts, ...)
     return(p)
   },
   
   plotVariants = function(freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), 
-                          short_cigars = FALSE, renumbered = FALSE, show_genomic = FALSE,
-                          ...){
+                          short_cigars = FALSE, renumbered = .self$pars["renumbered"], 
+                          show_genomic = FALSE, ...){
                           
     # var_freq_cutoff = i (integer) only plot variants that occur >= i times
     # top_n = total number of variants to plot
     # ... arguments for plotAlignments
     
-    upto <- min(top_n, max(which(rowSums(.self$cigar_freqs) >= freq_cutoff)))
-    cig_freqs <- .self$cigar_freqs[1:upto,, drop = FALSE]
+    cig_freqs <- .getFilteredCigarTable(top_n, freq_cutoff)
+  
     alns <- .self$makePairwiseAlns(cig_freqs)
     if (class(.self$insertion_sites) == "uninitializedField" | 
         !("cigar" %in% colnames(.self$insertion_sites))){
@@ -1261,12 +1482,14 @@ CrisprSet$methods(
     if (renumbered == TRUE){
       genomic_coords <- c(start(.self$target):end(.self$target))
       target_coords <- .self$genome_to_target[as.character(genomic_coords)]
-      
       if (as.character(strand(.self$target)) == "-"){
         target_coords <- rev(target_coords)
       }
+      xbreaks = which(target_coords %% 5 == 0 | abs(target_coords) == 1)
+      target_coords <- target_coords[xbreaks]
+      
       p <- plotAlignments(.self$ref, alns, .self$insertion_sites, 
-                           xtick_labs = target_coords, ...)
+                           xtick_labs = target_coords, xtick_breaks = xbreaks, ...)
     } else {
       p <- plotAlignments(.self$ref, alns, .self$insertion_sites, ...)    
     }
@@ -1313,6 +1536,8 @@ CrisprSet$methods(
   
     seqs <- c()
     starts <- c()
+    
+    # SOMEWHERE HERE - CONSENSUS SEQ ONLY TAKING ONE SAMPLE?
         
     for (i in seq_along(splits)){
       idxs <- splits[[i]]
@@ -1350,10 +1575,15 @@ CrisprSet$methods(
     # After: -5 -4 -3 -2 -1  1  2  3
     # Left =  original - target_loc - 1
     # Right = original - target_loc
-    
-    # TO DO - MUST BE A NICER WAY OF DOING THIS!
-    
+        
     gs <- min(unlist(lapply(.self$crispr_runs, function(x) start(unlist(x$genome_ranges)))))
+       
+    all_gen_ranges <- lapply(.self$crispr_runs, function(x) x$genome_ranges)
+    
+    # Nope - here gives a vector
+    #gs_test <- min(start(do.call(c, unlist(all_gen_ranges, use.names = FALSE))))
+    #cat(sprintf("testing gs: %s = %s: %s", gs_test, gs, gs_test == unlist(gs, use.names=FALSE)))
+    
     ge <- max(unlist(lapply(.self$crispr_runs, function(x) end(unlist(x$genome_ranges)))))
     
     if (rc == TRUE){
@@ -1427,7 +1657,7 @@ CrisprMultiplex$methods(
     
     
     if (any(c(merge_chimeras,exclude_chimeras,tag_chimeras)) == TRUE){
-      bam <- removeChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
+      bam <- classifyChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
                             tag = tag_chimeras, verbose = verbose, name = name)
     }
     
@@ -1458,10 +1688,13 @@ CrisprMultiplex$methods(
       
       if (any(duplicated(hits_pcr@queryHits))){
         warn("Cannot distinguish pcr targets with this tolerance")
-      }
-      
-        
+      }      
     }
+    
+    
+    
+    
+    
 
   
     ## Find reads that partially cover the target site 
