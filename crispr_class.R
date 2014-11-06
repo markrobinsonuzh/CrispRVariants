@@ -6,6 +6,8 @@ library(gridExtra)
 
 # sangerseqR, GenomeFeatures should be in "sugests"
 
+
+# No on target runs shouldn't stop script entirely?
 # Possible bug - don't actually check the start of cigars, could have the same cigar different start?
 # To do - store target in CrisprSet (lose flexibility to specify a smaller set)
 # To do - check is.null, change to na?
@@ -37,7 +39,7 @@ library(gridExtra)
 # To do - consistency - sometimes called "target_loc", sometimes "cut_site"
 # Warning if writing to non-empty file?
 # Wrapper for the panel plots to ensure consistent rows?
-
+# Check - are panelplot colours hard coded?
 
 # Show method for CrisprRun, CrisprMultiplex
 # Filter by mapq for CrisprRun and argument for CrisprSet, as in CrisprMultiplex
@@ -73,10 +75,11 @@ row.names(amino_colours) <- amino_colours[,"AA"]
 #"X")
 
 
-writeFastq <- function(outf, vals){
+writeFastq <- function(outf, vals, allow_spaces = FALSE){
+    nms <- ifelse(allow_spaces, vals$seqname, gsub(" ", "_", vals$seqname))
     o <- file(outf, "a")
-    seqname <- sprintf("@%s", vals$seqname)
-    qualname <- sprintf("+%s", vals$seqname)
+    seqname <- sprintf("@%s", nms)
+    qualname <- sprintf("+%s", nms)
     writeLines(c(seqname, vals$seq, qualname, vals$quals) , o)
     close(o)
 }
@@ -167,32 +170,54 @@ findHighCovRegions <- function(chimeras, min_cov = 1000){
   retunr(slgr)
 }
 
-mergeChimeras <- function(bam, chimera_idxs){
+.mergeChimeras <- function(chimeras, cigars, change_pts, unclipped){
   # To merge, require the indices of the chimeras in the bam, 
-  # and their indices in a sorted list.  Bam must have sequence availabe
-    
-    #___________________________________
-    # To do:
-    
-    # Remove the clipped ranges from regions to be merged
-    #qranges <- unlist(cigarRangesAlongQuerySpace(cigar(alns)))
-    #is_aligned <- which(!unlist(explodeCigarOps(cigar(alns))) %in% c("H", "S"))
-    #aln_ranges <- qranges[is_aligned]
-    #rranges <- cigarRangesAlongReferenceSpace(cigar(alns))   
-    
-    #start_ranges <- min(which(width(rranges) > 0)) # The first aligned range
-    #start_ranges[1] <- 1 # Or the first range if it's the first section 
-    #end_ranges <- sapply(width(rranges), function(x) max(which(x > 0))) # The last aligned,
-    ## or the last if it's the last aligned range,
-    #end_ranges[length(end_ranges)] <- length(rranges[[length(rranges)]])
-    
-     #___________________________________  
+  # and their cigar_strings minus clipping.  Bam must have sequence availabe
   
+  # Assumptions - not a rearrangement (the first read does not get hard clipped)
+    
+  genomic_gaps <- start(chimeras[-1]) - end(chimeras[-length(chimeras)])
+  read_gaps <- first_aligned[-1] -  last_aligned[-length(last_aligned)] - 1
+  read_gaps[!read_gaps == 0] <- sprintf("%sI", read_gaps[!read_gaps == 0])
+  read_gaps[read_gaps == 0] <- ""
+  new_g_starts <- start(bam[change_pts])
+  new_g_ends <- end(bam[change_pts -1])
+  
+  # Keep the clipping on the end points, in case this needs to be searched for primers
+  # May need to be even more specific here if end of second region is hard clipped
+  new_cigars <- unclipped
+  
+  # First part of chimera, only clip the right:
+  new_cigars[change_pts] <- gsub("(^.*M)[0-9]+[HS]","\\1", cigars[change_pts])
+  
+  # Last part of a chimera, only clip the left:
+  new_cigars[change_pts[-1] -1] <- gsub("[0-9]+[HS](.*)", "\\1", cigars[change_pts[-1] -1])
+  
+  # If read was originally soft-clipped left but is not now, adjust the starting point
+  select_start <- rep(1, length(new_cigars))  
+  l_soft_clip <- grep('^[0-9]+S.*', cigars)
+  select_start[l_soft_clip] <- as.numeric(gsub("(^[0-9]+)[S].*","\\1", cigars[l_soft_clip]))
+  select_start[change_pts] <- 1
+  select_end <- sum(width(cigarRangesAlongQuerySpace(new_cigars))) + select_start - 1
+
+  sqs <- substr(mcols(chimeras)$seq, start = select_start, stop = select_end)
+  sqs[change_pts - 1] <- paste0(sqs[change_pts -1], ",")
+
+  joins <- c(sprintf("%sD%s", genomic_gaps, read_gaps), "")
+  joins[change_pts[-1] -1] <- "," 
+  new_cigars <- strsplit(do.call(paste0, as.list(paste0(new_cigars, joins))), ",")[[1]]
+
+
 }
 
 
-getInterChimeraSeq <- function(bam, chimera_idxs){
-  
+getInterChimeraSeq <- function(){
+  if (! "type" %in% names(cols(bam))) {
+    bam <- findChimeras(bam, chimera_idxs, exclude = FALSE, tag = TRUE)
+  }
+  gaps <- bam[mcols(bam)$type == "C:gap"]
+  # Need to get the seq minus clipping, and the gap len
+    
 
 }
 
@@ -220,9 +245,10 @@ classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRU
       stop("'tag' and 'exclude' are mutually exclusive.  
             Chimeras cannot be tagged if they are removed")
     }
-    if (! length(chimera_idxs) >= 2) chimera_idxs <- findChimeras(bam)         
     
-    if (length(chimera_idxs) == 0) return(bam)
+    if (length(chimera_idxs) == 0) return(bam) # Length of NA = 1
+    
+    if (length(chimera_idxs) == 1) chimera_idxs <- findChimeras(bam) # Chimeras always >= 2       
     
     if (exclude & !merge) return(bam[-chimera_idxs])
     
@@ -270,7 +296,7 @@ classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRU
     # second part of the read gap - however, here only care about +ve / -ve
     gaps <- c(1,  first_aligned[-1] - last_aligned[-length(last_aligned)])
     gaps[change_pts] <- 1
-    gap_codes <- rle(paste(gaps >= 0, nms_codes, sep = "."))
+    gap_codes <- rle(paste(gaps > 0, nms_codes, sep = "."))
     has_read_gap <- rep(gap_codes$lengths, gap_codes$lengths) == rep(nms$lengths, nms$lengths)
 
     # Rearrangements: where the first aligned base of the second segment is 
@@ -278,33 +304,34 @@ classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRU
     rearr <- first_aligned[-1] - first_aligned[-length(first_aligned)]
     rearr <- c(1, rearr)
     rearr[change_pts] <- 1
+    rearr <- rearr < 0
 
-    mergeable <- chimera_idxs[one_chr & same_strd & has_genome_gap & has_read_gap & !rearr]
+    mergeable <- one_chr & same_strd & has_genome_gap & has_read_gap & !rearr
     
     if (verbose == TRUE){ 
       format_zero <- function(x) ifelse(is.nan(x), 0, x)
       nchm <- length(chimera_idxs)
       noc <- sum(one_chr == "TRUE")
       nss <- sum(one_chr & !same_strd == "TRUE")
-      ngdup <- sum(!has_genome_gap & one_chr & same_strd == TRUE)
-      nrdup <- sum(has_genome_gap & one_chr & same_strd & ! has_read_gap == "TRUE")
-      nrearr <- sum(has_genome_gap & one_chr & same_strd & has_read_gap & rearr == "TRUE")
+      nrearr <- sum(one_chr & same_strd & rearr == "TRUE")
+      ngdup <- sum(!has_genome_gap & one_chr & same_strd & !rearr == "TRUE")
+      nrdup <- sum(has_genome_gap & one_chr & same_strd & !has_read_gap & !rearr == "TRUE")
       mrg <- sum(one_chr & same_strd & has_genome_gap & has_read_gap & ! rearr == "TRUE")
       if (! is.na(name)) cat(sprintf("Chimera statistics for %s:\n", name))  
       cat(sprintf(paste0("%s (%.2f%%) chimeras in %s reads\n",  
       "  %s (%.2f%%) map to the same chromosome\n", 
       "    %s (%.2f%%) map to different strands (inversions)\n",
+      "    %s (%.2f%%) rearrangements (end of read maps before start)\n",
       "    %s (%.2f%%) genomic duplications (different read locs mapped to same genomic loc)\n",
       "    %s (%.2f%%) read duplications (different genomic locs mapped to same read loc)\n",
-      "    %s (%.2f%%) rearrangements (end of read maps before start)\n",
       "    %s (%.2f%%) are long gaps (can be merged)\n\n"),
       nchm, format_zero(nchm/length(bam)*100), length(bam),
       noc, format_zero(noc/nchm*100),
       nss, format_zero(nss/noc*100),
+      nrearr, format_zero(nrearr/noc*100),
       ngdup, format_zero(ngdup/noc*100),
       nrdup, format_zero(nrdup/noc*100),
-      nrearr, format_zero(nrearr/noc*100),
-      mrg, format_zero(mrg/noc*100)))    
+      mrg, format_zero(mrg/noc*100))) 
     }
       
    if (tag == TRUE){
@@ -314,9 +341,10 @@ classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRU
      mcols(bam)$type[chimera_idxs[one_chr & ! same_strd]] <- "C:inv"
      mcols(bam)$type[chimera_idxs[one_chr & same_strd & ! has_genome_gap]] <- "C:gdup"
      mcols(bam)$type[chimera_idxs[one_chr & same_strd & ! has_read_gap]] <- "C:rdup"
-     rg_dup <- chimera_idxs[one_chr & same_strd & ! has_read_gap & ! has_read_gap]
+     rg_dup <- chimera_idxs[one_chr & same_strd & ! has_genome_gap & ! has_read_gap]
      mcols(bam)$type[rg_dup] <- "C:rgdup"
-     mcols(bam)$type[mergeable] <- "C:del"
+     mcols(bam)$type[rearr & one_chr & same_strd] <- "C:rearr"
+     mcols(bam)$type[chimera_idxs[mergeable]] <- "C:gap"
      return(bam)
    }
     
@@ -368,76 +396,131 @@ plotAlleleFreqs <- function(allele_freqs, size = pt_size){
 }
 
 barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL, 
-                               group_colours = NULL, legend_text_size = 10){
-  
+                               group_colours = NULL, legend_text_size = 10, 
+                               legend_symbol_size = 1, show_percentage = TRUE, 
+                               snv_label = "SNV", novar_label = "no variant"){
   
   clrs <- bar_colours
+  #if (is.null(clrs)){
+  #  clrs <- c("#D92120", "#E6642C", "#E68E34", "#D9AD3C", "#B5BD4C", "#7FB972",
+  #            "#63AD99", "#55A1B1", "#488BC2", "#4065B1", "#413B93", "#781C81")
+  #}
+  
   if (is.null(clrs)){
-    clrs <- c("#D92120", "#E6642C", "#E68E34", "#D9AD3C", "#B5BD4C", "#7FB972",
-              "#63AD99", "#55A1B1", "#488BC2", "#4065B1", "#413B93", "#781C81")
+    clrs <- c("#D92120","#E78532","#6DB388","#539EB6","#3F60AE","#781C81")
   }
+  
   ac <- allele_counts
   if (!is.null(group)){
     group <- rev(group)
     if (is.null(group_colours)){
-     group_colours <- c("#332288","#661100","#0072B2","#117733","#882255","#D55E00",
+      group_colours <- c("#332288","#661100","#0072B2","#117733","#882255","#D55E00",
                         "#AA4499", "#009E73","#56B4E9","#CC79A7","#44AA99","#999933",
                         "#CC6677", "#E69F00","#88CCEE")
     }
-    gp_cols <- group_colours[rev(group)]
+    gp_cols <- group_colours[group]
   }
   
-  uniq <- rowSums(ac) == 1
-  ac <- ac[!uniq,, drop = FALSE]
-  ac <- rbind(ac, "Unique" = colSums(allele_counts[uniq,, drop = FALSE]))
+  #uniq <- rowSums(ac) == 1
+  #ac <- ac[!uniq,, drop = FALSE]
+  #ac <- rbind(ac, "Unique" = colSums(allele_counts[uniq,, drop = FALSE]))
+  
+  snv <- grepl(snv_label, rownames(ac))
+  ac <- ac[!snv,,drop = FALSE]
+  ac <- rbind(ac, "SNV" = colSums(allele_counts[snv,, drop = FALSE]))
+  
+  no_indel <- grepl("no variant|SNV", rownames(ac))
+  indels <- ac[!no_indel,,drop = FALSE]
+  temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
+  indel_grp <- rep(c(1:nrow(indels)), lapply(temp, length))
+  indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))), indel_grp)
+
+  inframe <- indel_ln %% 3 == 0
+  is_short <- indel_ln < 10  
+    
+  indel_grp <- rep("inframe indel < 10", nrow(indels))
+  indel_grp[is_short &! inframe] <- "frameshift indel < 10"
+  indel_grp[!is_short & inframe] <- "inframe indel > 10"   
+  indel_grp[!is_short & !inframe] <- "frameshift indel > 10"
+  
+  grouped <- rowsum(indels, indel_grp)
+  ac <- ac[no_indel,,drop = FALSE] 
+  ac <- rbind(ac, grouped)
+   
+  var_order <- c(novar_label, snv_label, "inframe indel < 10", "inframe indel > 10",
+                 "frameshift indel < 10", "frameshift indel > 10")
+  ac <- ac[intersect(var_order, rownames(ac)),]
+        
+  ### ERROR IF ONLY ONE COLUMN HERE
   af <- melt(sweep(ac, 2, colSums(ac), "/"))
+  
   colnames(af) <- c("Variant", "Sample", "Percent")
-  af$Sample <- factor(af$Sample, level = rev(unique(af$Sample)))
-  p <- ggplot(af, aes(x = Sample, y = Percent, fill = Variant)) + geom_bar(stat = "Identity") + 
-       scale_fill_manual(values = clrs[1:nrow(ac)]) +  xlab(NULL) + ylab(NULL) + 
+  af$Variant <- factor(af$Variant, levels = var_order)                      
+  
+  af$Sample <- factor(af$Sample, level = rev(unique(af$Sample)))  
+  
+  var_clrs <- clrs[table(af$Variant) > 0]
+ 
+  p <- ggplot(af, aes(x = Sample, y = Percent, fill = Variant)) + 
+       geom_bar(stat = "Identity", size = 10) + 
+       scale_fill_manual(values = var_clrs) +  xlab(NULL) + ylab(NULL) + 
        scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
+       guides(fill=guide_legend(override.aes=list(size=legend_symbol_size), nrow = 2)) + 
        theme_bw() + coord_flip() + 
        theme(legend.position = "bottom", legend.title = element_blank(), 
              legend.text = element_text(size = legend_text_size),
-             plot.margin = unit(c(1,0,0.5,0),"lines"))
+             plot.margin = unit(c(0.5,0.5,0.5,0),"lines"),
+             panel.grid.major = element_blank(), panel.grid.minor = element_blank())
        
   if (! is.null(group)){
     p <- p + theme(axis.text.y=element_text(colour= gp_cols))
-    #hlines <- seq_along(group)[!duplicated(group)]
-    #hlines <- hlines[2:length(hlines)] - 0.5
-    #p <- p + geom_vline(xintercept= hlines, colour = "black", size = 1.5)
+    hlines <- seq_along(group)[!duplicated(group)]
+    hlines <- hlines[2:length(hlines)] - 0.5
+    p <- p + geom_vline(xintercept= hlines, colour = "black", size = 1)
   }
   
-  g <- ggplot(als, aes(x=1, y=1:nrow(als), label = Allele)) + geom_text(size = 4) + 
-         geom_tile(fill = "transparent", colour = "black", size = 1) + 
-         theme_minimal() + xlab(NULL) + ylab(NULL) + ggtitle("Variant alleles") +
-         scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
-         theme(axis.ticks = element_blank(), axis.text = element_blank(),
-               panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-               plot.title = element_text(vjust = -0.4, hjust = 1.1),
-               plot.margin = unit(c(1,0,0.5,0),"lines"))
-      
-  pgrob <- ggplotGrob(p)
-  ggrob <- ggplotGrob(g)
-  ggrob$heights <- pgrob$heights  
-  
-  grid.arrange(pgrob, ggrob, ncol = 2, widths = c(9,1))
+  #g <- ggplot(als, aes(x=1, y=1:nrow(als), label = Allele)) + geom_text(size = 4) + 
+  #       geom_tile(fill = "transparent", colour = "black", size = 1) + 
+  #       theme_minimal() + xlab(NULL) + ylab(NULL) + ggtitle("Variant alleles") +
+  #       scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
+  #       theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  #             panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  #             plot.title = element_text(vjust = -0.4, hjust = 1.1),
+  #             plot.margin = unit(c(1,0,0.5,0),"lines"))
+  #    
+  #pgrob <- ggplotGrob(p)
+  #ggrob <- ggplotGrob(g)
+  #ggrob$heights <- pgrob$heights  
+  #
+  #grid.arrange(pgrob, ggrob, ncol = 2, widths = c(9,1))
 
   # table
   dat <- data.frame(Sample = colnames(allele_counts), 
            Vals = c(colSums(allele_counts),colSums(allele_counts != 0)), 
-           Col = rep(c("Variants","Alleles"), each = ncol(allele_counts)))
-
-  q <- ggplot(dat, aes(x= Col, y = Sample, label = Vals)) + 
-       geom_text() + geom_tile(fill = "transparent", colour = "black", size = 1) + 
-       theme_minimal() + xlab(NULL) + ylab(NULL) + 
-       theme(axis.text.x = element_text(angle = 90))
-
-  #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+           Col = rep(c("Sequences","Alleles"), each = ncol(allele_counts)))
   
-
-
-               
+  dat$Sample <- factor(dat$Sample, level = rev(unique(af$Sample))) 
+  
+  q <- ggplot(dat, aes(x = Col, y = Sample, label = Vals)) + 
+       geom_tile(fill = "white", colour = "black", size = 1) + geom_text() + 
+       scale_y_discrete(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
+       theme_bw() + xlab(NULL) + ylab(NULL) + 
+       theme(axis.text.x = element_text(angle = 90),
+             axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+             plot.margin = unit(c(0.25,0.25,10,0), "lines"))
+  
+   # q <- q + scale_fill_manual(value = "transparent")
+  
+  #print(q)
+  
+  pgrob <- ggplotGrob(p)
+  ggrob <- ggplotGrob(q)
+  ggrob$heights <- pgrob$heights  
+  
+  return(grid.arrange(pgrob, ggrob, ncol = 2, widths = c(8,2), newpage = FALSE))
+  
+  #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+             
      # g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff), 
      #                  size = plot_text_size)
 }
@@ -455,13 +538,13 @@ cigarFrequencyHeatmap <- function(cigar_freqs, as_percent = TRUE, x_size = 16, y
   cig_freqs <- cigar_freqs
   if (col_sums == TRUE){
     # Make space for totals to be added
-    cig_freqs <- rbind(Total = rep(NA, ncol(cigar_freqs)), cigar_freqs)
+    cig_freqs <- rbind(Total = rep(NA, ncol(cig_freqs)), cig_freqs)
   }
   
   # If a sample group is supplied, reorder the columns of counts  
   if (!is.null(group)){
     group <- as.factor(group)  
-    cig_freqs <- cig_freqs[,order(group)]
+    cig_freqs <- cig_freqs[,order(group), drop = FALSE]
 
     if (is.null(group_colours)){
               
@@ -1217,7 +1300,7 @@ CrisprRun$methods(
       vars$id <- names(.self$alns[vars$id])
       vars <- vars[,c("chrom","start","end","allele","strand","id")]
     }
-
+    vars$chrom <- gsub("chr", "", vars$chrom)
     vars
   },
   
@@ -1375,8 +1458,8 @@ CrisprSet$methods(
                            verbose = verbose, ...) 
     
     if (! is.null(names)) names(.self$crispr_runs) <- names
-    nonempty_runs <<-  sapply(.self$crispr_runs, function(x) {
-                              ! class(x$alns) == "uninitializedField"})
+    nonempty_runs <<- sapply(.self$crispr_runs, function(x) {
+                             ! class(x$alns) == "uninitializedField"})
     
     .self$crispr_runs <<- .self$crispr_runs[.self$nonempty_runs]
     if (length(.self$crispr_runs) == 0) stop("no on target runs")
