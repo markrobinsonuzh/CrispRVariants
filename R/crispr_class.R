@@ -6,7 +6,9 @@ library(gridExtra)
 
 # sangerseqR, GenomeFeatures should be in "sugests"
 
-
+# Give ab1ToFasta a open = "a" option to allow appending or overwriting?
+# CrisprSet needs to store the guide location, cut site
+# To do - add name to CrisprSet, add names to CrisprSet$cripsr_runs (easier access)
 # No on target runs shouldn't stop script entirely?
 # Possible bug - don't actually check the start of cigars, could have the same cigar different start?
 # To do - store target in CrisprSet (lose flexibility to specify a smaller set)
@@ -170,18 +172,23 @@ findHighCovRegions <- function(chimeras, min_cov = 1000){
   retunr(slgr)
 }
 
-.mergeChimeras <- function(chimeras, cigars, change_pts, unclipped){
+.mergeChimeras <- function(chimeras, cigars, change_pts, unclipped, del_lens, max_overlap = 0){
   # To merge, require the indices of the chimeras in the bam, 
-  # and their cigar_strings minus clipping.  Bam must have sequence availabe
-  
+  # and their cigar_strings minus clipping.  Bam must have sequence available
+    
   # Assumptions - not a rearrangement (the first read does not get hard clipped)
     
   genomic_gaps <- start(chimeras[-1]) - end(chimeras[-length(chimeras)])
+  
+  #____________________________________
+  # Change here to <= max overlap
   read_gaps <- first_aligned[-1] -  last_aligned[-length(last_aligned)] - 1
   read_gaps[!read_gaps == 0] <- sprintf("%sI", read_gaps[!read_gaps == 0])
   read_gaps[read_gaps == 0] <- ""
-  new_g_starts <- start(bam[change_pts])
-  new_g_ends <- end(bam[change_pts -1])
+  #____________________________________
+  
+  new_g_starts <- start(chimeras[change_pts])
+  new_g_ends <- end(chimeras[change_pts -1])
   
   # Keep the clipping on the end points, in case this needs to be searched for primers
   # May need to be even more specific here if end of second region is hard clipped
@@ -200,13 +207,43 @@ findHighCovRegions <- function(chimeras, min_cov = 1000){
   select_start[change_pts] <- 1
   select_end <- sum(width(cigarRangesAlongQuerySpace(new_cigars))) + select_start - 1
 
+
+  # If one genomic location maps to multiple read locs, 
+  # must trim the overlapping section to get a valid cigar string
+
+  # OR CONSIDER IT AN INSERTION
+  
+  # Trim the reads
+  gdels <- mcols(chimeras)$type %in% c("C:gdup", "C:rgdup")
+  del_lns <- c(0, del_lns)
+  rcut <- rep(0, length(del_lns))
+  tocut <- del_lns <= 0
+  rcut[tocut] <- -1 * del_lns[tocut] + 1
+  rcut[change_pts] <- 0
+  tocut <- rcut > 0 & gdels
+  
+  # Shift the genomic coordinates accordingly
+  new_g_starts[tocut] <- new_g_starts[tocut] + rcut[tocut]
+  new_g_ends[tocut] <- new_g_ends[tocut] + rcut[tocut]
+
+  subtracted <-  as.numeric(gsub("([0-9]+)(M.*)", "\\1", new_cigars[tocut])) - rcut[tocut]
+  remaining <- sprintf("%s%s", subtracted, gsub("([0-9]+)(M.*)", "\\2", new_cigars[tocut]))
+  
+  # When the overlap crosses multiple operations, do not merge (difficult!)
+  is_positive <- !grepl("^-",subtracted)
+  subtracted <- sprintf("%sI%s", rcut[tocut], remaining)
+  new_cigars[tocut&is_positive] <- subtracted[is_positive] 
+
   sqs <- substr(mcols(chimeras)$seq, start = select_start, stop = select_end)
   sqs[change_pts - 1] <- paste0(sqs[change_pts -1], ",")
+
 
   joins <- c(sprintf("%sD%s", genomic_gaps, read_gaps), "")
   joins[change_pts[-1] -1] <- "," 
   new_cigars <- strsplit(do.call(paste0, as.list(paste0(new_cigars, joins))), ",")[[1]]
 
+  # To do: merge the genomic duplications - find the region represented twice,
+  # select only one part of read, adjust accordingly
 
 }
 
@@ -324,7 +361,7 @@ classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRU
       "    %s (%.2f%%) rearrangements (end of read maps before start)\n",
       "    %s (%.2f%%) genomic duplications (different read locs mapped to same genomic loc)\n",
       "    %s (%.2f%%) read duplications (different genomic locs mapped to same read loc)\n",
-      "    %s (%.2f%%) are long gaps (can be merged)\n\n"),
+      "    %s (%.2f%%) are long gaps\n\n"),
       nchm, format_zero(nchm/length(bam)*100), length(bam),
       noc, format_zero(noc/nchm*100),
       nss, format_zero(nss/noc*100),
@@ -412,7 +449,7 @@ barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL,
   
   ac <- allele_counts
   if (!is.null(group)){
-    group <- rev(group)
+    group <- rev(group) # as ggplot plots bottom up
     if (is.null(group_colours)){
       group_colours <- c("#332288","#661100","#0072B2","#117733","#882255","#D55E00",
                         "#AA4499", "#009E73","#56B4E9","#CC79A7","#44AA99","#999933",
@@ -449,7 +486,13 @@ barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL,
    
   var_order <- c(novar_label, snv_label, "inframe indel < 10", "inframe indel > 10",
                  "frameshift indel < 10", "frameshift indel > 10")
+  
+  var_labels <- c(novar_label, snv_label, "inframe indel < 10", 
+                 expression("inframe indel" >= 10),
+                 "frameshift indel < 10", expression("frameshift indel" >= 10))
+  
   ac <- ac[intersect(var_order, rownames(ac)),]
+              
         
   ### ERROR IF ONLY ONE COLUMN HERE
   af <- melt(sweep(ac, 2, colSums(ac), "/"))
@@ -457,7 +500,7 @@ barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL,
   colnames(af) <- c("Variant", "Sample", "Percent")
   af$Variant <- factor(af$Variant, levels = var_order)                      
   
-  af$Sample <- factor(af$Sample, level = rev(unique(af$Sample)))  
+  af$Sample <- factor(af$Sample, levels = rev(unique(af$Sample)))  
   
   var_clrs <- clrs[table(af$Variant) > 0]
  
@@ -465,7 +508,8 @@ barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL,
        geom_bar(stat = "Identity", size = 10) + 
        scale_fill_manual(values = var_clrs) +  xlab(NULL) + ylab(NULL) + 
        scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
-       guides(fill=guide_legend(override.aes=list(size=legend_symbol_size), nrow = 2)) + 
+       guides(fill=guide_legend(labels = var_labels, 
+              override.aes=list(size=legend_symbol_size), nrow = 2)) + 
        theme_bw() + coord_flip() + 
        theme(legend.position = "bottom", legend.title = element_blank(), 
              legend.text = element_text(size = legend_text_size),
@@ -1414,7 +1458,7 @@ CrisprRun$methods(
     rr <- strsplit(as.character(ref), "")[[1]]
     result <- apply(no_var_seqs, 1, function(x) sprintf("%s:%s", mismatch_label, 
                      paste(which((x != rr & x != "N")) - cut_site -1, collapse = ",")))
-   
+    result[result == sprintf("%s:", mismatch_label)] <- match_label
     cig_labels[no_var] <- result 
     return(cig_labels)       
   }
@@ -1469,6 +1513,11 @@ CrisprSet$methods(
                            target_start = target_start, target_end = target_end, 
                            rc = rc, match_label = match_label, ref = ref)
     .self$.countCigars(cig_by_run)
+  },
+  
+  show = function(){
+    print(c(class(.self), sprintf("CrisprSet object containing %s CrisprRun samples", 
+            length(.self$crispr_runs), .self$cigar_freqs)
   },
   
   .setCigarLabels = function(renumbered = FALSE, target_loc = NA, target_start = NA,
@@ -1705,7 +1754,7 @@ CrisprMultiplex$methods(
      
   },
     
-  readMultiplexBam = function(bam_fname, crispr_targets, pcr_targets = NA, tolerance = 4,
+  readMultiplexBam = function(bam_fname, crispr_targets, pcr_targets = NULL, tolerance = 4,
                               merge_chimeras = FALSE, exclude_chimeras = TRUE, 
                               tag_chimeras = FALSE, name = NA, exclude_ranges = GRanges(),  
                               exclude_names = NA, mapq = NA, verbose = TRUE){
@@ -1749,7 +1798,7 @@ CrisprMultiplex$methods(
     
     # Distribute reads between targets
     
-    if (! is.na(pcr_targets)){        
+    if (! is.null(pcr_targets)){        
     
       # Extrapolate genomic coords for clipped sections
       l_clip <- as.numeric(gsub(".*[A-Z].*", 0, gsub("[HS].*","", cigar(bam))))
@@ -1758,6 +1807,7 @@ CrisprMultiplex$methods(
       
       hits_pcr <- findOverlaps(bamgr, pcr_targets, ignore.strand = TRUE, 
                                type = "equal", maxgap = tolerance)
+      
       hits_pcr_l <- length(unique(hits_pcr@queryHits))
       if (verbose == TRUE){
         cat(sprintf("%s from %s (%.2f%%) reads overlap a pcr region\n", 
@@ -1770,16 +1820,11 @@ CrisprMultiplex$methods(
       }
       
       if (any(duplicated(hits_pcr@queryHits))){
-        warn("Cannot distinguish pcr targets with this tolerance")
+        warning("Cannot distinguish pcr targets with this tolerance")
       }      
     }
     
     
-    
-    
-    
-
-  
     ## Find reads that partially cover the target site 
     #partially_on_target <- factor(as.character((start(bam) <= target_start | end(bam) >= target_end) & 
     #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
@@ -1790,6 +1835,11 @@ CrisprMultiplex$methods(
     #is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
     #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
 
+
+    by_target <- split(queryHits(rhits), subjectHits(rhits))
+       
+       
+       
 
   }   
   
