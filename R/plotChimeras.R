@@ -8,7 +8,7 @@
 #'aligned segments are collapsed and indicated on the plot with horizontal lines.  
 #'The X-axis shows each base of the entire read.    
 #'
-#'@param chimera_alns A GAlignments object containing only the chimeric
+#'@param chimeric_alns A GAlignments object containing only the chimeric
 #' reads to be plotted 
 #'@param max_gap The maximum gap between aligned blocks allowed 
 #'aligned before blocks are collapsed, in bases.  Default 10
@@ -16,21 +16,25 @@
 #'@param text_size Size of X and Y tick labels on plot.  Default 12
 #'@param title_size Size of X and Y axis labels on plot.  Default 16
 #'@param legend_title Title for the legend.  Default "Chromosome"
-#'
 #'@author Helen Lindsay
+#'
 #'@import GenomicAlignments
-#'@import GenomicRanges
 #'@import ggplot2
+#'@import grid
 #'@import gridExtra
+#'@import GenomicRanges
+#'@import IRanges
+#'@import methods
 #'@export
 #'
-plotChimeras <- function(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 12,  
+plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 12,  
                          title_size = 16, legend_title = "Chromosome"){
   # max_gap: if genomic segments are separated by more than max_gap, 
   #          a gap in the y-axis will be introduced
   
-  cigars <- cigar(chimera_alns)
-  genomic_locs <- as(chimera_alns, "GRanges")
+  # To do: allow a region of interest to be annotated
+  cigars <- cigar(chimeric_alns)
+  genomic_locs <- as(chimeric_alns, "GRanges")
   
   ops <- CharacterList(explodeCigarOps(cigars))
   query_ranges <- cigarRangesAlongQuerySpace(cigars)

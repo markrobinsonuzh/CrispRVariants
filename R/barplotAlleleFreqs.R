@@ -1,3 +1,19 @@
+#'Plots barplots of the spectrum of variants for a sample set
+#'
+#'Given a matrix of counts with columns being samples and rows being 
+#'variant alleles, groups variants by size and type, and produces a 
+#'barplot showing the variant spectrum for each sample. 
+#'@author Helen Lindsay
+#'@param allele_counts
+#'@param group
+#'@param bar_colours
+#'@param group_colours
+#'@param legend_text_size 
+#'@param legend_symbol_size
+#'@param show_percentage
+#'@param snv_label
+#'@param novar_label
+#' 
 barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL, 
                                group_colours = NULL, legend_text_size = 10, 
                                legend_symbol_size = 1, show_percentage = TRUE, 

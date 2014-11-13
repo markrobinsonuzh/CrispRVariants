@@ -1188,9 +1188,11 @@ CrisprRun$methods(
     short_ops <- split(short_ops, cig_idxs)
     short_ops <- sapply(short_ops, function(x) do.call(paste, c(as.list(x),sep = ",")))
     result[as.numeric(names(short_ops))] <- short_ops
+    print("splitting non indel")
     if (split_non_indel){
       result <- .splitNonIndel(ref, result, match_label, mismatch_label, cut_site)
     }
+    print(result)
     cigar_labels <<- result
     result
   },

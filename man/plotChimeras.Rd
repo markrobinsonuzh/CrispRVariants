@@ -3,11 +3,11 @@
 \alias{plotChimeras}
 \title{Display a dot plot of chimeric alignments}
 \usage{
-plotChimeras(chimera_alns, max_gap = 10, tick_sep = 20, text_size = 12,
+plotChimeras(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 12,
   title_size = 16, legend_title = "Chromosome")
 }
 \arguments{
-\item{chimera_alns}{A GAlignments object containing only the chimeric
+\item{chimeric_alns}{A GAlignments object containing only the chimeric
 reads to be plotted}
 
 \item{max_gap}{The maximum gap between aligned blocks allowed
