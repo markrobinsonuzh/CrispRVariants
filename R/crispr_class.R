@@ -77,91 +77,6 @@ row.names(amino_colours) <- amino_colours[,"AA"]
 #"X")
 
 
-writeFastq <- function(outf, vals, allow_spaces = FALSE){
-    nms <- ifelse(allow_spaces, vals$seqname, gsub(" ", "_", vals$seqname))
-    o <- file(outf, "a")
-    seqname <- sprintf("@%s", nms)
-    qualname <- sprintf("+%s", nms)
-    writeLines(c(seqname, vals$seq, qualname, vals$quals) , o)
-    close(o)
-}
-
-abifToTrimmedFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05, 
-                               min_seq_len = 20, offset = 33){
-    
-    # This is an R implementation of Wibowo Arindrarto's abifpy.py trimming module,
-    # which itself implement's Richard Mott's trimming algorithm
-    # https://github.com/bow/abifpy
-        
-    sangerseqr <- require(sangerseqR)
-    stopifnot(sangerseqr == TRUE)
-    
-    # Translation of python function
-    abif <- read.abif(fname)
-    if (is.null(abif@data$PCON.2)){
-       print(sprintf("failed on %s", seqname))
-       return()
-    }
-    
-    # Remove the extra character if it exists
-    nucseq <- substring(abif@data$PBAS.2, 1, length(abif@data$PLOC.2))
-    num_quals <- utf8ToInt(abif@data$PCON.2)[1:length(abif@data$PLOC.2)] 
-     
-    if (trim == FALSE){
-        writeFastq(outfname, list("seq" = nucseq, "quals" = rawToChar(as.raw(num_quals + 33))))
-        return()
-    }
-    
-    if (nchar(nucseq) <= min_seq_len){
-        stop('Sequence can not be trimmed because it is shorter than the trim segment size')
-    } 
-    scores = cutoff - 10^(num_quals / -10)
-    running_sum <- rep(0, length(scores) + 1)
-     
-    # Note running_sum counts from zero, scores from 1 
-    for (i in 1:length(scores)){
-       num <- scores[i] + running_sum[i]
-       running_sum[i+1] <- ifelse(num < 0, 0, num)
-    }
-
-    trim_start <- min(which(running_sum > 0)) - 1
-    trim_finish <- which.max(running_sum) - 2 
-    # -1 for running_sum offset, -1 because python doesn't include ends
-
-    writeFastq(outfname, list("seqname" = seqname, "seq" = substring(nucseq, trim_start, trim_finish),
-                "quals" = rawToChar(as.raw(num_quals[trim_start:trim_finish]+offset))))
-    return()
-}
-
-reverseCigar <- function(cigar){
-   cigar.widths <- rev(strsplit(cigar, '[A-Z]')[[1]])
-   cigar.ops <- rev(explodeCigarOps(cigar)[[1]])
-   paste0(cigar.widths,cigar.ops, collapse = "")
-}
-
-excludeFromBam <- function(bam, exclude_ranges = GRanges(), exclude_names = NA){
-  if (length(exclude_ranges) > 0) bam <- excludeFromBamByRange(bam, exclude_ranges)
-  if (! is.na(exclude_names)) bam <- excludeFromBamByName(bam, exclude_names)
-  return(bam)
-}
-
-excludeFromBamByName <- function(bam, exclude_names){
-  excluden <- which(names(bam) %in% exclude_names)     
-  bam <- bam[setdiff(seq_along(bam), excluden)]
-}
-
-excludeFromBamByRange <- function(bam, exclude_ranges){
-  fo <- findOverlaps(bam, exclude_ranges)@queryHits
-  return(bam[setdiff(seq_along(bam), fo)])
-}
-
-findChimeras <- function(bam){
-  # Assumes bam does not contain multimapping reads
-  chimera_idxs <- which(names(bam) %in% names(bam)[duplicated(names(bam))]) 
-  chimera_idxs <- chimera_idxs[order(as.factor(names(bam)[chimera_idxs]))]
-  return(chimera_idxs)
-}
-
 findHighCovRegions <- function(chimeras, min_cov = 1000){
   # Chimeras: GAlignments obj
   chimera_cov <- coverage(chimeras)
@@ -1517,7 +1432,7 @@ CrisprSet$methods(
   
   show = function(){
     print(c(class(.self), sprintf("CrisprSet object containing %s CrisprRun samples", 
-            length(.self$crispr_runs), .self$cigar_freqs)
+            length(.self$crispr_runs)), .self$cigar_freqs))
   },
   
   .setCigarLabels = function(renumbered = FALSE, target_loc = NA, target_start = NA,
@@ -1837,9 +1752,6 @@ CrisprMultiplex$methods(
 
 
     by_target <- split(queryHits(rhits), subjectHits(rhits))
-       
-       
-       
 
   }   
   

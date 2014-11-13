@@ -1,0 +1,17 @@
+Package: CrispRVariants
+Title: Tools for counting and visualising mutations in a target location
+Version: 0.0.0.9000
+Authors@R: "Helen Lindsay <helen.lindsay@uh.ch> [aut, cre]"
+Description: What the package does (one paragraph)
+Depends:
+    R (>= 3.1.1)
+License: GPL-2
+LazyData: true
+Imports:
+    GenomicAlignments,
+    ggplot2,
+    gridExtra,
+    reshape2,
+    Rsamtools
+Suggests:
+    sangerseqR
