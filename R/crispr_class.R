@@ -6,6 +6,7 @@ library(gridExtra)
 
 # sangerseqR, GenomeFeatures should be in "sugests"
 
+# To do - CrisprSet should also be able to take bams
 # Give ab1ToFasta a open = "a" option to allow appending or overwriting?
 # CrisprSet needs to store the guide location, cut site
 # To do - add name to CrisprSet, add names to CrisprSet$cripsr_runs (easier access)
@@ -48,33 +49,6 @@ library(gridExtra)
 # getAttr function for CrisprSet lapply(cruns, function(x) x$nm, nm)?
 # verbose abifToFastq
 
-amino_colours <- matrix(c("H", "#5555ff", "#8282D2", "#7070FF",
-                          "K", "#ffcc77", "#145AFF", "#4747B8",
-                          "R", "#ffcc77", "#145AFF", "#00007C",
-                          "D", "#55bb33", "#E60A0A", "#A00042",
-                          "E", "#55bb33", "#E60A0A", "#660000",
-                          "S", "#ff4455", "#FA9600", "#FF4C4C",
-                          "T", "#ff4455", "#FA9600", "#A00042",
-                          "N", "#55bb33", "#00DCDC", "#FF7C70",
-                          "Q", "#55bb33", "#00DCDC", "#FF4C4C",
-                          "A", "#77dd88", "#C8C8C8", "#8CFF8C",
-                          "V", "#66bbff", "#0F820F", "#FFFFFF",
-                          "L", "#66bbff", "#0F820F", "#455E45",
-                          "I", "#66bbff", "#0F820F", "#004C00",
-                          "M", "#66bbff", "#E6E600", "#B8A042",
-                          "F", "#9999ff", "#3232AA", "#534C42",
-                          "Y", "#9999ff", "#3232AA", "#B8A042",
-                          "W", "#9999ff", "#B45AB4", "#534C42",
-                          "P", "#eeaaaa", "#DC9682", "#534C42",
-                          "G", "#77dd88", "#EBEBEB", "#FFFFFF",
-                          "C", "#99ee66", "#E6E600", "#FFFF70"), 
-                          byrow = TRUE, ncol = 4)
-                         
-colnames(amino_colours) <- c("AA", "MAEditor","Amino","Shapely")
-row.names(amino_colours) <- amino_colours[,"AA"]
-#"B",
-#"Z",
-#"X")
 
 
 findHighCovRegions <- function(chimeras, min_cov = 1000){
@@ -92,6 +66,7 @@ findHighCovRegions <- function(chimeras, min_cov = 1000){
   # and their cigar_strings minus clipping.  Bam must have sequence available
     
   # Assumptions - not a rearrangement (the first read does not get hard clipped)
+  # unclipped = clipping removed
     
   genomic_gaps <- start(chimeras[-1]) - end(chimeras[-length(chimeras)])
   
@@ -115,6 +90,8 @@ findHighCovRegions <- function(chimeras, min_cov = 1000){
   # Last part of a chimera, only clip the left:
   new_cigars[change_pts[-1] -1] <- gsub("[0-9]+[HS](.*)", "\\1", cigars[change_pts[-1] -1])
   
+  
+  # HERE - DOES THIS CAUSE AN ERROR IF IT STILL IS SOFT CLIPPED?
   # If read was originally soft-clipped left but is not now, adjust the starting point
   select_start <- rep(1, length(new_cigars))  
   l_soft_clip <- grep('^[0-9]+S.*', cigars)
@@ -419,167 +396,6 @@ nucleotideToAA <- function(seqs, txdb, target_start, target_end){
     
 }
 
-plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, 
-                           target_loc = 18, pam_start = NA, pam_end = NA, 
-                           ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
-                           xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
-                           legend_text_size = 16, highlight_guide=TRUE, guide_loc = NULL){
-  
-  # ref: the reference sequence
-  # alns: named vector of aligned sequences, with insertions removed
-  # ins_sites:  table of insertion_sites, must include cols named "start", "cigar" and "seq"
-  # pam_loc: location of PAM with respect to the target site
-  # Insertion locations are determined by matching ins_sites$cigar with names(alns)
-  # All characters other than ACTG are labelled N
-    
-  # Reverse alignment order, as ggplot geom_tile plots bottom up  
-  aln_chrs <- strsplit(c(rev(alns), Reference = as.character(ref)), "")
-  
-  # Test that all alignments and reference have the same length
-  if (! length(unique(lapply(aln_chrs, length))) == 1){
-    stop("The reference sequence and the alignments must all have the same length")
-  }
-    
-  temp <- t(as.data.frame(aln_chrs))
-  rownames(temp) <- names(aln_chrs)
-  m <- melt(temp)
-  ambig_codes <- c('K','M','R','Y','S','W','B','V','H','D')
-  ambig <- which(! m$value %in% c("A", "C", "T", "G", "N", "-"))
-  
-  m$value <- as.character(m$value)  
-  m$value <- factor(m$value, levels = c(c("A", "C", "T", "G", "N", "-"), ambig_codes))  
-  m$isref <- as.character(ifelse(m$Var1 == "Reference", 1, 0.75))
-  m_cols <- c(c("#4daf4a", "#377eb8", "#e41a1c", "#000000", "#CCCCCC","#FFFFFF"),
-              rep("#CCCCCC", length(ambig_codes)))
-  names(m_cols) <- c(c("A", "C", "T", "G", "N","-"), ambig_codes)
-  m$cols <- m_cols[m$value]
-  m$text_cols <- ifelse(m$cols == "#000000" & m$isref == 1, "#FFFFFF", "#000000")
-  
-  # Colours and shapes for the insertion markers and tiles
-  shps <- c(21,23,25) 
-  clrs <- c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7",
-            "#332288","#88CCEE","#44AA99","#117733","#999933","#DDCC77","#661100",
-            "#CC6677","#882255", "#AA4499")
-
-
-  # Plot aligned sequences
-  tile_height <- 0.55
-     
-  p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols)) +
-               geom_tile(aes(alpha = isref), height = tile_height) + 
-       geom_text(aes(label = value, colour = text_cols), size = plot_text_size) + 
-       scale_alpha_manual(values = c(0.5,1), guide = "none") + 
-       ylab(NULL) + xlab(xlab) + scale_colour_identity() + 
-       theme_bw() + theme(axis.text.y = element_text(size = axis_text_size), 
-                          axis.text.x = element_text(size = axis_text_size), 
-                          axis.title.x = element_text(vjust = -0.5), 
-                          legend.position = "bottom")
-         
-  if (is.null(xtick_labs)){   
-     # expand is the distance from the axis, multiplicative + additive
-     p <- p + scale_x_continuous(expand = c(0,0.25))  
-  } else {
-    if (is.null(xtick_breaks)) {
-      stopifnot(length(xtick_labs == nchar(ref)))
-      p <- p + scale_x_continuous(expand = c(0,0.25), breaks = 1:nchar(ref),
-                                  labels = xtick_labs) 
-    } else {
-      p <- p + scale_x_continuous(expand = c(0,0.25), breaks = xtick_breaks,
-                                  labels = xtick_labs) 
-    }
-  }
-  
-  # Add line for the cut site
-  p <- p + geom_vline(xintercept= target_loc + 0.5, colour = "black", size = 2)# linetype = "dashed",
-                                     
-  # Make a data frame of insertion locations 
-  if (nrow(ins_sites) > 0){
-    
-    ins_ord <- match(ins_sites$cigar, names(aln_chrs))    
-  
-    ins_points <- data.frame(x = ins_sites[!is.na(ins_ord),"start"] - 0.5,
-                           y = na.omit(ins_ord) + 0.45, 
-                           seq = ins_sites[!is.na(ins_ord),"seq"])
-
-    # Merge multiple insertions at single plotting location, format to fixed width
-    ins_points <- ins_points[!duplicated(ins_points),]
-  
-    xy_locs <- paste(ins_points$x, ins_points$y, sep = "_")
-    seqs <- ins_sites[!is.na(ins_ord),"seq"]
-    splits <- split(ins_points$seq, xy_locs)
-    x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
-    new_seqs <- unlist(x)[unique(xy_locs)]
-    max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
-    new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
-  
-    ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
-    ins_points$seq <- new_seqs
-
-    # Specify colours and shapes for insertion symbols
-    ins_points$shapes <- as.factor(1:nrow(ins_points))
-    ins_points$colours <- as.factor(rep(clrs, 3)[1:nrow(ins_points)])
-    fill_clrs <- rep(clrs, 3)[1:nrow(ins_points)]
-    fill_shps <- rep(shps, 17)[1:nrow(ins_points)]
-  
-    legend_nrow <- ceiling(nrow(ins_points)/ legend_cols)
-
-    # Indicate insertions   
-    p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours),
-                      colour = "#000000", size = ins_size)  +
-     scale_fill_identity() + 
-     scale_shape_manual(name = "", values = fill_shps, breaks = ins_points$shapes, labels = ins_points$seq) +
-     guides(shape = guide_legend(nrow = legend_nrow, override.aes = list(fill = fill_clrs, size = 8)))#,
-     p <- p + theme(legend.key = element_blank(), 
-                    legend.text = element_text(size = legend_text_size),
-                    legend.margin = unit(2, "lines"))
-
-  } else{
-    p <- p + scale_fill_identity() 
-  }
-
-
-  if (highlight_guide){
-  ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.25)
-  ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.25)
-  
-  if (is.null(guide_loc)){
-    xmin <- target_loc - 17.5
-    xmax <- xmin + 23
-  } else {
-    xmin <- start(guide_loc) - 0.5
-    xmax <- end(guide_loc) + 0.5
-  }
-
-  guide_df <- data.frame(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
-  p <- p + geom_rect(data = guide_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, 
-                     ymax = ymax, color = "black", x = NULL, y = NULL),
-                      size = 2, fill = "transparent") 
-  }
-
-  # If pam_loc is given, highlight the pam in the reference
-  #  - 0.5 for tile boundaries not centres
-  if (! is.na(pam_start)){    
-    if (is.na(pam_end)){
-      pam_end <- pam_start + 2
-    }
-    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.5,
-                         ymin = length(names(aln_chrs)) - (tile_height / 2 + 0.2),
-                         ymax = length(names(aln_chrs)) + (tile_height / 2 + 0.2))
-    p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
-                        ymax = ymax, x = NULL, y = NULL),
-                         color = "black", size = 3, fill = "transparent") 
-    p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
-               xmin = pam_df$xmin, xmax = pam_df$xmax, 
-               ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
-  }
-      
-
-  if (show_plot == TRUE){
-    print(p)
-  }
-  return(p)
-}
-
 panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p, 
                       col_widths = c(2, 1), fig_height = NULL, row_ht_ratio = c(1,6), 
                       panel_margin = unit(c(0.25,0.25,0.25,0.25), "lines"), gene_text_size = 20, 
@@ -666,50 +482,31 @@ CrisprRun = setRefClass(
              "ref_ranges",
              "genome_ranges",
              "cigar_ops",
-             "off_target",
-             "long_dels",
              "insertions",
              "ins_key", 
-             ".read_types",
              "cigar_labels")
 )
 
 CrisprRun$methods(
-  initialize = function(bam, target_chr, target_start, target_end, rc = FALSE, 
-                        name = NULL, count_unmapped = TRUE, merge_chimeras = FALSE, 
-                        tag_chimeras = TRUE, exclude_chimeras = FALSE, 
-                        exclude_ranges = GRanges(), exclude_names = NA, verbose = TRUE){
+  initialize = function(bam, target, rc = FALSE, name = NULL, 
+                        merge_chimeras = FALSE, tag_chimeras = TRUE, 
+                        exclude_chimeras = FALSE, 
+                        exclude_ranges = GRanges(), exclude_names = NA,
+                        verbose = TRUE){
+#Description:
+#
+#Input parameters:    
     
     # bam can either be GAlignments or the filename to read
     # Cigars don't work as is for plotting, so set cigar_label attribute                    
-    
-    .read_types <<- list()
-    
-    name <<- ifelse(is.null(name), bam, name)
-
-    if (verbose == TRUE) cat(sprintf("Initialising %s\n", .self$name))
-
-    if (class(bam) == "character"){
-    
-      galns <- .readBam(bam, target_chr, target_start, target_end, merge_chimeras, 
+    # if giving a bam, it must be on target
+      
+      name <<- ifelse(is.null(name), bam, name)
+      if (verbose == TRUE) cat(sprintf("Initialising %s\n", .self$name))
+      
+      on_target <- .readBam(bam, target_chr, target_start, target_end, merge_chimeras, 
                   tag_chimeras, exclude_chimeras, exclude_ranges, exclude_names, verbose)
-    
-      if (count_unmapped == TRUE){
-        param <- ScanBamParam(what = c("qname"), flag=scanBamFlag(isUnmappedQuery=TRUE))
-        .read_types[scanBam(bam, param = param)[[1]]$qname] <<- "unmapped"
-      }
         
-      off_target <<- galns[["off_target"]]
-      on_target <- galns[["on_target"]]
-        
-      if (length(on_target) == 0) return()
-    
-    } else if (class(bam) == "GAlignments"){
-      on_target <- bam
-    
-    } else {
-      stop("bam can only be a filename or a GAlignments object")
-    }
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(on_target))
     query_ranges <<- cigarRangesAlongQuerySpace(cigar(on_target))
     
@@ -722,99 +519,6 @@ CrisprRun$methods(
     print(c(class(.self), sprintf("CrisprRun object named %s, with %s on target alignments.", 
                 .self$name, length(.self$alns)), .self$alns))
   },
-  
-  .readBam = function(bam_fname, target_chr, target_start, target_end, merge_chimeras,
-                     tag_chimeras, exclude_chimeras, exclude_ranges = GRanges(), 
-                     exclude_names = NA, verbose = TRUE){
-                     
-    # This function reads a bam file and classifies reads as on_target if they 
-    # completely span the target, region, and off_target otherwise. 
-    #
-    # Note that unmapped reads are discarded by readGAlignments, 
-    # and are not counted as "off-target" reads
-    #
-    # "exclude_ranges" should be a GRanges object of regions that should not be counted,
-    #  e.g. primer or cloning vector sequences that have a match in the genome   
-    #
-    # If merge_chimeras = TRUE, chimeric reads (alignments with a large gap, split 
-    # over two lines) are merged if both sequences are from the same chromosome, 
-    # do not overlap, and are aligned to the same strand.
-    # It is assumed that sequences with two alignments are chimeras, not alternate mappings
-    # 
-    # All alignments are read in, and off-target alignments are annotated    
-    vb <- verbose
-  
-    param <- ScanBamParam(what = c("seq"))
-    bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
-    
-    #.read_types <<- sapply(unique(names(bam)), function(x) NA) 
-    
-    #Exclude reads
-    temp <- excludeFromBam(bam, exclude_ranges, exclude_names)    
-    .read_types[setdiff(names(bam), names(temp))] <<- "excluded"
-    if (vb == TRUE){
-       original <- length(bam)
-       cat(sprintf("Read %s alignments, excluded %s\n", original, original - length(temp)))
-    }
-    bam <- temp         
-    
-    # Tag, merge, and/or exclude chimeric sequences
-    if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
-   
-        
-    if (any(c(merge_chimeras, exclude_chimeras, tag_chimeras)) == TRUE){      
-      if (tag_chimeras == TRUE){
-        chimera_idxs <- findChimeras(bam)
-        bam <- classifyChimeras(bam, chimera_idxs, exclude = FALSE, merge = FALSE, 
-                              tag = tag_chimeras, verbose = vb, name = name)
-        
-        if (merge_chimeras == TRUE){
-        
-        }
-        if (exclude_chimeras == TRUE){
-          chimera_nms <- names(bam[chimera_idxs])
-          chimera_types <- mcols(bam[chimera_idxs])$type
-          
-          # ADD UNIQUE COMBINATIONS OF THESE TO READ_TYPES ARG
-        }
-        
-      } else {
-        bam <- classifyChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
-                              tag = tag_chimeras, verbose = vb, name = name)
-      }
-      if (verbose == TRUE){
-        cat(sprintf("%s reads after filtering chimeras\n", length(bam)))
-      }
-      if (length(bam) == 0) return(list("on_target" = NULL, "off_target" = NULL))
-    }
-    
-    # Find reads that partially cover the target site 
-    partially_on_target <- factor(as.character((start(bam) <= target_start | end(bam) >= target_end) & 
-                     seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    
-    partial_names <- split(names(bam), partially_on_target)    
-    names(partial_names) <- c("partial", "off_target")  
-       
-    # Split reads into fully on-target and off-target    
-
-    is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
-                     seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    result <- split(bam, is_on_target)
-    names(result) <- c("on_target", "off_target")
-    
-    if (vb == TRUE){
-        cat(sprintf("  %s on-target, %s off-target or partially on-target\n",
-                       length(result$on_target), length(result$off_target))) }
-                        
-    # Note that a read can currently be classified as "excluded" if it's a chimera
-    # and half is excluded
-    
-    remaining <- names(which(is.na(.read_types) | .read_types == "excluded"))
-    .read_types[remaining[remaining %in% names(result$off_target)]] <<- "off_target"
-    .read_types[remaining[remaining %in% partial_names$partial]] <<- "partially_on_target"
-    .read_types[remaining[remaining %in% names(result$on_target)]] <<- "on_target"
-    result
-  },   
   
   readsToTarget = function(alns, target_start, target_end, rc, verbose = TRUE){
     # Narrow the reads and cigar strings to the target region, set these attributes
@@ -875,9 +579,14 @@ CrisprRun$methods(
    
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigs)
     cigar_ops <<- CharacterList(explodeCigarOps(cigs))
-    alns <<- GAlignments(seqnames = seqnames(alns), pos= genome_start, cigar = cigs, 
-                names = names(alns), strand = strand(alns), seqlengths = seqlengths(alns),
-                seq = seqs, type = mcols(alns)$type) 
+    ga_params <- list(seqnames = seqnames(alns), pos= genome_start, cigar = cigs, 
+                      names = names(alns), strand = strand(alns), 
+                      seqlengths = seqlengths(alns), seq = seqs)
+    
+    if ("type" %in% names(alns)){
+        ga_params$type = mcols(alns)$type
+    }
+    alns <<- do.call(GAlignments, ga_params) 
    },
   
   countIndels = function(){
@@ -1183,16 +892,15 @@ CrisprRun$methods(
        
     }
     result <- rep(match_label, length(idxs))
-    if (nrow(info) == 0) return(result)
-    short_ops <- apply(info, 1, getShortOp)
-    short_ops <- split(short_ops, cig_idxs)
-    short_ops <- sapply(short_ops, function(x) do.call(paste, c(as.list(x),sep = ",")))
-    result[as.numeric(names(short_ops))] <- short_ops
-    print("splitting non indel")
+    if (nrow(info) > 0) {
+      short_ops <- apply(info, 1, getShortOp)
+      short_ops <- split(short_ops, cig_idxs)
+      short_ops <- sapply(short_ops, function(x) do.call(paste, c(as.list(x),sep = ",")))
+      result[as.numeric(names(short_ops))] <- short_ops
+    }
     if (split_non_indel){
       result <- .splitNonIndel(ref, result, match_label, mismatch_label, cut_site)
     }
-    print(result)
     cigar_labels <<- result
     result
   },
@@ -1204,8 +912,11 @@ CrisprRun$methods(
         
     no_var_seqs <- as.matrix(mcols(.self$alns)$seq[no_var])
     rr <- strsplit(as.character(ref), "")[[1]]
-    result <- apply(no_var_seqs, 1, function(x) sprintf("%s:%s", mismatch_label, 
-                     paste(which((x != rr & x != "N")) - cut_site -1, collapse = ",")))
+    result <- apply(no_var_seqs, 1, function(x){
+                     snvs <- which((x != rr & x != "N")) - cut_site -1
+                     snvs[snvs >= 0] <- snvs[snvs >= 0] + 1 
+                     sprintf("%s:%s", mismatch_label, paste(snvs, collapse = ","))
+    })
     result[result == sprintf("%s:", mismatch_label)] <- match_label
     cig_labels[no_var] <- result 
     return(cig_labels)       
@@ -1484,108 +1195,66 @@ CrisprSet$methods(
 
 #__________________________________________________________
 
-
-CrisprMultiplex = setRefClass(
-  Class = "CrisprMultiplex"#,
-  #fields = c()
-)
-
-
-CrisprMultiplex$methods(
-
-  initialize = function(bam_fnames, crispr_targets, names = NA, pcr_targets = NA, 
-                        merge_chimeras = FALSE, exclude_chimeras = TRUE, 
-                        exclude_ranges = GRanges(), exclude_names = NA, mapq = NA){
-                        
-    alns_by_tg_by_bam <- mapply(readMultiplexBam, bam_fnames, crispr_targets)  
-    
-     
-  },
-    
-  readMultiplexBam = function(bam_fname, crispr_targets, pcr_targets = NULL, tolerance = 4,
-                              merge_chimeras = FALSE, exclude_chimeras = TRUE, 
-                              tag_chimeras = FALSE, name = NA, exclude_ranges = GRanges(),  
-                              exclude_names = NA, mapq = NA, verbose = TRUE){
-    
-    # mapq - remove reads with quality equal or below this value
-    # allow pcr_tolerance on either side of the pcr target
-    # targets: GRanges 
-    # ReadGAlignments doesn't return unmapped reads, isUnmappedQuery doesn't work
-    # regions / alignments to exclude are excluded prior to detecting chimeras
-    # (a chimera consisting of two pieces, one in an excluded region, 
-    # is therefore not counted as chimeric)
-    
-    if (is.na(mapq)){
-      param <- ScanBamParam(what = c("seq"))
-      bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
-      if (verbose == TRUE) ninitial <- length(bam)
-    } else {
-      param <- ScanBamParam(what = c("seq", "mapq"))
-      bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
-      if (verbose == TRUE) ninitial <- length(bam)
-      bam <- bam[mcols(bam)$mapq > mapq]
-    }
-    
-    if (verbose == TRUE){
-      cat(sprintf("Read %s alignments %s\n", ninitial, ifelse(is.na(mapq), "",
-      sprintf("(%s with mapq < %s excluded, %s remaining)", ninitial - length(bam), 
-      mapq, length(bam)))))
-    }
-    
-    # TO DO HERE: EXCLUDE NAMES, EXCLUDE REGIONS    
-    
-    
-    
-    if (any(c(merge_chimeras,exclude_chimeras,tag_chimeras)) == TRUE){
-      bam <- classifyChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
-                            tag = tag_chimeras, verbose = verbose, name = name)
-    }
-    
-    if (verbose == TRUE) cat("%s reads after filtering chimeras\n", length(bam))
-    
-    
-    # Distribute reads between targets
-    
-    if (! is.null(pcr_targets)){        
-    
-      # Extrapolate genomic coords for clipped sections
-      l_clip <- as.numeric(gsub(".*[A-Z].*", 0, gsub("[HS].*","", cigar(bam))))
-      r_clip <- as.numeric(gsub("^$", 0, gsub('.*M|[HS]$', "", cigar(bam)))) 
-      bamgr <- GRanges(seqnames(bam), IRanges(start(bam) - l_clip, end(bam) + r_clip))
-      
-      hits_pcr <- findOverlaps(bamgr, pcr_targets, ignore.strand = TRUE, 
-                               type = "equal", maxgap = tolerance)
-      
-      hits_pcr_l <- length(unique(hits_pcr@queryHits))
-      if (verbose == TRUE){
-        cat(sprintf("%s from %s (%.2f%%) reads overlap a pcr region\n", 
-            hits_pcr_l, length(bam), hits_pcr_l/length(bam)*100))
-        remaining <- setdiff(c(1:length(bam)), hits_pcr@queryHits) 
-        rhits <- findOverlaps(bamgr[remaining], pcr_targets)  
-        rhitsl <- length(unique(rhits@queryHits))   
-        cat(sprintf("Of the remaining %s reads, %s (%.2f%%) partially overlap a pcr region\n\n", 
-            (length(bam)-hits_pcr_l),rhitsl, rhitsl/(length(bam)-hits_pcr_l)*100))
-      }
-      
-      if (any(duplicated(hits_pcr@queryHits))){
-        warning("Cannot distinguish pcr targets with this tolerance")
-      }      
-    }
-    
-    
-    ## Find reads that partially cover the target site 
-    #partially_on_target <- factor(as.character((start(bam) <= target_start | end(bam) >= target_end) & 
-    #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-    #partial_names <- split(names(bam), partially_on_target)    
-    #names(partial_names) <- c("partial", "off_target")  
-       
-    ## Split reads into fully on-target and off-target    
-    #is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
-    #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
-
-
-    by_target <- split(queryHits(rhits), subjectHits(rhits))
-
-  }   
+ 
+readMultiplexBam = function(bam_fname, crispr_targets, pcr_targets = NULL, tolerance = 4,
+                            merge_chimeras = FALSE, exclude_chimeras = TRUE, 
+                            tag_chimeras = FALSE, name = NA, exclude_ranges = GRanges(),  
+                            exclude_names = NA, mapq = NA, verbose = TRUE){
   
-)
+  # mapq - remove reads with quality equal or below this value
+  # allow pcr_tolerance on either side of the pcr target
+  # targets: GRanges 
+  # ReadGAlignments doesn't return unmapped reads, isUnmappedQuery doesn't work
+  # regions / alignments to exclude are excluded prior to detecting chimeras
+  # (a chimera consisting of two pieces, one in an excluded region, 
+  # is therefore not counted as chimeric)
+  
+  if (is.na(mapq)){
+    param <- ScanBamParam(what = c("seq"))
+    bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
+    if (verbose == TRUE) ninitial <- length(bam)
+  } else {
+    param <- ScanBamParam(what = c("seq", "mapq"))
+    bam <- readGAlignments(bam_fname, param = param, use.names = TRUE)
+    if (verbose == TRUE) ninitial <- length(bam)
+    bam <- bam[mcols(bam)$mapq > mapq]
+  }
+  
+  if (verbose == TRUE){
+    cat(sprintf("Read %s alignments %s\n", ninitial, ifelse(is.na(mapq), "",
+    sprintf("(%s with mapq < %s excluded, %s remaining)", ninitial - length(bam), 
+    mapq, length(bam)))))
+  }
+  
+  
+  # TO DO HERE: EXCLUDE NAMES, EXCLUDE REGIONS    
+  
+  
+  
+  if (any(c(merge_chimeras,exclude_chimeras,tag_chimeras)) == TRUE){
+    bam <- classifyChimeras(bam, exclude = exclude_chimeras, merge = merge_chimeras, 
+                          tag = tag_chimeras, verbose = verbose, name = name)
+  }
+  
+  if (verbose == TRUE) cat("%s reads after filtering chimeras\n", length(bam))
+  
+  
+  # Distribute reads between targets
+  
+  
+  
+  ## Find reads that partially cover the target site 
+  #partially_on_target <- factor(as.character((start(bam) <= target_start | end(bam) >= target_end) & 
+  #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
+  #partial_names <- split(names(bam), partially_on_target)    
+  #names(partial_names) <- c("partial", "off_target")  
+     
+  ## Split reads into fully on-target and off-target    
+  #is_on_target <- factor(as.character(start(bam) <= target_start & end(bam) >= target_end & 
+  #                 seqnames(bam) == target_chr), levels = c("TRUE", "FALSE"))
+
+
+  by_target <- split(queryHits(rhits), subjectHits(rhits))
+
+}   
+

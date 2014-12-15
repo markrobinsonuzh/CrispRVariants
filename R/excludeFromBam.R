@@ -3,13 +3,12 @@
 #'Returns a GAlignments excluding reads based on either name and/or location
 #'
 #'@param bam a GAlignments object
-#'@param exclude_ranges
-#'@param exclude_names
+#'@param exclude.ranges
+#'@param exclude.names
 #'@author Helen Lindsay
-#'@export
-excludeFromBam <- function(bam, exclude_ranges = GRanges(), exclude_names = NA){
-  if (length(exclude_ranges) > 0) bam <- excludeFromBamByRange(bam, exclude_ranges)
-  if (! is.na(exclude_names)) bam <- excludeFromBamByName(bam, exclude_names)
+excludeFromBam <- function(bam, exclude.ranges = GRanges(), exclude.names = NA){
+  if (length(exclude.ranges) > 0) bam <- excludeFromBamByRange(bam, exclude.ranges)
+  if (! is.na(exclude.names)) bam <- excludeFromBamByName(bam, exclude.names)
   return(bam)
 }
 
@@ -18,10 +17,10 @@ excludeFromBam <- function(bam, exclude_ranges = GRanges(), exclude_names = NA){
 #'Returns a GAlignments excluding reads based on name
 #'
 #'@param bam A GAlignments object
-#'@param exclude_names a character vector of sequence names to exclude
+#'@param exclude.names a character vector of sequence names to exclude
 #'@author Helen Lindsay
-excludeFromBamByName <- function(bam, exclude_names){
-  excluden <- which(names(bam) %in% exclude_names)     
+excludeFromBamByName <- function(bam, exclude.names){
+  excluden <- which(names(bam) %in% exclude.names)     
   bam <- bam[setdiff(seq_along(bam), excluden)]
 }
 
@@ -30,9 +29,9 @@ excludeFromBamByName <- function(bam, exclude_names){
 #'Returns a GAlignments excluding reads based on location
 #'
 #'@param bam a GAlignments object
-#'@param exclude_ranges A GRanges object containing regions to exclude 
+#'@param exclude.ranges A GRanges object containing regions to exclude 
 #'@author Helen Lindsay
-excludeFromBamByRange <- function(bam, exclude_ranges){
-  fo <- findOverlaps(bam, exclude_ranges)@queryHits
+excludeFromBamByRange <- function(bam, exclude.ranges){
+  fo <- findOverlaps(bam, exclude.ranges)@queryHits
   return(bam[setdiff(seq_along(bam), fo)])
 }

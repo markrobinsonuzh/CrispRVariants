@@ -95,6 +95,10 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
               hits_pcr <- rmMultiPCRChimera(names(bam), hits_pcr, chimera.idxs,
                                             verbose = verbose)
             }
+            if (verbose){  
+              cat(sprintf("Found matches for %s reads from %s\n\n", 
+                          length(hits_pcr), length(bam)))
+            }  
             return(hits_pcr)
           })
 
@@ -102,7 +106,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
 #'@title Extrapolates mapping location from clipped, aligned reads
 #'@description Extrapolates the mapping location of a read by assuming that 
 #'the clipped regions should map adjacent to the mapped locations.  This
-#'is not always a good assumption!
+#'is not always a good assumption, particularly in the case of chimeric reads!
 #'@param bam A set of aligned reads
 #'@author Helen Lindsay
 #'@rdname addClipped
@@ -142,7 +146,7 @@ setMethod("rmMultiPCRChimera", signature("character", "Hits", "integer"),
           function(readnames, pcrhits, chimera_idxs, ..., verbose = TRUE){
             chs <- chimera_idxs[chimera_idxs %in% queryHits(pcrhits)]
             get_dups <- function(x) duplicated(x) | duplicated(x, fromLast = TRUE)
-            nms <- names(bam)[chs]
+            nms <- readnames[chs]
             is_dup <- get_dups(nms)
             dnms <- nms[is_dup]
             ch_to_pcr <- match(chs[is_dup], queryHits(pcrhits)) 
@@ -152,7 +156,7 @@ setMethod("rmMultiPCRChimera", signature("character", "Hits", "integer"),
             one_primer <- rep(dnms$lengths, dnms$lengths) == rep(pcr$lengths, pcr$lengths)
             if (verbose){
               cat(sprintf("%s (%.2f%%) of the chimeric reads overlap a pcr primer.
-  For %s (%s reads) of these, at least 2 segments of the chimera 
+  For %s (%2.f%% reads) of these, at least 2 segments of the chimera 
 overlap a primer.
     Of these, %s (%.2f%%) overlap different primers\n",
                    length(chs), length(chs)/length(chimera_idxs) * 100,

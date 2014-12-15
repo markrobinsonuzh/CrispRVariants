@@ -25,6 +25,7 @@
 #'@import GenomicRanges
 #'@import IRanges
 #'@import methods
+#'@importFrom reshape2 melt
 #'@export
 #'
 plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 12,  

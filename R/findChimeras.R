@@ -3,8 +3,9 @@
 #' Assumes the the GAlignments object does not contain multimapping reads.
 #' That is, read names that appear more than ones in the file are considered 
 #' chimeras.
+#' 
 #'
-#'@param bam A GAlignments object
+#'@param bam A GAlignments object, must include names
 #'@author Helen Lindsay
 #'@export
 findChimeras <- function(bam){

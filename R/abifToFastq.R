@@ -38,8 +38,10 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
   }
   
   if (nchar(nucseq) <= min_seq_len){
-    stop('Sequence can not be trimmed because it is shorter than the trim segment size')
+    warning('Sequence can not be trimmed because it is shorter than the trim segment size')
+    return()
   } 
+  
   scores = cutoff - 10^(num_quals / -10)
   running_sum <- rep(0, length(scores) + 1)
   
@@ -52,6 +54,12 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
   trim_start <- min(which(running_sum > 0)) - 1
   trim_finish <- which.max(running_sum) - 2 
   # -1 for running_sum offset, -1 because python doesn't include ends
+  
+  # Additional check that there is enough sequence (not in abifpy):
+  if (trim_finish - trim_start < min_seq_len -1){
+    warning('Sequence can not be trimmed because it is shorter than the trim segment size')
+    return()
+  }
   
   writeFastq(outfname, list("seqname" = seqname, "seq" = substring(nucseq, trim_start, trim_finish),
                             "quals" = rawToChar(as.raw(num_quals[trim_start:trim_finish]+offset))))
