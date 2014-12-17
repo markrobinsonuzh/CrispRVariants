@@ -53,7 +53,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- result$alignments
             
             # Collapse pairs of narrowed reads
-            result <- collapsePairs(bam, genome.ranges = result$genome.ranges)
+            result <- collapsePairs(bam, genome.ranges = result$genome.ranges, verbose = verbose)
             bam <- result$alignments
             genome.ranges <- result$genome.ranges
             
@@ -146,7 +146,6 @@ setMethod("readsToTargets", signature("character", "GRanges"),
                               nndups, nndups/bl*100))
                 } 
                 hits <- hits[!duplicates]
-                print(unique(queryHits(hits)))
                 bamByPCR <- split(bam[subjectHits(hits)], queryHits(hits))
               }
               bamByPCR
@@ -156,13 +155,12 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             bbpcr <- do.call(c, unlist(bamsByPCR, use.names = FALSE))
             tgts <- unlist(bbpcr_nms, use.names = FALSE)
             result <- mclapply(unique(tgts), function(tgt){
-              print(sprintf("finding alignments for target %s", tgt))
+              print(sprintf("Target %s", tgt))
               idxs <- which(tgts == tgt)
               bams <- bbpcr[idxs]
               names(bams) <- names[bbpcr_idx[idxs]]
               target <- targets[as.numeric(tgt)]
               reference <- references[[as.numeric(tgt)]]
-              
               cset <- alnsToCrisprSet(as.list(bams), reference, target, reverse.complement, 
                                        collapse.pairs, names(bams), verbose, ...)
               cset
@@ -174,19 +172,22 @@ setMethod("readsToTargets", signature("character", "GRanges"),
 
 #'@title Internal crispRvariants function for converting a set of reads to a CrisprSet
 #'@rdname readsToTarget
-alnsToCrisprSet <- function(alns, reference, target, reverse.complement, 
+alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
                             collapse.pairs, names, verbose, ...){
-  print(sprintf("%s alignments passed to alnsToCrisprSet", length(alns)))
-  crispr.runs <- lapply(seq_along(list(alns)), function(i){
-    readsToTarget(alns[[i]], target = target, 
+  print(sprintf("Processing %s samples", length(alns)))
+  args <- list(...)
+  mccores <- ifelse("mc.cores" %in% args, args$mc.cores, 1)
+  crispr.runs <- mclapply(seq_along(alns), function(i){
+    crun <- readsToTarget(alns[[i]], target = target, 
                 reverse.complement = reverse.complement,
                 collapse.pairs = collapse.pairs, verbose = verbose,
                 name = names[i])
-  })
-  print(length(crispr.runs))
+    crun
+  }, mc.cores = mccores)
+  
   rc <- rcAlns(as.character(strand(target)),reverse.complement)
   cset <- CrisprSet(crispr.runs, reference, target, rc = rc,
-                    verbose = verbose, ...)
+                    verbose = verbose, names = names, ...)
   return(cset)
 }
 

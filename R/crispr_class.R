@@ -6,6 +6,7 @@ library(gridExtra)
 
 # sangerseqR, GenomeFeatures should be in "sugests"
 
+# Add experiment name to CrisprSet (pars?)
 # readsByPCRPrimer - could separate out searching for partial overlaps for speed
 # Be consistent about target_loc / cut_site
 # To do - CrisprSet should also be able to take bams
@@ -845,7 +846,7 @@ CrisprSet$methods(
                         names = NULL, renumbered = TRUE, target.loc = NA, 
                         match_label = "no variant", verbose = TRUE, ...){
     
-    print("Initialising CrisprSet with %s samples", length(crispr.runs))
+    print(sprintf("Initialising CrisprSet with %s samples", length(crispr.runs)))
     
     reference <- as(reference, "DNAString")
     if (width(target) != length(reference)){
@@ -867,7 +868,11 @@ CrisprSet$methods(
         
     crispr_runs <<- crispr.runs
     
-    if (! is.null(names)) names(.self$crispr_runs) <- names
+    if (is.null(names)) {
+      names(.self$crispr_runs) <- sapply(.self$crispr_runs, function(x) x$name)
+    else {
+      names(.self$crispr_runs) <- names
+    }
     nonempty_runs <<- sapply(.self$crispr_runs, function(x) {
                              ! class(x$alns) == "uninitializedField"})
     
@@ -882,10 +887,11 @@ CrisprSet$methods(
   },
   
   show = function(){
-    print(c(class(.self), sprintf("CrisprSet object containing %s CrisprRun samples", 
-            length(.self$crispr_runs)), "Most frequent variants:"))
-    
-    print(.self$getFilteredCigarTable(top_n = 6))
+    print(sprintf(paste0("CrisprSet object containing %s CrisprRun samples\n", 
+                         "Target location:\n"), length(.self$crispr_runs)))
+    print(.self$target)
+    print("Most frequent variants:")
+    print(.self$.getFilteredCigarTable(top_n = 6))
   },
   
   .setCigarLabels = function(renumbered = FALSE, target.loc = NA, target_start = NA,
@@ -936,7 +942,7 @@ CrisprSet$methods(
     cigar_freqs <<- m
   },
   
-  .getFilteredCigarTable = function(top_n, freq_cutoff){
+  .getFilteredCigarTable = function(top_n = nrow(.self$cigar_freqs), freq_cutoff = 0){
     rs <- rowSums(.self$cigar_freqs)
     minfreq <- rs >= freq_cutoff
     topn <- rank(-rs) <= top_n
