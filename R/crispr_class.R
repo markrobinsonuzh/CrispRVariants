@@ -870,7 +870,7 @@ CrisprSet$methods(
     
     if (is.null(names)) {
       names(.self$crispr_runs) <- sapply(.self$crispr_runs, function(x) x$name)
-    else {
+    }else {
       names(.self$crispr_runs) <- names
     }
     nonempty_runs <<- sapply(.self$crispr_runs, function(x) {
