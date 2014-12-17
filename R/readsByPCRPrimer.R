@@ -12,7 +12,7 @@
 #'@author Helen Lindsay
 #'@rdname readsByPCRPrimer
 #'@export
-setGeneric("readsByPCRPrimer", function(bam, primers,...) {
+setGeneric("readsByPCRPrimer", function(bam, primers, ...) {
            standardGeneric("readsByPCRPrimer")})
 
 #'@param tolerance Number of bases by which reads and primers may differ 
@@ -53,7 +53,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                                      type = "equal", maxgap = tolerance)
             if (verbose){
               hits_pcr_l <- length(unique(hits_pcr@queryHits))
-              cat(sprintf("%s from %s (%.2f%%) reads overlap a pcr region\n", 
+              cat(sprintf("%s from %s (%.2f%%) reads overlap a pcr region almost exactly\n", 
                           hits_pcr_l, length(bam), hits_pcr_l/length(bam)*100))
             }
             if (any(duplicated(hits_pcr@queryHits))){

@@ -11,6 +11,7 @@ Depends:
 License: GPL-2
 LazyData: true
 Imports:
+    parallel,
     methods,
     ggplot2,
     gridExtra,
@@ -19,4 +20,5 @@ Imports:
     Rsamtools,
     grid
 Suggests:
-    sangerseqR
+    sangerseqR,
+    testthat

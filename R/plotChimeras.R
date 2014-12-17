@@ -25,6 +25,7 @@
 #'@import GenomicRanges
 #'@import IRanges
 #'@import methods
+#'@import parallel
 #'@importFrom reshape2 melt
 #'@export
 #'
