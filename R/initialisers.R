@@ -20,7 +20,8 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 #'@rdname readsToTarget
 setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
-                   collapse.pairs = FALSE, verbose = FALSE, name = NULL){
+                   collapse.pairs = FALSE, use.consensus = TRUE, 
+                   verbose = FALSE, name = NULL){
           
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
@@ -39,6 +40,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             if (verbose){
               cat(sprintf("%s of %s reads span the target range\n", length(bam), length(reads)))
             }
+            if (length(bam) == 0) return(NULL)
             
             if (reverse.complement & as.character(strand(target)) == "*"){
              message(paste0("Target does not have a strand, but reverse.complement is TRUE.",
@@ -53,7 +55,10 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- result$alignments
             
             # Collapse pairs of narrowed reads
-            result <- collapsePairs(bam, genome.ranges = result$genome.ranges, verbose = verbose)
+            result <- collapsePairs(bam, genome.ranges = result$genome.ranges, 
+                                    use.consensus = use.consensus, verbose = verbose)
+            if (is.null(result)) return(NULL)
+            
             bam <- result$alignments
             genome.ranges <- result$genome.ranges
             
@@ -73,7 +78,8 @@ setMethod("readsToTarget", signature("character", "GRanges"),
           function(reads, target, ..., reference, reverse.complement = FALSE, 
                    exclude.ranges = GRanges(), exclude.names = NA,
                    chimeras = c("ignore","exclude","merge"),
-                   collapse.pairs = FALSE, names = NULL, verbose = FALSE){  
+                   collapse.pairs = FALSE, use.consensus = TRUE, 
+                   names = NULL, verbose = FALSE){  
             
             alns <- lapply(reads, readTargetBam, target = target, 
                            exclude.ranges = exclude.ranges,
@@ -85,7 +91,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
               names <- reads
             }
             cset <- alnsToCrisprSet(alns, reference, target, reverse.complement, 
-                                    collapse.pairs, names, verbose, ...)
+                                    collapse.pairs, names, use.consensus, verbose, ...)
             return(cset)
           })
 
@@ -107,7 +113,8 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
                    reverse.complement = TRUE, collapse.pairs = FALSE, 
-                   ignore.strand = TRUE, names = NULL, verbose = FALSE){
+                   use.consensus = TRUE, ignore.strand = TRUE, 
+                   names = NULL, verbose = FALSE){
           
             # ACCOUNT FOR CHIMERIC READS OR NOT?
             if (! is.null(primer.ranges)){
@@ -162,7 +169,8 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               target <- targets[as.numeric(tgt)]
               reference <- references[[as.numeric(tgt)]]
               cset <- alnsToCrisprSet(as.list(bams), reference, target, reverse.complement, 
-                                       collapse.pairs, names(bams), verbose, ...)
+                                      collapse.pairs, names(bams), use.consensus, 
+                                      verbose, ...)
               cset
             }, mc.cores = mccores)
             return(result)
@@ -173,17 +181,32 @@ setMethod("readsToTargets", signature("character", "GRanges"),
 #'@title Internal crispRvariants function for converting a set of reads to a CrisprSet
 #'@rdname readsToTarget
 alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
-                            collapse.pairs, names, verbose, ...){
+                            collapse.pairs, names, use.consensus, verbose, ...){
   print(sprintf("Processing %s samples", length(alns)))
   args <- list(...)
   mccores <- ifelse("mc.cores" %in% args, args$mc.cores, 1)
   crispr.runs <- mclapply(seq_along(alns), function(i){
     crun <- readsToTarget(alns[[i]], target = target, 
                 reverse.complement = reverse.complement,
-                collapse.pairs = collapse.pairs, verbose = verbose,
-                name = names[i])
+                collapse.pairs = collapse.pairs, use.consensus = use.consensus,
+                verbose = verbose, name = names[i])
     crun
   }, mc.cores = mccores)
+  
+  to_rm <- sapply(crispr.runs, is.null)
+  if (any(to_rm)){
+    if (verbose){
+      rm_nms <- paste0(names[to_rm], collapse = ",", sep = "\n")
+      cat(sprintf("Excluding samples that have no on target reads:\n%s",
+                  rm_nms))
+    }
+    crispr.runs <- crispr.runs[!to_rm]
+    names <- names[!to_rm]
+    if (length(crispr.runs) == 0) {
+      warning("Could not narrow reads to target, no samples have on-target alignments")
+      return()
+    }
+  }
   
   rc <- rcAlns(as.character(strand(target)),reverse.complement)
   cset <- CrisprSet(crispr.runs, reference, target, rc = rc,
@@ -421,6 +444,7 @@ findDeletions <- function(target.start, target.end, alns, ref.ranges,
 collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
                           verbose = TRUE, ...){  
   dots <- list(...)
+  
   if (! unique(sapply(dots, length)) == length(alns)){
     stop("Each ... argument supplied must have the same length as the alignments")
   }
@@ -431,6 +455,13 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
   # singletons are excluded
   is_primary <- !(bitwAnd(mcols(alns)$flag, 2048) & bitwAnd(mcols(alns)$flag, 1)) 
   pairs <- findChimeras(alns[is_primary])
+  if (length(pairs) == 0){
+    if (keep.unpaired == TRUE){
+      return(c(list("alignments" = alns), dots))
+    } else {
+      return(NULL)
+    }
+  }
   nms <- rle(names(alns)[is_primary][pairs]) 
   nms_codes <- rep(1:length(nms$lengths), nms$lengths)
   
@@ -484,9 +515,9 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
       ncc_idxs <- cumsum(concordant & is_first)[concordant & is_first & !same_seq]
       mcols(keep_alns[ncc_idxs])$seq <- DNAStringSet(consensus)
     }
-      
-    filtered.dots <- lapply(dots, function(x) x[keep])    
-  }
+  }  
+  filtered.dots <- lapply(dots, function(x) x[keep])    
+  
   return(c(list("alignments" = keep_alns), filtered.dots))
 }
 
