@@ -376,6 +376,7 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
               lshift <- target_start - (start(alns) - 1) - locs$starts
               rshift <- target_end - target_start - (locs$ends - locs$starts - lshift)           
               genome_start <- as.integer(genome_start + lshift + rshift)
+              if (verbose == TRUE) cat("alignments reversed\n")
             }
             
             ga_params <- list(seqnames = seqnames(alns), pos = genome_start, cigar = cigs, 
@@ -516,6 +517,7 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
       mcols(keep_alns[ncc_idxs])$seq <- DNAStringSet(consensus)
     }
   }  
+  if (length(keep) == 0) return(NULL)
   filtered.dots <- lapply(dots, function(x) x[keep])    
   
   return(c(list("alignments" = keep_alns), filtered.dots))
