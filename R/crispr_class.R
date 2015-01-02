@@ -6,6 +6,7 @@ library(gridExtra)
 
 # sangerseqR, GenomeFeatures should be in "sugests"
 
+# Allow CrisprRun getVariants to work with a filtered variant table
 # Add experiment name to CrisprSet (pars?)
 # readsByPCRPrimer - could separate out searching for partial overlaps for speed
 # Be consistent about target_loc / cut_site
@@ -477,34 +478,39 @@ panelPlot <- function(txdb, target_chr, target_start, target_end, aln_p, heat_p,
 
 #_______________________________________________________________________________________
 
+#'@title CrisprRun class
+#'@param bam a GAlignments object containing (narrowed) alignments to the target region
+#' filtering of the bam should generally be done before initialising a CrisprRun object
+#'@param target a GRanges object
+#'@param genome.ranges A GRangesList of genomic coordinates for the cigar operations.
+#' If bam is a standard GAlignments object, this is equivalent to 
+#' cigarRangesAlongReferenceSpace + start(bam)
+#'@param rc (reverse complement)  Should the alignments be reverse complemented,
+#'i.e. displayed with respect to the negative strand.  (Default: FALSE)
+#'@param name A name for this set of reads, used in plots if present (Default: NULL)
+#'@param verbose Print information about initialisation progress (Default: TRUE) 
+#'@author Helen Lindsay
+#'@export CrisprRun
+#'@exportClass CrisprRun
 CrisprRun = setRefClass(
   Class = "CrisprRun",
-  fields = c("alns",
-             "name",
-             "query_ranges",
-             "ref_ranges",
-             "genome_ranges",
-             "cigar_ops",
-             "insertions",
-             "ins_key", 
-             "cigar_labels")
+  fields = c(alns = "GAlignments",
+             name = "character",
+             query_ranges = "CompressedIRangesList",
+             ref_ranges = "CompressedIRangesList",
+             genome_ranges = "CompressedIRangesList",
+             cigar_ops = "CompressedCharacterList",   
+             insertions = "data.frame",
+             ins_key = "integer", 
+             cigar_labels = "character")
 )
 
 CrisprRun$methods(
   initialize = function(bam, target, genome.ranges, rc = FALSE, name = NULL, 
                         verbose = TRUE){
-#Input parameters:    
-    # bam: a GAlignments object containing (narrowed) alignments to the target region
-    # filtering of the bam should generally be done before initialising a CrisprRun object
-    # target: a GRanges object
-    # genome.ranges: A GRangesList of genomic coordinates for the cigar operations.
-    # If bam is a standard GAlignments object, this is equivalent to 
-    # cigarRangesAlongReferenceSpace + start(bam)
-
-#Attributes:
+    #Attributes:
     # cigar_labels are labels for variant combinations, e.g. used in plotting
-      
-    # THIS DOESN'T NEED THE TARGET?
+
     name <<- ifelse(is.null(name), NULL, name)
     if (verbose == TRUE) cat(sprintf("\nInitialising CrisprRun %s\n", .self$name))
   
@@ -523,11 +529,15 @@ CrisprRun$methods(
   },
   
   countIndels = function(){
+'
+  Prints the number of target reads that include at least one 
+  insertion or deletion
+'
     return(sum(any(.self$cigar_ops %in% c("I", "D"))))
   },
   
   indelPercent = function(){
-    return((.self$countIndels() / lenth(.self$cigar_ops))*100)
+    return((.self$countIndels() / length(.self$cigar_ops))*100)
   },
   
   getInsertionSeqs = function(){ 
@@ -539,7 +549,7 @@ CrisprRun$methods(
     
     if (length(tseqs) == 0) {
         insertions <<- data.frame()
-        ins_key <<- vector()
+        ins_key <<- integer()
         return()
     }    
     
@@ -571,7 +581,7 @@ CrisprRun$methods(
   },
   
   .checkNonempty = function(){
-    if (class(.self$alns) == "uninitializedField"){
+    if (length(.self$alns) == 0){
       message("No on target alignments")
       return(FALSE)
     }
@@ -721,7 +731,7 @@ CrisprRun$methods(
     # Shorten? -> Renumber?  If not renumbered, record starting location when different from 
     # target start
     
-    if (! class(.self$cigar_labels) == "uninitializedField"){
+    if (! length(.self$cigar_labels) == 0){
       return(.self$cigar_labels)
     }
     
@@ -828,17 +838,17 @@ CrisprRun$methods(
 
 #_______________________________________________________________________________________
 
-
+#'@export CrisprSet
+#'@exportClass CrisprSet 
 CrisprSet = setRefClass(
   Class = "CrisprSet",
-  fields = c("crispr_runs", 
-             "ref",
-             "insertion_sites",
-             "nonempty_runs",
-             "cigar_freqs",
-             "target",
-             "genome_to_target",
-             "pars")
+  fields = c(crispr_runs = "list", 
+             ref = "DNAString",
+             insertion_sites = "matrix",
+             cigar_freqs = "matrix",
+             target = "GRanges",
+             genome_to_target = "integer",
+             pars = "list")
 )
 
 CrisprSet$methods(
@@ -873,10 +883,10 @@ CrisprSet$methods(
     }else {
       names(.self$crispr_runs) <- names
     }
-    nonempty_runs <<- sapply(.self$crispr_runs, function(x) {
-                             ! class(x$alns) == "uninitializedField"})
+    nonempty_runs <- sapply(.self$crispr_runs, function(x) {
+                             ! length(x$alns) == 0})
     
-    .self$crispr_runs <<- .self$crispr_runs[.self$nonempty_runs]
+    .self$crispr_runs <<- .self$crispr_runs[nonempty_runs]
     if (length(.self$crispr_runs) == 0) stop("no on target runs")
     
     if (verbose == TRUE) cat("Renaming cigar strings and counting indels\n")
@@ -919,7 +929,7 @@ CrisprSet$methods(
   .countCigars = function(cig_by_run = NULL, nonvar_first = TRUE){
     # Note that this function does not consider starts, two alignments starting at
     # different locations but sharing a cigar string are considered equal
-    
+        
     if (is.null(cig_by_run)){
       cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$getCigarLabels())
     }
@@ -951,6 +961,8 @@ CrisprSet$methods(
   },
   
   countVariantAlleles = function(counts_t = NULL){
+    # Returns counts of variant alleles
+    # SNV alleles are not considered variants here
     if (is.null(counts_t)) counts_t <- .self$cigar_freqs
     counts_t <- counts_t[!rownames(counts_t) == .self$pars["match_label"],,drop = FALSE]
     alleles <- colSums(counts_t != 0)    

@@ -108,15 +108,18 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'@param ... Arguments will be passed on to readsByPCRPrimer if
 #' primer.ranges are supplied
 #'@param ignore.strand Should strand be considered when finding overlaps?
+#'@param func An optional function to perform on each CrisprSet. If specified,
+#'the value of the function is returned instead of a CrisprSet object.
 #'(See \code{\link[GenomicAlignments]{findOverlaps}} )
 #'@rdname readsToTarget
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
                    reverse.complement = TRUE, collapse.pairs = FALSE, 
                    use.consensus = TRUE, ignore.strand = TRUE, 
-                   names = NULL, verbose = FALSE){
+                   names = NULL, func = NULL, verbose = FALSE){
           
             # ACCOUNT FOR CHIMERIC READS OR NOT?
+            
             if (! is.null(primer.ranges)){
               if (! (length(primer.ranges) == length(targets))){
                 stop("primer.ranges should contain one range per target")
@@ -134,6 +137,9 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               bam <- GenomicAlignments::readGAlignments(reads[i], 
                                               param = param, use.names = TRUE)
               if (verbose) cat(sprintf("Loading alignments for %s\n\n", names[i]))
+              
+              # If primer.ranges are provided, match reads to primers
+              # If not, match reads to targets 
               if (! is.null(primer.ranges)){
                 hits <- readsByPCRPrimer(bam, primer.ranges, verbose = verbose)
                 bamByPCR <- split(bam[queryHits(hits)], subjectHits(hits))
@@ -157,12 +163,16 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               }
               bamByPCR
             }, mc.cores = mccores)
+            
+            # bamsByPCR is separated by sample
+            # rearrange to separate by target, initialise CrisprSets
+            # optionally perform functions with these
             bbpcr_nms <- lapply(bamsByPCR, names)
             bbpcr_idx <- rep(1:length(bamsByPCR), lapply(bbpcr_nms, length))
             bbpcr <- do.call(c, unlist(bamsByPCR, use.names = FALSE))
             tgts <- unlist(bbpcr_nms, use.names = FALSE)
             result <- mclapply(unique(tgts), function(tgt){
-              print(sprintf("Target %s", tgt))
+              if (verbose == TRUE) cat(sprintf("Working on target %s\n", tgt))
               idxs <- which(tgts == tgt)
               bams <- bbpcr[idxs]
               names(bams) <- names[bbpcr_idx[idxs]]
@@ -171,7 +181,11 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(as.list(bams), reference, target, reverse.complement, 
                                       collapse.pairs, names(bams), use.consensus, 
                                       verbose, ...)
-              cset
+              if (is.null(func)){ 
+                return(cset)
+              }else{ 
+                return(func(cset))
+              }
             }, mc.cores = mccores)
             return(result)
           })
