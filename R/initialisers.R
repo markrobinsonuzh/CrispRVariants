@@ -108,15 +108,13 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'@param ... Arguments will be passed on to readsByPCRPrimer if
 #' primer.ranges are supplied
 #'@param ignore.strand Should strand be considered when finding overlaps?
-#'@param func An optional function to perform on each CrisprSet. If specified,
-#'the value of the function is returned instead of a CrisprSet object.
 #'(See \code{\link[GenomicAlignments]{findOverlaps}} )
 #'@rdname readsToTarget
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
                    reverse.complement = TRUE, collapse.pairs = FALSE, 
                    use.consensus = TRUE, ignore.strand = TRUE, 
-                   names = NULL, func = NULL, verbose = FALSE){
+                   names = NULL, verbose = FALSE){
           
             # ACCOUNT FOR CHIMERIC READS OR NOT?
             
@@ -181,11 +179,6 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(as.list(bams), reference, target, reverse.complement, 
                                       collapse.pairs, names(bams), use.consensus, 
                                       verbose, ...)
-              if (is.null(func)){ 
-                return(cset)
-              }else{ 
-                return(func(cset))
-              }
             }, mc.cores = mccores)
             return(result)
           })

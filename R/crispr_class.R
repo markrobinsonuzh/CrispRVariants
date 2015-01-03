@@ -844,7 +844,7 @@ CrisprSet = setRefClass(
   Class = "CrisprSet",
   fields = c(crispr_runs = "list", 
              ref = "DNAString",
-             insertion_sites = "matrix",
+             insertion_sites = "data.frame",
              cigar_freqs = "matrix",
              target = "GRanges",
              genome_to_target = "integer",
@@ -986,15 +986,16 @@ CrisprSet$methods(
     # var_freq_cutoff = i (integer) only plot variants that occur >= i times
     # top_n = total number of variants to plot
     # ... arguments for plotAlignments
+    # note that if there are ties, top_n only includes ties with 
+    # all members ranking <= top_n 
     
-    cig_freqs <- .getFilteredCigarTable(top_n, freq_cutoff)
+    cig_freqs <- .self$.getFilteredCigarTable(top_n, freq_cutoff)
   
     alns <- .self$makePairwiseAlns(cig_freqs)
-    if (class(.self$insertion_sites) == "uninitializedField" | 
-        !("cigar" %in% colnames(.self$insertion_sites))){
+    if (!("cigar" %in% colnames(.self$insertion_sites))){
       .self$getInsertions() 
     }
-    
+        
     # How should the x-axis be numbered? 
     # Baseline should be numbers, w optional genomic locations
     if (renumbered == TRUE){
