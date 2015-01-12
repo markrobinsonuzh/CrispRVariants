@@ -105,7 +105,8 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'Read lengths are typically greater than target regions, and it can 
 #'be that reads span multiple targets.  If primer.ranges are available,
 #'they can be used to assign such reads to the correct target.  
-#'@param ... Arguments will be passed on to readsByPCRPrimer if
+#'@param ... Can include "mc.cores" for parallel processing, plus
+#'additional arguments for initialising the CrisprSet
 #' primer.ranges are supplied
 #'@param ignore.strand Should strand be considered when finding overlaps?
 #'(See \code{\link[GenomicAlignments]{findOverlaps}} )
@@ -169,8 +170,10 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             bbpcr_idx <- rep(1:length(bamsByPCR), lapply(bbpcr_nms, length))
             bbpcr <- do.call(c, unlist(bamsByPCR, use.names = FALSE))
             tgts <- unlist(bbpcr_nms, use.names = FALSE)
-            result <- mclapply(unique(tgts), function(tgt){
-              if (verbose == TRUE) cat(sprintf("Working on target %s\n", tgt))
+            unq_tgts <- unique(tgts)
+            result <- mclapply(unq_tgts, function(tgt){
+              if (verbose == TRUE) cat(sprintf("\n\nWorking on target %s\n", tgt))
+              # which bams include this target
               idxs <- which(tgts == tgt)
               bams <- bbpcr[idxs]
               names(bams) <- names[bbpcr_idx[idxs]]
@@ -180,6 +183,11 @@ setMethod("readsToTargets", signature("character", "GRanges"),
                                       collapse.pairs, names(bams), use.consensus, 
                                       verbose, ...)
             }, mc.cores = mccores)
+            
+            if (! is.null(names(targets))){
+              names(result) <- names(targets)[as.numeric(unq_tgts)]
+            }
+            result <- result[! sapply(result, is.null)]
             return(result)
           })
 
@@ -370,6 +378,16 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
             seqs <- subseq(mcols(alns)$seq, start = new_starts, width = seq_lens)
             genome_start <- start(alns) + attr(temp, "rshift")
             
+            reverse_ranges <- function(gr){
+              # Quicker version of IRanges::IRangesList(lapply(list, rev))
+              all_r <- rev(unlist(gr))
+              sp <- rev(rep(1:length(gr), lapply(gr, length)))
+              # Note: splitting works in numeric/factor order
+              result <- as(split(all_r, sp), "IRangesList")
+              names(result) <- NULL
+              return(result)
+            }
+            
             if (reverse.complement == TRUE){
               if (verbose == TRUE) cat("reversing narrowed alignments\n")
               cigs <- unname(sapply(cigs, reverseCigar))
@@ -377,8 +395,8 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
               
               # Note: even if strand is -ve, it is displayed wrt reference strand in bam
               seqs <- Biostrings::reverseComplement(seqs)
-              genome_ranges <- IRanges::IRangesList(lapply(genome_ranges, rev))
-              
+              genome_ranges <- reverse_ranges(genome_ranges)
+                            
               # Add difference between target start and actual start, subtract difference at end
               lshift <- target_start - (start(alns) - 1) - locs$starts
               rshift <- target_end - target_start - (locs$ends - locs$starts - lshift)           

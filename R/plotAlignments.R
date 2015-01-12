@@ -30,15 +30,18 @@
 #'@return A ggplot figure  
 #'@seealso \code{\link[crispRvariants]{seqsToAln}}, \code{\link[ggplot2]}
 #'@author Helen Lindsay
-plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE, 
-                           target_loc = 18, pam_start = NA, pam_end = NA, 
-                           ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
-                           xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
-                           legend_text_size = 16, highlight_guide=TRUE, guide_loc = NULL,
-                           tile_height = 0.55){
+#'@rdname plotAlignments
+setMethod("plotAlignments", signature("DNAString"),  
+  function(obj, ..., alns, ins_sites, pam_loc = NA, show_plot = FALSE, 
+           target_loc = 18, pam_start = NA, pam_end = NA, 
+           ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
+           xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
+           legend_text_size = 16, highlight_guide=TRUE, guide_loc = NULL,
+           tile_height = 0.55){
   
   # WHY PAM LOC, PAM START AND PAM END?????
   # Insertion locations are determined by matching ins_sites$cigar with names(alns)
+  ref <- obj
   
   m <- transformAlnsToLong(ref, alns)
   m <- setDNATileColours(m)
@@ -141,7 +144,7 @@ plotAlignments <- function(ref, alns, ins_sites, pam_loc = NA, show_plot = FALSE
     print(p)
   }
   return(p)
-}
+})
 
 
 #'@title Transform data for plotting
@@ -166,11 +169,11 @@ transformAlnsToLong <- function(ref, alns){
   return(m)
 }
 
-#'@title Format insertions for plotting
-#'@description Formats a table of insertions for plotting with \code{\link[crispRvariants]{plotAlignments}}.
-#'@author Helen Lindsay
-formatInsertions <- function(){
-}
+##'@title Format insertions for plotting
+##'@description Formats a table of insertions for plotting with \code{\link[crispRvariants]{plotAlignments}}.
+##'@author Helen Lindsay
+#formatInsertions <- function(){
+#}
 
 
 #'@title Sets colours for plotting aligned DNA sequences.

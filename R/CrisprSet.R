@@ -1,7 +1,8 @@
 #'@title CrisprSet class
 #'@description A container for holding a set of narrowed alignments, 
 #'each corresponding to the same target region.  Individual samples are 
-#'represented as CrisprRun objects.  
+#'represented as CrisprRun objects.  CrisprRun objects with no on-target
+#'reads are excluded.
 #'@param crispr.runs A list of CrisprRun objects, typically representing individual samples
 #'within an experiment
 #'@param reference The reference sequence, must be the same length as the target region
@@ -9,7 +10,7 @@
 #'Need not correspond to the guide sequence.  
 #'@param rc Should the alignments be reverse complemented, 
 #'i.e. displayed w.r.t the reverse strand? (default: FALSE)
-#'@param short_cigars If TRUE, variants labels are created from the location of their
+#'@param short.cigars If TRUE, variants labels are created from the location of their
 #'insertions and deletions.  For variants with no insertions or deletions, the locations 
 #'of any single base mismatches are displayed (default: TRUE).
 #'@param names A list of names for each of the samples, e.g. for displaying in plots.
@@ -18,14 +19,21 @@
 #'@param renumbered Should the variants be renumbered using target.loc as the zero point? 
 #'If TRUE, variants are described by the location of their 5'-most base with respect to the 
 #'target.loc.  A 3bp deletion starting 5bp 5' of the cut site would be labelled
-#'(using short_cigars) as -5:3D (Default: TRUE)
+#'(using short.cigars) as -5:3D (Default: TRUE)
 #'@param target.loc The location of the Cas9 cut site with respect to the supplied target.
 #'(Or some other central location).  Can be displayed on plots and used as the zero point 
 #'for renumbering variants. For a target region with the PAM location from bases 21-23, 
 #'the target.loc is base 18 (default: NA)
 #'@param match.label Label for sequences with no variants (default: "no variant")
+#'@param mismatch.label Label for sequences with only single nucleotide variants 
+#'  (default: "SNV")
+#'@param split.snv Should single nucleotide variants (SNVs) be shown for 
+#' reads without an insertion or deletion? (default: TRUE)
+#'@param upstream.snv  If split.snv = TRUE, how many bases upstream of the target.loc
+#' should SNVs be shown?  (default: 8)
+#'@param downstream.snv If split.snv = TRUE, how many bases downstream of the target.loc
+#' should SNVs be shown? (default: 5)
 #'@param verbose If true, prints information about initialisation progress (default: TRUE)
-#'@param ...
 #'@field crispr_runs A list of CrisprRun objects, typically corresponding to samples 
 #'of an experiment.  
 #'@field ref The reference sequence for the target region, as a DNAString object 
@@ -47,9 +55,11 @@ CrisprSet = setRefClass(
 )
 
 CrisprSet$methods(
-  initialize = function(crispr.runs, reference, target, rc = FALSE, short_cigars = TRUE, 
+  initialize = function(crispr.runs, reference, target, rc = FALSE, short.cigars = TRUE, 
                         names = NULL, renumbered = TRUE, target.loc = NA, 
-                        match.label = "no variant", verbose = TRUE, ...){
+                        match.label = "no variant", mismatch.label = "SNV",
+                        split.snv = TRUE, upstream.snv = 8, downstream.snv = 5,
+                        verbose = TRUE, ...){
     
     print(sprintf("Initialising CrisprSet with %s samples", length(crispr.runs)))
     
@@ -63,11 +73,10 @@ CrisprSet$methods(
                   "This is typically 18 for a 23 bp Crispr-Cas9 guide sequence"))
     }
     
-    # TO DO - DECIDE WHETHER TO KEEP EMPTY RUNS
     target <<- target   
     ref <<- reference 
     pars <<- list("match_label" = match.label, "target.loc" = target.loc, 
-                  "mismatch_label" = "SNV", "renumbered" = renumbered)
+                  "mismatch_label" = mismatch.label, "renumbered" = renumbered)
     
     #pars <<- modifyList(pars, ...)   
     
@@ -82,12 +91,15 @@ CrisprSet$methods(
       ! length(x$alns) == 0})
     
     .self$crispr_runs <<- .self$crispr_runs[nonempty_runs]
-    if (length(.self$crispr_runs) == 0) stop("no on target runs")
+    if (length(.self$crispr_runs) == 0) stop("no on target reads in any sample")
     
-    if (verbose == TRUE) cat("Renaming cigar strings and counting indels\n")
+    if (verbose == TRUE) cat("Renaming cigar strings\n")
     cig_by_run <- .self$.setCigarLabels(renumbered = renumbered, target.loc = target.loc,
                                         target_start = start(target), target_end = end(target), 
-                                        rc = rc, match_label = match.label, ref = ref)
+                                        rc = rc, match_label = match.label, 
+                                        mismatch_label = mismatch.label, ref = ref, 
+                                        short = short.cigars, split.snv = split.snv)
+    if (verbose == TRUE) cat("Counting variant combinations\n")
     .self$.countCigars(cig_by_run)
   },
   
@@ -101,7 +113,8 @@ CrisprSet$methods(
   
   .setCigarLabels = function(renumbered = FALSE, target.loc = NA, target_start = NA,
                              target_end = NA, rc = FALSE, match_label = "no variant",
-                             ref = NULL){
+                             mismatch_label = "SNV", short = TRUE, split.snv = TRUE,
+                             upstream.snv = 8, downstream.snv = 5, ref = NULL){
     g_to_t <- NULL
     
     if (renumbered == TRUE){
@@ -111,13 +124,21 @@ CrisprSet$methods(
       }
       g_to_t <- genomeToTargetLocs(target.loc, target_start, target_end, rc)
       }
-    
     cut.site <- ifelse(is.na(target.loc), 18, target.loc)
     
+    # This part should be sped up
     cig_by_run <- lapply(.self$crispr_runs,
-                         function(crun) crun$getCigarLabels(match_label = match_label, rc = rc,
-                                                            genome_to_target = g_to_t, ref = ref, 
-                                                            cut.site = cut.site))     
+                         function(crun) crun$getCigarLabels(short = short,
+                                            match_label = match_label, 
+                                            target_start = target_start,
+                                            target_end = target_end,
+                                            mismatch_label = mismatch_label,
+                                            rc = rc, genome_to_target = g_to_t,
+                                            ref = ref, cut.site = cut.site,
+                                            split_non_indel = split.snv,
+                                            upstream = upstream.snv, 
+                                            downstream = downstream.snv))   
+    
     return(cig_by_run)
   }, 
   
@@ -132,7 +153,8 @@ CrisprSet$methods(
     unique_cigars <- unique(unlist(cig_by_run))  
     
     m <- matrix(unlist(lapply(cig_by_run, function(x) table(x)[unique_cigars])), 
-                nrow = length(unique_cigars), dimnames = list(unique_cigars, names(.self$crispr_runs)))
+                nrow = length(unique_cigars), 
+                dimnames = list(unique_cigars, names(.self$crispr_runs)))
     
     m[is.na(m)] <- 0
     m <- m[order(rowSums(m), decreasing = TRUE),, drop = FALSE]
@@ -147,12 +169,228 @@ CrisprSet$methods(
     cigar_freqs <<- m
   },
   
+  filterUniqueLowQual = function(min_count = 2, max_n = 0, verbose = TRUE){
+'
+Description:
+  Deletes reads containing rare variant combinations and more than 
+  a minimum number of ambiguity characters within the target region.
+  These are assumed to be alignment errors.
+
+Input parameters:
+  min_count:    the number of times a variant combination must occur across 
+                all samples to keep (default: 2, i.e. a variant must occur
+                at least twice in one or more samples to keep)
+  max_n:        maximum number of ambiguity ("N") bases a read with a rare
+                variant combination may contain.  (default: 0)
+  verbose:      If TRUE, print the number of sequences removed (default: TRUE)
+'  
+    # Find low frequency variant combinations, then find the corresponding samples
+    low_freq <- .self$cigar_freqs[rowSums(.self$cigar_freqs) < min_count, , drop = FALSE]
+    lf_cig_by_run <- apply(low_freq, 2, function(x) names(x)[x != 0])
+    lns <- lapply(lf_cig_by_run, length)
+    lf_cig_by_run <- lf_cig_by_run[lns > 0]
+    
+    # Find the corresponding reads, count the ambiguity characters 
+    rm_cset <- unlist(lapply(names(lf_cig_by_run), function(name){
+      crun <- cset$crispr_runs[[name]]
+      get_idxs <- match(lf_cig_by_run[[name]], crun$cigar_labels)
+      sqs <- mcols(crun$alns[get_idxs])$seq
+      to_remove <- get_idxs[as.numeric(Biostrings::letterFrequency(sqs, "N")) > max_n]
+      cset_to_remove <- match(crun$cigar_labels[to_remove], rownames(cset$cigar_freqs)) 
+      if (length(to_remove) > 0) crun$removeSeqs(to_remove)
+      return(cset_to_remove)
+    }))
+    if (verbose){
+      cat(sprintf("Removing %s rare sequence(s) with ambiguities\n", length(rm_cset)))
+    }
+    if ( length(rm_cset) > 0){
+      .self$field("cigar_freqs", .self$cigar_freqs[-rm_cset,,drop = FALSE])
+    }
+  },
+  
   .getFilteredCigarTable = function(top_n = nrow(.self$cigar_freqs), freq_cutoff = 0){
     rs <- rowSums(.self$cigar_freqs)
     minfreq <- rs >= freq_cutoff
     topn <- rank(-rs) <= top_n
     cig_freqs <- .self$cigar_freqs[minfreq & topn ,, drop = FALSE] 
     return(cig_freqs) 
+  },
+  
+  .getUniqueIndelRanges = function(add_chr = TRUE, add_to_ins = TRUE){
+    # Note this only gets the ranges, not the sequences, inserted sequences may differ
+    # Returns a GRanges object of all insertions and deletions, with names = variant names
+    # if "add_chr" == TRUE, chromosome names start with "chr"
+    # if add_to_ins == TRUE, adds one to end of insertions, as required for VariantAnnotation
+    
+    cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$getCigarLabels())
+    all_cigars <- unlist(cig_by_run)
+    unique_cigars <- !duplicated(unlist(cig_by_run))  
+    
+    co <- do.call(c, unlist(lapply(cset$crispr_runs, function(x) x$cigar_ops), 
+                            use.names = FALSE))[unique_cigars]    
+    idxs <- co != "M"
+    
+    ir <- do.call(c, unlist(lapply(cset$crispr_runs, function(x) x$genome_ranges), 
+                            use.names = FALSE))
+    ir <- ir[unique_cigars][idxs]
+    names(ir) <- all_cigars[unique_cigars]
+    ir <- unlist(ir)
+    
+    if (add_to_ins){
+      ins_idxs <- unlist(co[idxs] == "I")
+      end(ir[ins_idxs]) <- end(ir[ins_idxs]) + 1
+    }
+    
+    chrom <- as.character(seqnames(.self$target))
+    if (add_chr & ! grepl('^chr', chrom)){
+      chrom <- paste0("chr", chrom)
+    }
+    
+    return(GRanges(chrom, ir))
+  },
+  
+  mutationEfficiency = function(snv = c("include","exclude","non_variant"),
+                                exclude_cols = NULL){
+'
+Description:
+  Calculates summary statistics for the mutation efficiency, i.e.
+  the percentage of reads that contain a variant.  Reads that do not 
+  contain and insertion or deletion, but do contain a single nucleotide 
+  variant (snv) can be considered as mutated, non-mutated, or not 
+  included in efficiency calculations as they are ambiguous.
+
+Input parameters:
+  snv:    One of "include" (consider reads with mismatches to be mutated),
+          "exclude" (do not include reads with snvs in efficiency calculations),
+          and "non_variant" (consider reads with mismatches to be non-mutated).
+  exclude_cols:   A list of column indices to exclude from calculation, e.g. if one
+                  sample is a control (default: NULL, i.e. include all columns)
+Return value:
+  A vector of efficiency statistics per sample and overall
+
+'    
+    snv <- match.arg(snv)
+    freqs <- .self$cigar_freqs
+    
+    if (length(exclude_cols) > 0){
+      freqs <- freqs[,-exclude_cols, drop = FALSE]
+    }
+    
+    is_snv <- grep(.self$pars$mismatch_label, rownames(freqs))
+    
+    if (snv == "exclude"){
+      if (length(is_snv) > 0) freqs <- freqs[-is_snv,,drop = FALSE]
+    }
+    
+    total_seqs <- colSums(freqs)
+    not_mutated <- grep(.self$pars$match_label, rownames(freqs))
+    if (snv == "non_variant") not_mutated <- c(not_mutated, is_snv)
+    
+    if (length(not_mutated) > 0) freqs <- freqs[-not_mutated,,drop = FALSE]
+    
+    mutants <- colSums(freqs)
+    mutant_efficiency = mutants/total_seqs * 100
+    average <- mean(mutant_efficiency)
+    median <- median(mutant_efficiency)
+    overall <- sum(mutants)/ sum(total_seqs) * 100
+    result <- round(c(mutant_efficiency, average, median, overall),2)
+    names(result) <- c(colnames(freqs), "Average","Median","Overall")
+    return(result)
+  },
+  
+  classifyVariantsByType = function(){
+    # Classifies variants as reference, mismatch, insertion, deletion
+    # or insertion+deletion
+    vars <- rep(NA, nrow(.self$cigar_freqs))
+    is_snv <- grepl(.self$pars$mismatch_label, rownames(.self$cigar_freqs))
+    is_ref <- grepl(.self$pars$match_label, rownames(.self$cigar_freqs))
+    is_ins <- grepl("I", rownames(.self$cigar_freqs))
+    is_del <- grepl("D", rownames(.self$cigar_freqs))
+    ins_and_del <- is_ins & is_del
+    vars[is_ref] <- .self$pars$match_label
+    vars[is_snv] <- .self$pars$mismatch_label
+    vars[is_ins] <- "insertion"
+    vars[is_del] <- "deletion"
+    vars[ins_and_del] <- "insertion/deletion"
+    return(vars)
+  },
+  
+  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE){
+  '
+Description:
+  Uses the VariantAnnotation package to look up the location of the 
+  variants.  VariantAnnotation allows multiple classification tags per variant,
+  this function returns a single tag.  The following preference order is used:  
+  spliceSite > coding > intron > fiveUTR > threeUTR > promoter > intergenic
+
+Input parameters:
+  txdb:     A BSgenome transcription database
+  add_chr:  Add "chr" to chromosome names to make compatible with UCSC (default: TRUE)
+  verbose:  Print progress (default: TRUE)
+  
+Return value:
+  A vector of classification tags, matching the rownames of .self$cigar_freqs 
+  (the variant count table)
+  '  
+    
+    if (verbose) cat("Looking up variant locations\n")
+    
+    stopifnot(require(VariantAnnotation))
+    
+    gr <- .self$.getUniqueIndelRanges(add_chr)
+    locs <- VariantAnnotation::locateVariants(gr, txdb, AllVariants())
+    if (verbose == TRUE) cat("Classifying variants\n")  
+  
+    locs_codes <- paste(seqnames(locs), start(locs), end(locs), sep = "_")
+    # Note that all indels have the same range
+    indel_codes <- paste(seqnames(gr), start(gr), end(gr), sep = "_")
+    indel_to_loc <- lapply(indel_codes, function(x) locs$LOCATION[which(locs_codes == x)]) 
+    
+    var_levels <- c("spliceSite","coding","intron","fiveUTR","threeUTR","promoter", "intergenic")
+    result <- unlist(lapply(indel_to_loc, function(x){
+      y <- factor(x,levels = var_levels)
+      var_levels[min(as.numeric(y))]}))
+    names(result) <- names(gr)                 
+    
+    classification <- rep("", nrow(.self$cigar_freqs))
+    no_var <- grep(.self$pars$match_label, rownames(.self$cigar_freqs))
+    classification[no_var] <- .self$pars$match_label
+    snv <- grep(.self$pars$mismatch_label, rownames(.self$cigar_freqs))
+    classification[snv] <- .self$pars$mismatch_label
+    
+    ord <- match(names(result), rownames(.self$cigar_freqs))
+    classification[ord] <- result
+    names(classification) <- rownames(.self$cigar_freqs)
+    
+    return(classification)    
+  },
+  
+  classifyCodingBySize = function(var_type, cutoff = 10){
+    # This is a naive classification of variants as frameshift or in-frame
+    # Coding indels are summed, and indels with sum divisible by 3 are 
+    # considered frameshift.  Requires a vector of var_type, and only 
+    # considers variants where var_type == "coding"
+    
+    is_coding <- var_type == "coding"
+    
+    indels <- .self$cigar_freqs[is_coding,,drop = FALSE]
+    if (length(indels) > 0){
+      
+      temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
+      indel_grp <- rep(c(1:nrow(indels)), lapply(temp, length))
+      indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))), indel_grp)
+      
+      inframe <- indel_ln %% 3 == 0
+      is_short <- indel_ln < cutoff
+      
+      indel_grp <- rep(sprintf("inframe indel < %s", cutoff), nrow(indels))
+      indel_grp[is_short &! inframe] <- sprintf("frameshift indel < %s", cutoff)
+      indel_grp[!is_short & inframe] <- sprintf("inframe indel > %s", cutoff)   
+      indel_grp[!is_short & !inframe] <- sprintf("frameshift indel > %s", cutoff)  
+      var_type[is_coding] <- indel_grp
+    }
+    
+    return(var_type)
   },
   
   countVariantAlleles = function(counts_t = NULL){
@@ -175,15 +413,29 @@ CrisprSet$methods(
   },
   
   plotVariants = function(freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), 
-                          short_cigars = FALSE, renumbered = .self$pars["renumbered"], 
-                          show_genomic = FALSE, ...){
-    
-    # var_freq_cutoff = i (integer) only plot variants that occur >= i times
-    # top_n = total number of variants to plot
-    # ... arguments for plotAlignments
-    # note that if there are ties, top_n only includes ties with 
-    # all members ranking <= top_n 
-    
+                          renumbered = .self$pars["renumbered"], ...){
+'
+Description:
+  Wrapper for crispRvariants:plotAlignments, optionally filters the table 
+  of variants, then plots variants with respect to the reference sequence, 
+  collapsing insertions and displaying insertion sequences below the plot.
+
+Input parameters:
+  freq_cutoff:      i (integer) only plot variants that occur >= i times
+                    (default: 0, i.e no frequency cutoff)
+  top_n:            n (integer) Plot only the n most frequent variants 
+                    (default: plot all)
+                    Note that if there are ties in variant ranks, 
+                    top_n only includes ties with all members ranking <= top_n    
+  renumbered:       If TRUE, the x-axis is numbered with respect to the target 
+                    (cut) site.  If FALSE, x-axis shows genomic locations.
+                    (default: TRUE)
+  ...               additional arguments for plotAlignments
+
+Return value:
+  A ggplot2 plot object.  Call "print(obj)" to display  
+'    
+     
     cig_freqs <- .self$.getFilteredCigarTable(top_n, freq_cutoff)
     
     alns <- .self$makePairwiseAlns(cig_freqs)
@@ -202,15 +454,36 @@ CrisprSet$methods(
       xbreaks = which(target_coords %% 5 == 0 | abs(target_coords) == 1)
       target_coords <- target_coords[xbreaks]
       
-      p <- plotAlignments(.self$ref, alns, .self$insertion_sites, 
+      p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, 
                           xtick_labs = target_coords, xtick_breaks = xbreaks, ...)
     } else {
-      p <- plotAlignments(.self$ref, alns, .self$insertion_sites, ...)    
+      p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, ...)    
     }
+
     return(p)
   },
   
+  plotFrequencySpectrum = function(indel_only = TRUE, ...){   
+    # ... are args for postageStampPlot
+    
+    freqs <- cset$cigar_freqs
+    if (indel_only){
+      toremove <- sprintf("%s|%s", .self$pars$match_label, .self$pars$mismatch_label)
+      idxs <- grep(toremove, rownames(cset$cigar_freqs))
+      if (length(idxs) > 0) freqs <- cset$cigar_freqs[-idxs,, drop = FALSE]
+    }
+    freq_df <- data.frame(nsamples = rowSums(freqs > 0), 
+                          variants = rowSums(freqs)) 
+    
+    freqs <- aggregate(rep(1, nrow(freq_df)), by = as.list(freq_df), FUN = table)
+    colnames(freqs) <- c("samples", "variants", "occurs")
+    freqs$occurs <- as.numeric(freqs$occurs)
+    return(postageStampPlot(freqs, ...))
+  },
+  
   getInsertions = function(with_cigars = TRUE){
+    # Used by plotVariants for getting a table of insertions
+    
     if (with_cigars == FALSE){
       all_ins <- do.call(rbind, lapply(.self$crispr_runs, function(x) x$insertions))
     } else {
@@ -268,12 +541,6 @@ CrisprSet$methods(
     
     names(alns) <- splits_labels
     alns
-  },
-  
-  plotVariantOverview = function(){
-    
-    # heatmap must take same filtering args, OR be able to match the alignment names
-    
   },
   
   genomeToTargetLocs = function(target.loc, target_start, target_end, rc = FALSE){

@@ -60,19 +60,104 @@ CrisprRun$methods(
                                   .self$name, length(.self$alns)), .self$alns))
   },
   
+  removeSeqs = function(idxs){
+'
+Description:
+  Remove sequences from a CrisprRun object and from the internal CrisprRun 
+  fields that store insertion locations for plotting.
+
+Input parameters:
+  idxs:     Indexes of reads to remove'
+    
+    # note insertions table is not updated
+    ins_key_idxs <- which(names(.self$ins_key) %in% idxs)
+    
+    if (length(ins_key_idxs) > 0){
+      .self$field("ins_key", .self$ins_key[-ins_key_idxs]) 
+    }
+    
+    # Insertion key refers to indexs with in the alignments, these have shifted after 
+    # filtering.  Note - would need to shift insertions idxs if insertions is also updated
+    subtract <- rep(0, length(.self$alns))
+    subtract[idxs] <- 1
+    subtract <- cumsum(subtract)
+    
+    temp <- .self$ins_key 
+    nm_as_num <- as.numeric(names(temp))
+    names(temp) <- nm_as_num - subtract[nm_as_num]
+    .self$field("ins_key", temp)  
+    
+    .self$field("alns", .self$alns[-idxs])
+    .self$field("cigar_labels", .self$cigar_labels[-idxs])
+    .self$field("query_ranges", .self$query_ranges[-idxs])
+    .self$field("genome_ranges", .self$genome_ranges[-idxs])
+    .self$field("ref_ranges", .self$ref_ranges[-idxs])
+    .self$field("cigar_ops", .self$cigar_ops[-idxs])
+  },
+
+  countDeletions = function(count_multi_del = FALSE, count_del_w_ins = FALSE){
+  '
+Description:
+Counts the number of reads containing a deletion
+
+Input parameters:
+  count_multi_del:   If TRUE, returns the exact number of deletions,
+                     i.e., if one read contains 2 deletions, it contributes 2 to the
+                     total count (default: FALSE)
+  count_del_w_ins:   If TRUE, counts deletions regardless of whether reads also
+                     contain insertions.  If FALSE, counts reads that contain 
+                     deletions but not insertions (default: FALSE)
+  ' 
+    if (count_del_w_ins){
+      if (count_multi_del)  return(sum(.self$cigar_ops %in% c("D", "N")))
+      return(sum(any(.self$cigar_ops %in% c("D", "N"))))
+    }
+    if (count_multi_del){
+      return(sum(.self$cigar_ops %in% c("D", "N")[! any.self$cigar_ops == "I"]))
+    }
+    return(sum(any(.self$cigar_ops %in% c("D", "N")) & ! any(.self$cigar_ops == "I")))
+  },
+
+  countInsertions = function(count_ins_w_del = FALSE, count_multi_ins = FALSE){
+  '
+Description:
+Counts the number of reads containing an insertion
+
+Input parameters:
+  count_multi_ins:   If TRUE, returns the exact number of insertions,
+                     i.e., if one read contains 2 insertions, it contributes 2 to the
+                     total count (default: FALSE)
+  count_ins_w_del:   If TRUE, counts insertions regardless of whether reads also
+                     contain deletions  If FALSE, counts reads that contain 
+                     insertions but not deletions (default: FALSE)
+  '
+    if (count_ins_w_del){
+      if (count_multi_ins)  return(sum(.self$cigar_ops == "I"))
+      return(sum(any(.self$cigar_ops == "I")))
+    }
+  
+    if (count_multi_ins){
+      return(sum(.self$cigar_ops == "I" & ! any(.self$cigar_ops %in% c("D","N"))))
+    }
+    return(sum(any(.self$cigar_ops == "I" & ! any(.self$cigar_ops %in% c("D","N")))))
+  },
+  
   countIndels = function(){
-    '
+'
+Description:
     Prints the number of target reads that include at least one 
-    insertion or deletion
-    '
-    return(sum(any(.self$cigar_ops %in% c("I", "D"))))
+    insertion or deletion, by counting cigar operations "I" (insertion),
+    "D" (deletion) and "N" (junction operation used by some aligners)
+'
+    return(sum(any(.self$cigar_ops %in% c("I", "D", "N"))))
   },
   
   indelPercent = function(){
-    '
+'
+Description:
     Prints the percentage of target reads that include at least one 
     insertion or deletion
-    '
+'
     return((.self$countIndels() / length(.self$cigar_ops))*100)
   },
   
@@ -113,7 +198,7 @@ CrisprRun$methods(
                         start = ins_starts, end = ins_starts, 
                         inserted = .self$insertions$seq[.self$ins_key], stringsAsFactors = FALSE)
     }
-    
+    return(ins)
   },
   
   .checkNonempty = function(){
@@ -125,19 +210,20 @@ CrisprRun$methods(
   },
   
   getVariants = function(ref_genome, chrom = NULL, ensembl = FALSE, strand = "+"){
-    '
-    Description:
-    Returns a data frame of unique variants and their coordinates
+'
+Description:
+  Returns a data frame of unique variants and their coordinates
     
-    Input parameters:
-    ref_genome: a BSGenome obj 
-    chrom: chromosomes to consider 
-    ensembl: should variants be returned in Ensembl default format, 
-    e.g. for use with the Ensembl Variant Effect Predictor (default: FALSE)
-    strand: The strand of the target alignments.  If "-", the reference sequence 
-    is reverse complemented and variants are returned w.r.t the negative strand 
-    (default: "+")
-    Result:
+Input parameters:
+    ref_genome:   a BSGenome obj 
+    chrom:        chromosomes to consider 
+    ensembl:      should variants be returned in Ensembl default format, 
+                  e.g. for use with the Ensembl Variant Effect Predictor 
+                  (default: FALSE)
+    strand:       The strand of the target alignments.  If "-", the 
+                  reference sequence is reverse complemented and variants are 
+                  returned w.r.t the negative strand (default: "+")
+Result:
     Value "read" is the index of the alignment with the variant in .self$alns 
     '    
     if (! .self$.checkNonempty()){
@@ -263,7 +349,8 @@ CrisprRun$methods(
   getCigarLabels = function(short = TRUE, match_label = "no variant", 
                             genome_to_target = NULL, rc = FALSE, target_start = NULL,
                             target_end = NULL, ref = NULL, split_non_indel = TRUE, 
-                            mismatch_label = "SNV", cut.site = 18){
+                            mismatch_label = "SNV", cut.site = 18, upstream = 8, 
+                            downstream = 5){
     
     # Sets / returns cigar labels                        
     # If short = only consider insertions and deletions (except for wildtype?)
@@ -354,27 +441,39 @@ CrisprRun$methods(
       result[as.numeric(names(short_ops))] <- short_ops
     }
     if (split_non_indel){
-      result <- .splitNonIndel(ref, result, match_label, mismatch_label, cut.site)
+      result <- .splitNonIndel(ref, result, match_label, mismatch_label, cut.site, 
+                               upstream, downstream)
     }
     cigar_labels <<- result
     result
   },
   
   .splitNonIndel = function(ref, cig_labels, match_label = "no variant", 
-                            mismatch_label = "SNV", cut.site = 18){
-    no_var <- which(cig_labels == match_label & mcols(.self$alns)$seq != ref)
-    if (length(no_var) == 0) return(cig_labels)
+                          mismatch_label = "SNV", cut_site = 18, upstream = 8, 
+                          downstream = 5){
+  
+  # Only consider mismatches up to (upstream) to the left of the cut and
+  # (downstream) to the right of the cut
+  # The cut site is between cut_site and cut_site + 1
+  
+  # TO DO - AMBIGUITY CHARACTERS SHOULD NOT BE SNVS!  
     
-    no_var_seqs <- as.matrix(mcols(.self$alns)$seq[no_var])
-    rr <- strsplit(as.character(ref), "")[[1]]
-    result <- apply(no_var_seqs, 1, function(x){
-      snvs <- which((x != rr & x != "N")) - cut.site -1
-      snvs[snvs >= 0] <- snvs[snvs >= 0] + 1 
-      sprintf("%s:%s", mismatch_label, paste(snvs, collapse = ","))
-    })
-    result[result == sprintf("%s:", mismatch_label)] <- match_label
-    cig_labels[no_var] <- result 
-    return(cig_labels)       
+  no_var <- which(cig_labels == match_label & mcols(.self$alns)$seq != ref)
+  if (length(no_var) == 0) return(cig_labels)
+  
+  snv_range <- c((cut_site-upstream + 1):(cut_site + downstream))
+  no_var_seqs <- as.matrix(mcols(.self$alns)$seq[no_var])
+  no_var_seqs <- no_var_seqs[,snv_range, drop = FALSE]    
+  
+  rr <- strsplit(as.character(ref[snv_range]), "")[[1]]
+  result <- apply(no_var_seqs, 1, function(x){
+    snvs <- which((x != rr & x != "N")) - upstream - 1
+    snvs[snvs >= 0] <- snvs[snvs >= 0] + 1 
+    sprintf("%s:%s", mismatch_label, paste(snvs, collapse = ","))
+  })
+  result[result == sprintf("%s:", mismatch_label)] <- match_label
+  cig_labels[no_var] <- result 
+  return(cig_labels)       
   }
   
 )

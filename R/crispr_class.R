@@ -47,13 +47,14 @@ library(gridExtra)
 
 
 findHighCovRegions <- function(chimeras, min_cov = 1000){
+  # THIS FUNCTION NOT WORKING BECAUSE OF VIEW MEANS
   # Chimeras: GAlignments obj
   chimera_cov <- coverage(chimeras)
   sl <- slice(chimera_cov, lower = min_cov)
   slgr <- as(sl, "GRanges")
   vm <- viewMeans(sl)
   mcols(slgr)$avg <- unlist(vm)
-  retunr(slgr)
+  return(slgr)
 }
 
 .mergeChimeras <- function(chimeras, cigars, change_pts, unclipped, del_lens, max_overlap = 0){

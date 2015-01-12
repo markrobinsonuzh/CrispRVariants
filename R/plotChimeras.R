@@ -35,6 +35,7 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   #          a gap in the y-axis will be introduced
   
   # To do: allow a region of interest to be annotated
+  # note that the mapping to the fwd strand is shown if all strands agree
   cigars <- cigar(chimeric_alns)
   genomic_locs <- as(chimeric_alns, "GRanges")
   
@@ -65,7 +66,8 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   plus_min <- rep(plus_min, lapply(m_qry, length))
   ord <- order(plus_min)
 
-  xs <- mapply(seq, unlist(start(m_qry[is_plus])), unlist(end(m_qry[is_plus])))
+  xs <- mapply(seq, unlist(start(m_qry[is_plus])), unlist(end(m_qry[is_plus])), 
+               SIMPLIFY = FALSE)
   if (two_strands){
     xs <- c(xs, mapply(function(x,y) rev(seq(x,y)), unlist(start(m_qry[!is_plus])), 
           unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
@@ -74,7 +76,7 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
           unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
   }
   
-  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)))[ord]
+  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)), SIMPLIFY = FALSE)[ord]
   chrs <- seqnames(genomic_locs)[plus_min][ord]
   
   # Introduce gaps for aligned segments separated by more than max_gap
@@ -99,12 +101,17 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   m_qry_start <- unlist(start(m_qry_range))
   m_qry_end <- unlist(end(m_qry_range))
   
+  box_ymins <- pt_coords$y[sapply(m_qry_start, function(x) max(which(pt_coords$x == x)))]
+  box_ymaxs <- pt_coords$y[sapply(m_qry_end, function(x) min(which(pt_coords$x == x)))]
+  
   box_coords <- data.frame(xmin = m_qry_start, xmax = m_qry_end, chrs = seqnames(genomic_locs),
-                           ymin = pt_coords[pt_coords$x %in% m_qry_start, "y"],
-                           ymax = pt_coords[pt_coords$x %in% m_qry_end, "y"])
+                           #ymin = pt_coords[pt_coords$x %in% m_qry_start, "y"],
+                           #ymax = pt_coords[pt_coords$x %in% m_qry_end, "y"])
+                           ymin  = box_ymins, ymax = box_ymaxs)
                            
   gap_starts <- y_sums[which(offsets >= max_gap) -1]
 
+  # chr_box_coords are coordinates for shading to indicate gaps
   chr_box_coords <- data.frame(ymin = pt_coords[gap_starts, "y"], 
                                ymax = pt_coords[gap_starts + 1, "y"])
    
@@ -137,9 +144,10 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
                           axis.text.x=element_text(size=text_size),
                           plot.margin = unit(c(1, 1, 1, 1), "lines")) 
   if (nrow(chr_box_coords) > 0){                         
-    p <- p + geom_rect(data = chr_box_coords, aes(xmin = min(pt_coords$x), 
-                    xmax = max(pt_coords$x), ymin = ymin, ymax = ymax, y = NULL, x = NULL), 
-                    fill = "gray", alpha = 0.2, colour = "gray", linetype = "dotted") +
+    p <- p + geom_rect(data = chr_box_coords, aes(ymin = ymin, 
+                       ymax = ymax, y = NULL, x = NULL), 
+                       xmin = min(pt_coords$x), xmax = max(pt_coords$x), 
+                       fill = "gray", alpha = 0.2, colour = "gray", linetype = "dotted") +
          scale_x_continuous(expand = c(0,0), breaks = xbreaks) 
   }
   p
