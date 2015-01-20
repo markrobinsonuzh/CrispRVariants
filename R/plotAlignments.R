@@ -1,3 +1,30 @@
+#'@title Plot alignments with respect to a reference sequence  
+#'@rdname plotAlignments
+#'@export
+setGeneric("plotAlignments", function(obj, ...) {
+  standardGeneric("plotAlignments")})
+
+#'@rdname plotAlignments
+#'@description Wrapper for CrisprSet$plotVariants.  Optionally filters a 
+#'CrisprSet frequency table, then plots variants.  More information in
+#'\code{\link[crispRvariants]{CrisprSet}} 
+#'@param freq_cutoff i (integer) only plot variants that occur >= i times
+#' (default: 0, i.e no frequency cutoff)
+#'@param top_n (integer) Plot only the n most frequent variants 
+#' (default: plot all)
+#'@param renumbered If TRUE, the x-axis is numbered with respect to the target
+#' (default: TRUE)
+setMethod("plotAlignments", signature("CrisprSet"),  
+          function(obj, ..., freq_cutoff = 0, 
+                   top_n = nrow(obj$cigar_freqs),
+                   renumbered = obj$pars["renumbered"]) {
+            plot_obj <- obj$plotVariants(freq_cutoff = freq_cutoff, top_n = top_n, 
+                                         renumbered = renumbered, ...)
+            
+            return(plot_obj)
+          })
+
+
 #'@title Plots pairwise alignments 
 #'@description Plots a set of pairwise alignments to a reference sequence.
 #'Alignments should all be the same length as the reference sequences.  

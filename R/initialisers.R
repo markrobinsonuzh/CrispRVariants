@@ -22,7 +22,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
                    collapse.pairs = FALSE, use.consensus = TRUE, 
                    verbose = FALSE, name = NULL){
-          
+            
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
             }
@@ -32,7 +32,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
               }
             }  
             # Filter out reads that don't span the target region 
-            # Not using findOverlaps because reads may be paired, i.e. names nonunique6
+            # Not using findOverlaps because reads may be paired, i.e. names nonunique
             
             bam <- reads[start(reads) <= start(target) & end(reads) >= end(target) & 
                          seqnames(reads) == as.character(seqnames(target))]
@@ -55,8 +55,10 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- result$alignments
             
             # Collapse pairs of narrowed reads
-            result <- collapsePairs(bam, genome.ranges = result$genome.ranges, 
-                                    use.consensus = use.consensus, verbose = verbose)
+            if (collapse.pairs == TRUE){
+              result <- collapsePairs(bam, genome.ranges = result$genome.ranges, 
+                                      use.consensus = use.consensus, verbose = verbose)
+            }
             if (is.null(result)) return(NULL)
             
             bam <- result$alignments
@@ -75,7 +77,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
 #'@return A CrisprSet object
 #'@rdname readsToTarget
 setMethod("readsToTarget", signature("character", "GRanges"),
-          function(reads, target, ..., reference, reverse.complement = FALSE, 
+          function(reads, target, ..., reference, reverse.complement = TRUE, 
                    exclude.ranges = GRanges(), exclude.names = NA,
                    chimeras = c("ignore","exclude","merge"),
                    collapse.pairs = FALSE, use.consensus = TRUE, 
@@ -90,6 +92,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
             if (is.null(names)){
               names <- reads
             }
+            
             cset <- alnsToCrisprSet(alns, reference, target, reverse.complement, 
                                     collapse.pairs, names, use.consensus, verbose, ...)
             return(cset)
@@ -105,9 +108,8 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'Read lengths are typically greater than target regions, and it can 
 #'be that reads span multiple targets.  If primer.ranges are available,
 #'they can be used to assign such reads to the correct target.  
-#'@param ... Can include "mc.cores" for parallel processing, plus
-#'additional arguments for initialising the CrisprSet
-#' primer.ranges are supplied
+#'@param ... Additional arguments for initialising the CrisprSet
+#'primer.ranges are supplied
 #'@param ignore.strand Should strand be considered when finding overlaps?
 #'(See \code{\link[GenomicAlignments]{findOverlaps}} )
 #'@rdname readsToTarget
@@ -130,17 +132,22 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             
             param <- ScanBamParam(what = c("seq", "flag"))
             args <- list(...)
-            mccores <- ifelse("mc.cores" %in% args, args$mc.cores, 1)
-            
-            bamsByPCR <- mclapply(seq_along(reads), function(i){
-              bam <- GenomicAlignments::readGAlignments(reads[i], 
-                                              param = param, use.names = TRUE)
+          
+            bamsByPCR <- bplapply(seq_along(reads), function(i){
               if (verbose) cat(sprintf("Loading alignments for %s\n\n", names[i]))
               
+              bam <- GenomicAlignments::readGAlignments(reads[i], 
+                                              param = param, use.names = TRUE)
+              if (length(bam) == 0){
+                if (verbose) cat("No reads in alignment\n")
+                return(NULL)
+              } 
+         
               # If primer.ranges are provided, match reads to primers
               # If not, match reads to targets 
               if (! is.null(primer.ranges)){
                 hits <- readsByPCRPrimer(bam, primer.ranges, verbose = verbose)
+                #if (is.null(hits)) 
                 bamByPCR <- split(bam[queryHits(hits)], subjectHits(hits))
               } else{
                 hits <- findOverlaps(targets, bam, type = "within")
@@ -161,7 +168,9 @@ setMethod("readsToTargets", signature("character", "GRanges"),
                 bamByPCR <- split(bam[subjectHits(hits)], queryHits(hits))
               }
               bamByPCR
-            }, mc.cores = mccores)
+            })
+            
+            #bamsByPCR <- bamsByPCR[ !(is.null)
             
             # bamsByPCR is separated by sample
             # rearrange to separate by target, initialise CrisprSets
@@ -171,7 +180,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             bbpcr <- do.call(c, unlist(bamsByPCR, use.names = FALSE))
             tgts <- unlist(bbpcr_nms, use.names = FALSE)
             unq_tgts <- unique(tgts)
-            result <- mclapply(unq_tgts, function(tgt){
+            result <- bplapply(unq_tgts, function(tgt){
               if (verbose == TRUE) cat(sprintf("\n\nWorking on target %s\n", tgt))
               # which bams include this target
               idxs <- which(tgts == tgt)
@@ -182,7 +191,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(as.list(bams), reference, target, reverse.complement, 
                                       collapse.pairs, names(bams), use.consensus, 
                                       verbose, ...)
-            }, mc.cores = mccores)
+            })
             
             if (! is.null(names(targets))){
               names(result) <- names(targets)[as.numeric(unq_tgts)]
@@ -198,15 +207,13 @@ setMethod("readsToTargets", signature("character", "GRanges"),
 alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
                             collapse.pairs, names, use.consensus, verbose, ...){
   print(sprintf("Processing %s samples", length(alns)))
-  args <- list(...)
-  mccores <- ifelse("mc.cores" %in% args, args$mc.cores, 1)
-  crispr.runs <- mclapply(seq_along(alns), function(i){
+  crispr.runs <- lapply(seq_along(alns), function(i){
     crun <- readsToTarget(alns[[i]], target = target, 
                 reverse.complement = reverse.complement,
                 collapse.pairs = collapse.pairs, use.consensus = use.consensus,
                 verbose = verbose, name = names[i])
     crun
-  }, mc.cores = mccores)
+  })
   
   to_rm <- sapply(crispr.runs, is.null)
   if (any(to_rm)){
@@ -265,7 +272,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
   }
   bam <- GenomicAlignments::readGAlignments(file, param = param, use.names = TRUE)
   #Exclude reads by name or range
-  temp <- excludeFromBam(bam, exclude.ranges, exclude.names)    
+  temp <- crispRvariants:::excludeFromBam(bam, exclude.ranges, exclude.names)    
   
   if (verbose == TRUE){
     original <- length(bam)
@@ -309,10 +316,8 @@ rcAlns <- function(target.strand, reverse.complement){
 #'@description Aligned reads are narrowed to the target region.  In
 #'the case of reads with deletions spanning the boundaries of the target,
 #'reads are narrowed to the next aligned base outside of the target
-#'
 #'Note that alignments and cigars are reversed if reverse.complement = TRUE
 # but the start is still genomic. i.e. w.r.t. the reference strand
-
 #'@param alns A GAlignments object including a metadata column "seq" 
 #'containing the sequence
 #'@param target A GRanges object
@@ -320,6 +325,7 @@ rcAlns <- function(target.strand, reverse.complement){
 #'@param verbose (Default: FALSE)
 #'@author Helen Lindsay
 #'@rdname narrowAlignments
+#'@export
 setGeneric("narrowAlignments", function(alns, target, ...) {
   standardGeneric("narrowAlignments")})
 
@@ -437,6 +443,7 @@ findDeletions <- function(target.start, target.end, alns, ref.ranges,
   genomic <- shift(ref.ranges, start(alns)-1) 
   on_target <- unlist(start(genomic) <= target.end & end(genomic) >= target.start)
   codes <- paste0(idxs, on_target)
+  # find reads with a deletion spanning the target start or end
   s_del <- !duplicated(codes) & on_target & unlist(cig.ops) %in% del.chars
   e_del <- rev(!duplicated(rev(codes))) & on_target & unlist(cig.ops) %in% del.chars
   

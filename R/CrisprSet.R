@@ -403,12 +403,13 @@ Return value:
   },
   
   heatmapCigarFreqs = function(as_percent = FALSE, x_size = 16, y_size = 16, 
-                               x_axis_title = NULL, x_angle = 90, annotate_counts = TRUE, 
+                               x_axis_title = NULL, x_angle = 90,  
                                freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), ...){
     
     cig_freqs <- .getFilteredCigarTable(top_n, freq_cutoff)
-    p <- cigarFrequencyHeatmap(cig_freqs, as_percent, x_size, y_size, x_axis_title,
-                               x_angle, annotate_counts, ...)
+    p <- plotFreqHeatmap(cig_freqs, as.percent = as_percent, x.size = x_size, 
+                               y.size = y_size, x.axis.title = x_axis_title,
+                               x.angle = x_angle, ...)
     return(p)
   },
   
