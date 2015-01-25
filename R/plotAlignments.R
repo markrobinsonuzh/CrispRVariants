@@ -38,7 +38,9 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@param ins_sites A table of insertion_sites, which must include cols 
 #'named "start", "cigar" and "seq", for the start of the insertion in the 
 #'corresponding sequence
-#'@param pam_loc location of PAM with respect to the target site
+#'@param highlight_pam should location of PAM with respect to the target site be shown?
+#'(Default: TRUE)  If TRUE, and pam_start and pam_end are not supplied, PAM is inferred
+#'from target_loc
 #'@param show_plot
 #'@param target_loc
 #'@param pam_start
@@ -59,7 +61,7 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@author Helen Lindsay
 #'@rdname plotAlignments
 setMethod("plotAlignments", signature("DNAString"),  
-  function(obj, ..., alns, ins_sites, pam_loc = NA, show_plot = FALSE, 
+  function(obj, ..., alns, ins_sites, highlight_pam = TRUE, show_plot = FALSE, 
            target_loc = 18, pam_start = NA, pam_end = NA, 
            ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
            xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
@@ -131,7 +133,6 @@ setMethod("plotAlignments", signature("DNAString"),
     p <- p + scale_fill_identity() 
   }
   
-  
   if (highlight_guide){
     ymin = length(nms) - (tile_height / 2 + 0.25)
     ymax = length(nms) + (tile_height / 2 + 0.25)
@@ -152,10 +153,17 @@ setMethod("plotAlignments", signature("DNAString"),
   
   # If pam_loc is given, highlight the pam in the reference
   #  - 0.5 for tile boundaries not centres
-  if (! is.na(pam_start)){    
-    if (is.na(pam_end)){
-      pam_end <- pam_start + 2
+  if (highlight_pam == TRUE){
+    if (! is.na(pam_start)){    
+      if (is.na(pam_end)){
+        pam_end <- pam_start + 2
+      }
+    } else {
+      # Infer from the target location
+      pam_start <- target_loc + 3
+      pam_end <- target_loc + 6
     }
+      
     pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.5,
                          ymin = length(nms) - (tile_height / 2 + 0.2),
                          ymax = length(nms) + (tile_height / 2 + 0.2))
@@ -165,8 +173,8 @@ setMethod("plotAlignments", signature("DNAString"),
     p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
                                xmin = pam_df$xmin, xmax = pam_df$xmax, 
                                ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
+    
   }
-  
   if (show_plot == TRUE){
     print(p)
   }

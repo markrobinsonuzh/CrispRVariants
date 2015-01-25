@@ -446,6 +446,8 @@ Return value:
     
     # How should the x-axis be numbered? 
     # Baseline should be numbers, w optional genomic locations
+   
+    tloc <- ifelse(is.na(.self$pars$target.loc), 18, .self$pars$target.loc)
     if (renumbered == TRUE){
       genomic_coords <- c(start(.self$target):end(.self$target))
       target_coords <- .self$genome_to_target[as.character(genomic_coords)]
@@ -456,9 +458,11 @@ Return value:
       target_coords <- target_coords[xbreaks]
       
       p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, 
-                          xtick_labs = target_coords, xtick_breaks = xbreaks, ...)
+                          xtick_labs = target_coords, xtick_breaks = xbreaks, 
+                          target_loc =  tloc, ...)
     } else {
-      p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, ...)    
+      p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, 
+                          target_loc =  tloc, ...)    
     }
 
     return(p)

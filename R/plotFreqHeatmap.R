@@ -115,7 +115,13 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   
   # Colour the boxes - white for 0, darkred for highest
   hmcols<-colorRampPalette(c("white","gold","orange","orangered","red", "darkred"))(50) 
-  g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white") 
+  
+  # No colour bar legend if the max count is 1
+  if (max(counts$Count) > 1){
+    g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "legend") 
+  } else {
+    g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "none")
+  }
   
   # Set plot labels
   g <- g + ylab(NULL) + xlab(x.axis.title) + theme_bw() +
