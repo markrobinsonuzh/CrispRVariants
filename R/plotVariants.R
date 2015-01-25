@@ -17,7 +17,7 @@ setMethod("plotVariants", signature("CrisprSet"),
                    plotAlignments.args = list(),
                    plotFreqHeatmap.args = list()){
             
-  if(!class(txdb) == "TxDb"){
+  if(!(class(txdb) == "TxDb" | class(txdb) == "TranscriptDb") ){
     stop("txdb should be a (GenomicFeatures) transcript database object")
   }
   target <- obj$target
@@ -34,17 +34,6 @@ setMethod("plotVariants", signature("CrisprSet"),
   result <- arrangePlots(gene_p, aln_p, heat_p, ...)    
   return(result)
 })
-
-
-
-#panelPlot <- function(txdb, target, left.plot, right.plot, 
-#                      col.wdth.ratio  = c(2, 1), fig.height = NULL, row.ht.ratio = c(1,6), 
-#                      panel.margin =, gene.text.size = 20, 
-#                      left.plot.margin = unit(c(0.25,0,10,0.5), "lines")){
-
-
-#panelPlot wraps the layout func
-
 
 #'@title Arrange plots for plotVariants:CrisprSet
 #'@description Arranges 3 plots in two rows.  The vertical margins of the
