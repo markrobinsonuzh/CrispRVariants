@@ -104,7 +104,7 @@ CrisprSet$methods(
   },
   
   show = function(){
-    print(sprintf(paste0("CrisprSet object containing %s CrisprRun samples\n", 
+    cat(sprintf(paste0("CrisprSet object containing %s CrisprRun samples\n", 
                          "Target location:\n"), length(.self$crispr_runs)))
     print(.self$target)
     print("Most frequent variants:")

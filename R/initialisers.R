@@ -45,6 +45,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             if (reverse.complement & as.character(strand(target)) == "*"){
              message(paste0("Target does not have a strand, but reverse.complement is TRUE.",
                             "Orienting reads to reference strand."))
+              rc = FALSE
             }else{
               rc <- rcAlns(as.character(strand(target)), reverse.complement)
             }

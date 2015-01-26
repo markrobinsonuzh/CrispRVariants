@@ -94,6 +94,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 
     p1 <- grob()
   } else{
     gene_id <- mcols(wh)$gene_id
+    cat("Creating transcript plot with ggbio\n")
     p1 <- ggbio::autoplot(txdb, wh, label = FALSE)
     
     #Pull off the y limits from the transcript plot

@@ -26,23 +26,20 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 setMethod("plotFreqHeatmap", signature("matrix"),  
           function(obj, ..., col.sums = TRUE, row.sums = FALSE, group = NULL,
                    group.colours = NULL, as.percent = TRUE, x.axis.title = NULL,
-                   x.size = 16, y.size = 16, x.angle = 90, legend.text.size = 16,
+                   x.size = 20, y.size = 20, x.angle = 90, legend.text.size = 16,
                    plot.text.size = 8) {            
             
   if (col.sums == TRUE){
   # Make space for totals to be added
     obj <- rbind(Total = rep(NA, ncol(obj)), obj)
   }
-  if (row.sums == TRUE){
-    obj <- cbind(obj, Total = rep(NA, nrow(obj)))
-  }
-  
+
   if (! is.null(group)){
-    if (! class(group) == "factor") group <- as.factor(group) 
-    
+    if (! class(group) == "factor") group <- factor(group, levels = unique(group)) 
     # If a sample group is supplied, reorder the columns of counts  
     obj <- obj[,order(group), drop = FALSE] 
-   
+    group <- group[order(group)]
+    
     if (is.null(group.colours)){
       clrs <- c("#332288","#661100","#117733","#882255","#D55E00", 
                 "#0072B2","#AA4499","#009E73","#56B4E9","#CC79A7",
@@ -52,6 +49,10 @@ setMethod("plotFreqHeatmap", signature("matrix"),
       clrs <- group.colours[group] 
     }   
   }    
+  
+  if (row.sums == TRUE){
+    obj <- cbind(obj, Total = rep(NA, nrow(obj)))
+  }
   
   counts <- reshape2::melt(obj)  
   colnames(counts) <- c("Feature", "Sample","Count")
@@ -84,7 +85,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     row_totals <- (nrow(counts)-nrow(obj)+1):nrow(counts)
     counts$Count[row_totals] <- totals
     counts$ff[row_totals] <- "bold"
-    box_coords[box_row,] <- c(max(xranges)-1, max(xranges), min(yranges), 
+    box_coords[box_row,] <- c(max(xranges)-1, max(xranges) - 0.5, min(yranges), 
                               max(yranges))
     box_row <- 2
   }
