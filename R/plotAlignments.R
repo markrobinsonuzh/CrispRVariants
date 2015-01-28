@@ -62,7 +62,7 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@rdname plotAlignments
 setMethod("plotAlignments", signature("DNAString"),  
   function(obj, ..., alns, ins_sites, highlight_pam = TRUE, show_plot = FALSE, 
-           target_loc = 18, pam_start = NA, pam_end = NA, 
+           target_loc = 17, pam_start = NA, pam_end = NA, 
            ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
            xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
            legend_text_size = 16, highlight_guide=TRUE, guide_loc = NULL,

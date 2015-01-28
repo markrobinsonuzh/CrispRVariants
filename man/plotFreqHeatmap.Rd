@@ -11,7 +11,7 @@ plotFreqHeatmap(obj, ...)
 
 \S4method{plotFreqHeatmap}{matrix}(obj, ..., col.sums = TRUE,
   row.sums = FALSE, group = NULL, group.colours = NULL,
-  as.percent = TRUE, x.axis.title = NULL, x.size = 16, y.size = 16,
+  as.percent = TRUE, x.axis.title = NULL, x.size = 20, y.size = 20,
   x.angle = 90, legend.text.size = 16, plot.text.size = 8)
 
 \S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = nrow(obj$cigar_freqs),

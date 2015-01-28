@@ -12,12 +12,12 @@ plotAlignments(obj, ...)
 \S4method{plotAlignments}{CrisprSet}(obj, ..., freq_cutoff = 0,
   top_n = nrow(obj$cigar_freqs), renumbered = obj$pars["renumbered"])
 
-\S4method{plotAlignments}{DNAString}(obj, ..., alns, ins_sites, pam_loc = NA,
-  show_plot = FALSE, target_loc = 18, pam_start = NA, pam_end = NA,
-  ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
-  xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16,
-  legend_text_size = 16, highlight_guide = TRUE, guide_loc = NULL,
-  tile_height = 0.55)
+\S4method{plotAlignments}{DNAString}(obj, ..., alns, ins_sites,
+  highlight_pam = TRUE, show_plot = FALSE, target_loc = 17,
+  pam_start = NA, pam_end = NA, ins_size = 6, legend_cols = 3,
+  xlab = NULL, xtick_labs = NULL, xtick_breaks = NULL,
+  plot_text_size = 8, axis_text_size = 16, legend_text_size = 16,
+  highlight_guide = TRUE, guide_loc = NULL, tile_height = 0.55)
 }
 \arguments{
 \item{freq_cutoff}{i (integer) only plot variants that occur >= i times
@@ -35,7 +35,9 @@ plotAlignments(obj, ...)
 named "start", "cigar" and "seq", for the start of the insertion in the
 corresponding sequence}
 
-\item{pam_loc}{location of PAM with respect to the target site}
+\item{highlight_pam}{should location of PAM with respect to the target site be shown?
+(Default: TRUE)  If TRUE, and pam_start and pam_end are not supplied, PAM is inferred
+from target_loc}
 
 \item{show_plot}{}
 

@@ -447,7 +447,7 @@ Return value:
     # How should the x-axis be numbered? 
     # Baseline should be numbers, w optional genomic locations
    
-    tloc <- ifelse(is.na(.self$pars$target.loc), 18, .self$pars$target.loc)
+    tloc <- ifelse(is.na(.self$pars$target.loc), 17, .self$pars$target.loc)
     if (renumbered == TRUE){
       genomic_coords <- c(start(.self$target):end(.self$target))
       target_coords <- .self$genome_to_target[as.character(genomic_coords)]
