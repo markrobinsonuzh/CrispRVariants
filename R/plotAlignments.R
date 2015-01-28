@@ -42,7 +42,8 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'(Default: TRUE)  If TRUE, and pam_start and pam_end are not supplied, PAM is inferred
 #'from target_loc
 #'@param show_plot
-#'@param target_loc
+#'@param target_loc The location of the zero point / cleavage location.  Base n, where 
+#'the zero point is between bases n and n+1
 #'@param pam_start
 #'@param pam_end
 #'@param ins_size 
@@ -138,7 +139,7 @@ setMethod("plotAlignments", signature("DNAString"),
     ymax = length(nms) + (tile_height / 2 + 0.25)
     
     if (is.null(guide_loc)){
-      xmin <- target_loc - 17.5
+      xmin <- target_loc - 16.5
       xmax <- xmin + 23
     } else {
       xmin <- start(guide_loc) - 0.5
@@ -160,19 +161,19 @@ setMethod("plotAlignments", signature("DNAString"),
       }
     } else {
       # Infer from the target location
-      pam_start <- target_loc + 3
+      pam_start <- target_loc + 4
       pam_end <- target_loc + 6
     }
       
-    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end - 0.5,
+    pam_df <- data.frame(xmin = pam_start - 0.5, xmax = pam_end + 0.5,
                          ymin = length(nms) - (tile_height / 2 + 0.2),
                          ymax = length(nms) + (tile_height / 2 + 0.2))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                                         ymax = ymax, x = NULL, y = NULL),
                        color = "black", size = 3, fill = "transparent") 
-    p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
-                               xmin = pam_df$xmin, xmax = pam_df$xmax, 
-                               ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
+    #p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
+    #                           xmin = pam_df$xmin, xmax = pam_df$xmax, 
+    #                           ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
     
   }
   if (show_plot == TRUE){

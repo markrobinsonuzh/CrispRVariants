@@ -41,7 +41,8 @@ from target_loc}
 
 \item{show_plot}{}
 
-\item{target_loc}{}
+\item{target_loc}{The location of the zero point / cleavage location.  Base n, where
+the zero point is between bases n and n+1}
 
 \item{pam_start}{}
 

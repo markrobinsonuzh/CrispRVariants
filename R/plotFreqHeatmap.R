@@ -85,7 +85,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     row_totals <- (nrow(counts)-nrow(obj)+1):nrow(counts)
     counts$Count[row_totals] <- totals
     counts$ff[row_totals] <- "bold"
-    box_coords[box_row,] <- c(max(xranges)-1, max(xranges) - 0.55, min(yranges), 
+    box_coords[box_row,] <- c(max(xranges)-1.05, max(xranges) + 0.05, min(yranges), 
                               max(yranges))
     box_row <- 2
   }
