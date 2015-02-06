@@ -4,8 +4,8 @@
 \alias{plotChimeras}
 \title{Display a dot plot of chimeric alignments}
 \usage{
-plotChimeras(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 12,
-  title_size = 16, legend_title = "Chromosome")
+plotChimeras(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 10,
+  title_size = 16, legend_title = "Chromosome", xangle = 90)
 }
 \arguments{
 \item{chimeric_alns}{A GAlignments object containing only the chimeric
@@ -21,6 +21,8 @@ aligned before blocks are collapsed, in bases.  Default 10}
 \item{title_size}{Size of X and Y axis labels on plot.  Default 16}
 
 \item{legend_title}{Title for the legend.  Default "Chromosome"}
+
+\item{xangle}{Angle for x axis text (Default 90, i.e vertical)}
 }
 \description{
 Produces a dot plot of a set of chimeric alignments.  For chimeric alignments,

@@ -17,7 +17,8 @@ plotAlignments(obj, ...)
   pam_start = NA, pam_end = NA, ins_size = 6, legend_cols = 3,
   xlab = NULL, xtick_labs = NULL, xtick_breaks = NULL,
   plot_text_size = 8, axis_text_size = 16, legend_text_size = 16,
-  highlight_guide = TRUE, guide_loc = NULL, tile_height = 0.55)
+  highlight_guide = TRUE, guide_loc = NULL, tile_height = 0.55,
+  max_insertion_size = 50)
 }
 \arguments{
 \item{freq_cutoff}{i (integer) only plot variants that occur >= i times

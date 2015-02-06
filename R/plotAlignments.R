@@ -67,7 +67,7 @@ setMethod("plotAlignments", signature("DNAString"),
            ins_size = 6, legend_cols = 3, xlab = NULL, xtick_labs = NULL,
            xtick_breaks = NULL, plot_text_size = 8, axis_text_size = 16, 
            legend_text_size = 16, highlight_guide=TRUE, guide_loc = NULL,
-           tile_height = 0.55){
+           tile_height = 0.55, max_insertion_size = 50){
   
   # WHY PAM LOC, PAM START AND PAM END?????
   # Insertion locations are determined by matching ins_sites$cigar with names(alns)
@@ -105,6 +105,28 @@ setMethod("plotAlignments", signature("DNAString"),
     seqs <- ins_sites[!is.na(ins_ord),"seq"]
     splits <- split(ins_points$seq, xy_locs)
     x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
+    
+    key_sep <- max(max(sapply(splits, length))) + 0.5
+    print(key_sep)
+    
+    # Collapse sequences with multiple alleles, or longer than max_insertion_size
+    x <- lapply(splits, function(y){
+      result <- as.character(y) 
+      if (length(result) > 1){
+        xlen <- nchar(result[1])
+        if (xlen > max_insertion_size){
+          result <- sprintf("%sI (%s alleles)", xlen, length(result))
+        } else {
+          result <- paste(result, collapse = ",\n")
+        } 
+      } else {
+        if (nchar(result) > max_insertion_size) result <- sprintf("%sI", nchar(result))
+      }
+      result 
+    })
+    print(x)
+    print(lapply(x, length))
+    
     new_seqs <- unlist(x)[unique(xy_locs)]
     max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
@@ -170,7 +192,7 @@ setMethod("plotAlignments", signature("DNAString"),
                          ymax = length(nms) + (tile_height / 2 + 0.2))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                                         ymax = ymax, x = NULL, y = NULL),
-                       color = "black", size = 3, fill = "transparent") 
+                       color = "black", size = 1.5, fill = "transparent") 
     #p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
     #                           xmin = pam_df$xmin, xmax = pam_df$xmax, 
     #                           ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)

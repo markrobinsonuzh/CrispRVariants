@@ -16,6 +16,7 @@
 #'@param text_size Size of X and Y tick labels on plot.  Default 12
 #'@param title_size Size of X and Y axis labels on plot.  Default 16
 #'@param legend_title Title for the legend.  Default "Chromosome"
+#'@param xangle Angle for x axis text (Default 90, i.e vertical)
 #'@author Helen Lindsay
 #'
 #'@import GenomicAlignments
@@ -29,8 +30,8 @@
 #'@importFrom reshape2 melt
 #'@export
 #'
-plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 12,  
-                         title_size = 16, legend_title = "Chromosome"){
+plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 10,  
+                         title_size = 16, legend_title = "Chromosome", xangle = 90){
   # max_gap: if genomic segments are separated by more than max_gap, 
   #          a gap in the y-axis will be introduced
   
@@ -55,10 +56,13 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
 
   m_qry[is_plus] <- shift(m_qry[is_plus], hclipl[is_plus])
   
+  # If the alignment includes segments to both strands, display wrt ref (+)
   if (two_strands) { 
-    hclipr <- as.numeric(gsub("^$", 0, gsub('.*[MS]|H$', "", cigars))) 
-    m_qry[!is_plus] <- shift(m_qry[!is_plus], hclipr[!is_plus])  
+    hsclipr <- as.numeric(gsub("^$", 0, gsub('.*[M]|[HS]$', "", cigars))) 
+    m_qry[!is_plus] <- shift(m_qry[!is_plus], (-1*start(m_qry[!is_plus])+1))
+    m_qry[!is_plus] <- shift(m_qry[!is_plus], hsclipr[!is_plus])  
   } else {
+    # Else if only -ve, display wrt negative
     m_qry[!is_plus] <- shift(m_qry[!is_plus], hclipl[!is_plus])
   }
   
@@ -76,8 +80,9 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
           unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
   }
   
-  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)), SIMPLIFY = FALSE)[ord]
-  chrs <- seqnames(genomic_locs)[plus_min][ord]
+  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)), SIMPLIFY = FALSE)#[ord]
+  #chrs <- seqnames(genomic_locs)[plus_min][ord]
+  chrs <- seqnames(genomic_locs)
   
   # Introduce gaps for aligned segments separated by more than max_gap
   y_lns <- sapply(ys, length)
@@ -86,7 +91,9 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   
   offsets <- c(0, unlist(ys)[y_sums[-n_segs] +1] - (unlist(ys)[y_sums[-n_segs]]+1))
   offsets[offsets > max_gap] <- max_gap # clip large gaps
-  chr_chgs <- cumsum(chrs@lengths)+1 
+  
+  chr_chgs <- cumsum(seqnames(genomic_locs)[mm_idxs]@lengths) + 1
+  #chr_chgs <- cumsum(chrs@lengths)+1 
   offsets[chr_chgs[chr_chgs <= n_segs]] <- max_gap
   
   # Setup data and plot
@@ -108,9 +115,9 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
                            #ymin = pt_coords[pt_coords$x %in% m_qry_start, "y"],
                            #ymax = pt_coords[pt_coords$x %in% m_qry_end, "y"])
                            ymin  = box_ymins, ymax = box_ymaxs)
-                           
+  
   gap_starts <- y_sums[which(offsets >= max_gap) -1]
-
+  
   # chr_box_coords are coordinates for shading to indicate gaps
   chr_box_coords <- data.frame(ymin = pt_coords[gap_starts, "y"], 
                                ymax = pt_coords[gap_starts + 1, "y"])
@@ -121,11 +128,11 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
                      diff <- pt_coords[zip[i],"y"]-pt_coords[zip[i-1],"y"] + 1
                      unique(c(seq(0,diff, by = tick_sep), diff)
                         + pt_coords[zip[i-1], "y"])}))
-  
   tick_labs <- unlist(lapply(seq(2, length(zip), by = 2), function(i){
                      diff <- pt_coords[zip[i],"y"]-pt_coords[zip[i-1],"y"] + 1
                       unique(c(seq(0,diff, by = tick_sep), diff)
                         + pt_coords[zip[i-1], "ylabs"])}))
+
   
   xbreaks <- seq(min(pt_coords$x), max(pt_coords$x), by = tick_sep)
   
@@ -141,7 +148,7 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
        theme_bw() + theme(axis.title.y=element_text(vjust = 2, size = title_size), 
                           axis.title.x=element_text(vjust = -1, size = title_size),
                           axis.text.y=element_text(size=text_size),
-                          axis.text.x=element_text(size=text_size),
+                          axis.text.x=element_text(size=text_size, angle = xangle),
                           plot.margin = unit(c(1, 1, 1, 1), "lines")) 
   if (nrow(chr_box_coords) > 0){                         
     p <- p + geom_rect(data = chr_box_coords, aes(ymin = ymin, 
