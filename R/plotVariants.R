@@ -22,9 +22,13 @@ setMethod("plotVariants", signature("CrisprSet"),
   }
   target <- obj$target
   if (add.chr == TRUE){
-    if (! grepl("^chr", as.character(seqnames(target)))){
-      target <- renameSeqlevels(target, paste0("chr", seqlevels(target)))
-    }
+    # If adding "chr" to target chromosomes matches txdb chromosomes, do so
+    target_levels <- seqlevels(target)
+    txdb_levels <- seqlevels(txdb)
+    wchr <- paste0("chr", target_levels)
+    idxs <- wchr %in% txdb_levels
+    target_levels[idxs] <- wchr[idxs]  
+    target <- renameSeqlevels(target, target_levels)
   }
   gene_p <- annotateGenePlot(txdb, target)
   plotAlignments.args$obj = obj
@@ -88,7 +92,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 
   # Make the gene plot
   stopifnot(require(ggbio))
   genes <- genes(txdb)
-  wh <- genes[findOverlaps(genes, target)@queryHits]  
+  wh <- genes[findOverlaps(genes, target, ignore.strand = TRUE)@queryHits]  
   
   if (length(wh) == 0){
     p1 <- grob()

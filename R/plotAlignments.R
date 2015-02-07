@@ -107,7 +107,6 @@ setMethod("plotAlignments", signature("DNAString"),
     x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
     
     key_sep <- max(max(sapply(splits, length))) + 0.5
-    print(key_sep)
     
     # Collapse sequences with multiple alleles, or longer than max_insertion_size
     x <- lapply(splits, function(y){
@@ -124,8 +123,6 @@ setMethod("plotAlignments", signature("DNAString"),
       }
       result 
     })
-    print(x)
-    print(lapply(x, length))
     
     new_seqs <- unlist(x)[unique(xy_locs)]
     max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
