@@ -4,8 +4,8 @@
 \alias{makeAlignmentTilePlot}
 \title{Makes a basic tile plot of aligned sequences}
 \usage{
-makeAlignmentTilePlot(m, ref, xlab, plot_text_size, axis_text_size, xtick_labs,
-  xtick_breaks, tile_height)
+makeAlignmentTilePlot(m, ref, xlab, plot.text.size, axis.text.size, xtick.labs,
+  xtick.breaks, tile.height)
 }
 \description{
 Makes a basic tile plot of aligned sequences

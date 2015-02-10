@@ -43,7 +43,7 @@ CrisprRun$methods(
     #Attributes:
     # cigar_labels are labels for variant combinations, e.g. used in plotting
     
-    name <<- ifelse(is.null(name), NULL, name)
+    name <<- ifelse(is.null(name), NA, name)
     if (verbose == TRUE) cat(sprintf("\nInitialising CrisprRun %s\n", .self$name))
     
     alns <<- bam

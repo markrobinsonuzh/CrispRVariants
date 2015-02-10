@@ -108,7 +108,7 @@ CrisprSet$methods(
                          "Target location:\n"), length(.self$crispr_runs)))
     print(.self$target)
     print("Most frequent variants:")
-    print(.self$.getFilteredCigarTable(top_n = 6))
+    print(.self$.getFilteredCigarTable(top.n = 6))
   },
   
   .setCigarLabels = function(renumbered = FALSE, target.loc = NA, target_start = NA,
@@ -208,10 +208,10 @@ Input parameters:
     }
   },
   
-  .getFilteredCigarTable = function(top_n = nrow(.self$cigar_freqs), freq_cutoff = 0){
+  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), freq.cutoff = 0){
     rs <- rowSums(.self$cigar_freqs)
-    minfreq <- rs >= freq_cutoff
-    topn <- rank(-rs) <= top_n
+    minfreq <- rs >= freq.cutoff
+    topn <- rank(-rs) <= top.n
     cig_freqs <- .self$cigar_freqs[minfreq & topn ,, drop = FALSE] 
     return(cig_freqs) 
   },
@@ -404,16 +404,16 @@ Return value:
   
   heatmapCigarFreqs = function(as_percent = FALSE, x_size = 16, y_size = 16, 
                                x_axis_title = NULL, x_angle = 90,  
-                               freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), ...){
+                               freq.cutoff = 0, top.n = nrow(.self$cigar_freqs), ...){
     
-    cig_freqs <- .getFilteredCigarTable(top_n, freq_cutoff)
+    cig_freqs <- .getFilteredCigarTable(top.n, freq.cutoff)
     p <- plotFreqHeatmap(cig_freqs, as.percent = as_percent, x.size = x_size, 
                                y.size = y_size, x.axis.title = x_axis_title,
                                x.angle = x_angle, ...)
     return(p)
   },
   
-  plotVariants = function(freq_cutoff = 0, top_n = nrow(.self$cigar_freqs), 
+  plotVariants = function(freq.cutoff = 0, top.n = nrow(.self$cigar_freqs), 
                           renumbered = .self$pars["renumbered"], ...){
 '
 Description:
@@ -422,12 +422,12 @@ Description:
   collapsing insertions and displaying insertion sequences below the plot.
 
 Input parameters:
-  freq_cutoff:      i (integer) only plot variants that occur >= i times
+  freq.cutoff:      i (integer) only plot variants that occur >= i times
                     (default: 0, i.e no frequency cutoff)
-  top_n:            n (integer) Plot only the n most frequent variants 
+  top.n:            n (integer) Plot only the n most frequent variants 
                     (default: plot all)
                     Note that if there are ties in variant ranks, 
-                    top_n only includes ties with all members ranking <= top_n    
+                    top.n only includes ties with all members ranking <= top.n    
   renumbered:       If TRUE, the x-axis is numbered with respect to the target 
                     (cut) site.  If FALSE, x-axis shows genomic locations.
                     (default: TRUE)
@@ -437,7 +437,7 @@ Return value:
   A ggplot2 plot object.  Call "print(obj)" to display  
 '    
      
-    cig_freqs <- .self$.getFilteredCigarTable(top_n, freq_cutoff)
+    cig_freqs <- .self$.getFilteredCigarTable(top.n, freq.cutoff)
     
     alns <- .self$makePairwiseAlns(cig_freqs)
     if (!("cigar" %in% colnames(.self$insertion_sites))){
@@ -447,6 +447,8 @@ Return value:
     # How should the x-axis be numbered? 
     # Baseline should be numbers, w optional genomic locations
    
+    dots <- list(...) 
+
     tloc <- ifelse(is.na(.self$pars$target.loc), 17, .self$pars$target.loc)
     if (renumbered == TRUE){
       genomic_coords <- c(start(.self$target):end(.self$target))
@@ -457,13 +459,15 @@ Return value:
       xbreaks = which(target_coords %% 5 == 0 | abs(target_coords) == 1)
       target_coords <- target_coords[xbreaks]
       
-      p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, 
-                          xtick_labs = target_coords, xtick_breaks = xbreaks, 
-                          target_loc =  tloc, ...)
+      args <- list(obj = .self$ref, alns = alns, ins.sites = .self$insertion_sites, 
+                   xtick.labs = target_coords, xtick.breaks = xbreaks,
+                   target.loc =  tloc)                     
     } else {
-      p <- plotAlignments(.self$ref, alns = alns, ins_sites = .self$insertion_sites, 
-                          target_loc =  tloc, ...)    
+      args <- list(obj = .self$ref, alns = alns, ins.sites = .self$insertion_sites, 
+                   target.loc =  tloc)   
     }
+    args <- modifyList(args, dots)
+    p <- do.call(plotAlignments, args) 
 
     return(p)
   },

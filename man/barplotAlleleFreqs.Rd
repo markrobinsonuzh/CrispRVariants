@@ -5,8 +5,8 @@
 \title{Plots barplots of the spectrum of variants for a sample set}
 \usage{
 barplotAlleleFreqs(allele_counts, group = NULL, bar_colours = NULL,
-  group_colours = NULL, legend_text_size = 10, legend_symbol_size = 1,
-  show_percentage = TRUE, snv_label = "SNV", novar_label = "no variant")
+  group_colours = NULL, legend_text_size = 10, axis_text_size = 10,
+  legend_symbol_size = 1, snv_label = "SNV", novar_label = "no variant")
 }
 \arguments{
 \item{allele_counts}{}
@@ -19,9 +19,9 @@ barplotAlleleFreqs(allele_counts, group = NULL, bar_colours = NULL,
 
 \item{legend_text_size}{}
 
-\item{legend_symbol_size}{}
+\item{axis_text_size}{}
 
-\item{show_percentage}{}
+\item{legend_symbol_size}{}
 
 \item{snv_label}{}
 

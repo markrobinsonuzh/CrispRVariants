@@ -8,15 +8,15 @@
 #'@param group
 #'@param bar_colours
 #'@param group_colours
-#'@param legend_text_size 
+#'@param legend_text_size
+#'@param axis_text_size 
 #'@param legend_symbol_size
-#'@param show_percentage
 #'@param snv_label
 #'@param novar_label
 #' 
 barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL, 
                                group_colours = NULL, legend_text_size = 10, 
-                               legend_symbol_size = 1, show_percentage = TRUE, 
+                               axis_text_size= 10, legend_symbol_size = 1, 
                                snv_label = "SNV", novar_label = "no variant"){
   
   clrs <- bar_colours
@@ -45,10 +45,11 @@ barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL,
   #ac <- rbind(ac, "Unique" = colSums(allele_counts[uniq,, drop = FALSE]))
   
   snv <- grepl(snv_label, rownames(ac))
-  ac <- ac[!snv,,drop = FALSE]
-  ac <- rbind(ac, "SNV" = colSums(allele_counts[snv,, drop = FALSE]))
-  
-  no_indel <- grepl("no variant|SNV", rownames(ac))
+  if (any(snv)){
+    ac <- ac[!snv,,drop = FALSE]
+    ac <- rbind(ac, "SNV" = colSums(allele_counts[snv,, drop = FALSE]))
+  }
+  no_indel <- grepl(sprintf("%s|%s", novar_label, snv_label), rownames(ac))
   indels <- ac[!no_indel,,drop = FALSE]
   temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
   indel_grp <- rep(c(1:nrow(indels)), lapply(temp, length))
@@ -69,33 +70,31 @@ barplotAlleleFreqs <- function(allele_counts, group = NULL, bar_colours = NULL,
   var_order <- c(novar_label, snv_label, "inframe indel < 10", "inframe indel > 10",
                  "frameshift indel < 10", "frameshift indel > 10")
   
-  var_labels <- c(novar_label, snv_label, "inframe indel < 10", 
-                  expression("inframe indel" >= 10),
-                  "frameshift indel < 10", expression("frameshift indel" >= 10))
+  var_labels <- c(novar_label, snv_label, expression("inframe indel" <= 9), 
+                  "inframe indel > 10",  "frameshift indel < 9",
+                  expression("frameshift indel" >= 10))
   
-  ac <- ac[intersect(var_order, rownames(ac)),]
-  
-  
-  ### ERROR IF ONLY ONE COLUMN HERE
+  names(var_labels) <- var_order
+  common <- intersect(var_order, rownames(ac)) 
+  ac <- ac[common,, drop=FALSE]
   af <- melt(sweep(ac, 2, colSums(ac), "/"))
   
   colnames(af) <- c("Variant", "Sample", "Percent")
   af$Variant <- factor(af$Variant, levels = var_order)                      
-  
   af$Sample <- factor(af$Sample, levels = rev(unique(af$Sample)))  
-  
   var_clrs <- clrs[table(af$Variant) > 0]
   
   p <- ggplot(af, aes(x = Sample, y = Percent, fill = Variant)) + 
     geom_bar(stat = "Identity", size = 10) + 
-    scale_fill_manual(values = var_clrs) +  xlab(NULL) + ylab(NULL) + 
-    scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
-    guides(fill=guide_legend(labels = var_labels, 
-                             override.aes=list(size=legend_symbol_size), nrow = 2)) + 
+    scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +   
+    scale_fill_manual(values = var_clrs, labels = var_labels[common]) + 
+    guides(fill=guide_legend(override.aes=list(size=legend_symbol_size), nrow = 2)) + 
+    xlab(NULL) + ylab(NULL) + 
     theme_bw() + coord_flip() + 
     theme(legend.position = "bottom", legend.title = element_blank(), 
+          axis.text = element_text(size = axis_text_size),
           legend.text = element_text(size = legend_text_size),
-          plot.margin = unit(c(0.5,0.5,0.5,0),"lines"),
+          plot.margin = unit(c(0.5,0.7,0.5,0),"lines"),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
   if (! is.null(group)){

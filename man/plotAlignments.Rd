@@ -9,22 +9,22 @@
 \usage{
 plotAlignments(obj, ...)
 
-\S4method{plotAlignments}{CrisprSet}(obj, ..., freq_cutoff = 0,
-  top_n = nrow(obj$cigar_freqs), renumbered = obj$pars["renumbered"])
+\S4method{plotAlignments}{CrisprSet}(obj, ..., freq.cutoff = 0,
+  top.n = nrow(obj$cigar_freqs), renumbered = obj$pars["renumbered"])
 
-\S4method{plotAlignments}{DNAString}(obj, ..., alns, ins_sites,
-  highlight_pam = TRUE, show_plot = FALSE, target_loc = 17,
-  pam_start = NA, pam_end = NA, ins_size = 6, legend_cols = 3,
-  xlab = NULL, xtick_labs = NULL, xtick_breaks = NULL,
-  plot_text_size = 8, axis_text_size = 16, legend_text_size = 16,
-  highlight_guide = TRUE, guide_loc = NULL, tile_height = 0.55,
-  max_insertion_size = 50)
+\S4method{plotAlignments}{DNAString}(obj, ..., alns, ins.sites,
+  highlight.pam = TRUE, show.plot = FALSE, target.loc = 17,
+  pam.start = NA, pam.end = NA, ins.size = 6, legend.cols = 3,
+  xlab = NULL, xtick.labs = NULL, xtick.breaks = NULL,
+  plot.text.size = 8, axis.text.size = 16, legend.text.size = 16,
+  highlight.guide = TRUE, guide.loc = NULL, tile.height = 0.55,
+  max.insertion.size = 50)
 }
 \arguments{
-\item{freq_cutoff}{i (integer) only plot variants that occur >= i times
+\item{freq.cutoff}{i (integer) only plot variants that occur >= i times
 (default: 0, i.e no frequency cutoff)}
 
-\item{top_n}{(integer) Plot only the n most frequent variants
+\item{top.n}{(integer) Plot only the n most frequent variants
 (default: plot all)}
 
 \item{renumbered}{If TRUE, the x-axis is numbered with respect to the target
@@ -32,44 +32,44 @@ plotAlignments(obj, ...)
 
 \item{alns}{A named character vector of aligned sequences, with insertions removed}
 
-\item{ins_sites}{A table of insertion_sites, which must include cols
+\item{ins.sites}{A table of insertion_sites, which must include cols
 named "start", "cigar" and "seq", for the start of the insertion in the
 corresponding sequence}
 
-\item{highlight_pam}{should location of PAM with respect to the target site be shown?
-(Default: TRUE)  If TRUE, and pam_start and pam_end are not supplied, PAM is inferred
-from target_loc}
+\item{highlight.pam}{should location of PAM with respect to the target site be shown?
+(Default: TRUE)  If TRUE, and pam.start and pam.end are not supplied, PAM is inferred
+from target.loc}
 
-\item{show_plot}{}
+\item{show.plot}{}
 
-\item{target_loc}{The location of the zero point / cleavage location.  Base n, where
+\item{target.loc}{The location of the zero point / cleavage location.  Base n, where
 the zero point is between bases n and n+1}
 
-\item{pam_start}{}
+\item{pam.start}{}
 
-\item{pam_end}{}
+\item{pam.end}{}
 
-\item{ins_size}{}
+\item{ins.size}{}
 
-\item{legend_cols}{}
+\item{legend.cols}{}
 
 \item{xlab}{}
 
-\item{xtick_labs}{}
+\item{xtick.labs}{}
 
-\item{xtick_breaks}{}
+\item{xtick.breaks}{}
 
-\item{plot_text_size}{}
+\item{plot.text.size}{}
 
-\item{axis_text_size}{}
+\item{axis.text.size}{}
 
-\item{legend_text_size}{}
+\item{legend.text.size}{}
 
-\item{highlight_guide}{}
+\item{highlight.guide}{}
 
-\item{guide_loc}{}
+\item{guide.loc}{}
 
-\item{tile_height}{}
+\item{tile.height}{}
 
 \item{ref}{The reference sequence}
 }

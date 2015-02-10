@@ -149,6 +149,6 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 setMethod("plotFreqHeatmap", signature("CrisprSet"),  
           function(obj, ..., top.n = nrow(obj$cigar_freqs), freq.cutoff = 0) {
   
-  result <- obj$heatmapCigarFreqs(top_n = top.n, freq_cutoff = freq.cutoff, ...)          
+  result <- obj$heatmapCigarFreqs(top.n = top.n, freq.cutoff = freq.cutoff, ...)          
   return(result)
 })      
