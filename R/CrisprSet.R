@@ -70,7 +70,7 @@ CrisprSet$methods(
     if (renumbered == TRUE & is.na(target.loc)){
       stop(paste0("Must specify target.loc for renumbering variant locations.\n",
                   "The target.loc is the zero point with respect to the reference string.\n",
-                  "This is typically 18 for a 23 bp Crispr-Cas9 guide sequence"))
+                  "This is typically 17 for a 23 bp Crispr-Cas9 guide sequence"))
     }
     
     target <<- target   
@@ -124,7 +124,7 @@ CrisprSet$methods(
       }
       g_to_t <- genomeToTargetLocs(target.loc, target_start, target_end, rc)
       }
-    cut.site <- ifelse(is.na(target.loc), 18, target.loc)
+    cut.site <- ifelse(is.na(target.loc), 17, target.loc)
     
     # This part should be sped up
     cig_by_run <- lapply(.self$crispr_runs,
@@ -402,14 +402,14 @@ Return value:
     return(data.frame(Allele = alleles, Sample = names(alleles)))
   },
   
-  heatmapCigarFreqs = function(as_percent = FALSE, x_size = 16, y_size = 16, 
-                               x_axis_title = NULL, x_angle = 90,  
+  heatmapCigarFreqs = function(as.percent = FALSE, x.size = 8, y.size = 8, 
+                               x.axis.title = NULL, x.angle = 90,  
                                freq.cutoff = 0, top.n = nrow(.self$cigar_freqs), ...){
     
     cig_freqs <- .getFilteredCigarTable(top.n, freq.cutoff)
-    p <- plotFreqHeatmap(cig_freqs, as.percent = as_percent, x.size = x_size, 
-                               y.size = y_size, x.axis.title = x_axis_title,
-                               x.angle = x_angle, ...)
+    p <- plotFreqHeatmap(cig_freqs, as.percent = as.percent, x.size = x.size, 
+                               y.size = y.size, x.axis.title = x.axis.title,
+                               x.angle = x.angle, ...)
     return(p)
   },
   

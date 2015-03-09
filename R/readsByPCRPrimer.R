@@ -57,7 +57,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                           hits_pcr_l, length(bam), hits_pcr_l/length(bam)*100))
             }
             if (any(duplicated(hits_pcr@queryHits))){
-              warning("Cannot distinguish pcr targets with this tolerance")
+              warning("Cannot distinguish all pcr targets with this tolerance")
             } 
             if (allow.partial){
               # find the unique regions of the pcr primers

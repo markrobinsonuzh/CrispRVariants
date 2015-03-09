@@ -22,5 +22,10 @@ Imports:
     Rsamtools,
     grid
 Suggests:
+    BiocStyle,
+    knitr,
+    rmarkdown,
     sangerseqR,
     testthat
+VignetteBuilder:
+    knitr

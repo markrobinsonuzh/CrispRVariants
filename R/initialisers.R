@@ -113,12 +113,14 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'primer.ranges are supplied
 #'@param ignore.strand Should strand be considered when finding overlaps?
 #'(See \code{\link[GenomicAlignments]{findOverlaps}} )
+#'@param bpparam A BiocParallel parameter for parallelising across reads.  
+#'Default: no parallelisation.  (See \code{\link[BiocParallel]})
 #'@rdname readsToTarget
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
                    reverse.complement = TRUE, collapse.pairs = FALSE, 
                    use.consensus = TRUE, ignore.strand = TRUE, 
-                   names = NULL, verbose = FALSE){
+                   names = NULL, bpparam = BiocParallel::SerialParam(), verbose = FALSE){
           
             # ACCOUNT FOR CHIMERIC READS OR NOT?
             
@@ -131,9 +133,10 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               names <- reads
             }
             
+    
             param <- ScanBamParam(what = c("seq", "flag"))
             args <- list(...)
-          
+                      
             bamsByPCR <- bplapply(seq_along(reads), function(i){
               if (verbose) cat(sprintf("Loading alignments for %s\n\n", names[i]))
               
@@ -169,7 +172,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
                 bamByPCR <- split(bam[subjectHits(hits)], queryHits(hits))
               }
               bamByPCR
-            })
+            }, BPPARAM = bpparam)
             
             #bamsByPCR <- bamsByPCR[ !(is.null)
             
@@ -192,7 +195,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(as.list(bams), reference, target, reverse.complement, 
                                       collapse.pairs, names(bams), use.consensus, 
                                       verbose, ...)
-            })
+            }, BPPARAM = bpparam)
             
             if (! is.null(names(targets))){
               names(result) <- names(targets)[as.numeric(unq_tgts)]

@@ -6,7 +6,7 @@
 \usage{
 arrangePlots(top.plot, left.plot, right.plot, fig.height = NULL,
   col.wdth.ratio = c(2, 1), row.ht.ratio = c(1, 6),
-  left.plot.margin = unit(c(0.25, 0, 10, 0.5), "lines"))
+  left.plot.margin = unit(c(0.1, 0, 8, 0.2), "lines"))
 }
 \arguments{
 \item{top.plot}{ggplot grob, placed on top of the figure, spanning the figure width}

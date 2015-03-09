@@ -5,8 +5,7 @@
 \title{Plots gene structure and annotates with target location}
 \usage{
 annotateGenePlot(txdb, target, target.colour = "red", target.size = 1,
-  gene.text.size = 20, panel.margin = unit(c(0.25, 0.25, 0.25, 0.25),
-  "lines"))
+  gene.text.size = 12, panel.margin = unit(c(0.1, 0.1, 0.1, 0.1), "lines"))
 }
 \arguments{
 \item{txdb}{A GenomicFeatures:TxDb object}

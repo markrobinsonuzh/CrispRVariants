@@ -6,6 +6,9 @@ library(gridExtra)
 
 # sangerseqR, GenomeFeatures should be in "suggests"
 
+# Issue with multiple alleles not wrapping
+# Show allele percentages in plotAlignments legend?
+# Allow initialisation with default target.loc
 # Allow CrisprRun getVariants to work with a filtered variant table
 # Add experiment name to CrisprSet (pars?)
 # readsByPCRPrimer - could separate out searching for partial overlaps for speed
@@ -64,18 +67,21 @@ findHighCovRegions <- function(chimeras, min_cov = 1000){
   # Assumptions - not a rearrangement (the first read does not get hard clipped)
   # unclipped = clipping removed
     
+  nch <- length(chimeras)
   genomic_gaps <- start(chimeras[-1]) - end(chimeras[-length(chimeras)])
   
   #____________________________________
   # Change here to <= max overlap
   read_gaps <- first_aligned[-1] -  last_aligned[-length(last_aligned)] - 1
-  read_gaps[!read_gaps == 0] <- sprintf("%sI", read_gaps[!read_gaps == 0])
-  read_gaps[read_gaps == 0] <- ""
+  #read_gaps[!read_gaps == 0] <- sprintf("%sI", read_gaps[!read_gaps == 0])
+  #read_gaps[read_gaps == 0] <- ""
   #____________________________________
   
   new_g_starts <- start(chimeras[change_pts])
-  new_g_ends <- end(chimeras[change_pts -1])
-  
+  #########
+  # LAST MEMBER OF CHIMERA NOT GUARANTEED LAST GENOMIC END POINT
+  new_g_ends <- end(chimeras[c(change_pts -1, nch)])
+   
   # Keep the clipping on the end points, in case this needs to be searched for primers
   # May need to be even more specific here if end of second region is hard clipped
   new_cigars <- unclipped
@@ -217,7 +223,7 @@ classifyChimeras <- function(bam, chimera_idxs = NA, exclude = TRUE, merge = TRU
     last_aligned <- sum(width(cig_ranges))  
     last_aligned <- last_aligned  + first_aligned - 1
         
-    # Gaps not correct: if the first part of the read maps after the 
+    # Gaps not correct for the case that the first part of the read maps after the 
     # second part of the read gap - however, here only care about +ve / -ve
     gaps <- c(1,  first_aligned[-1] - last_aligned[-length(last_aligned)])
     gaps[change_pts] <- 1

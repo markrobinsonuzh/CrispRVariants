@@ -22,12 +22,16 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param x.angle  Angle for x-labels (Default: 90, i.e. vertical)
 #'@param legend.text.size Font size for legend (Default: 16)
 #'@param plot.text.size Font size counts within plot (Default: 8)
+#'@param line.width
+#'@param legend.position
+#'@param legend.key.height
 #'@param ...
 setMethod("plotFreqHeatmap", signature("matrix"),  
           function(obj, ..., col.sums = TRUE, row.sums = FALSE, group = NULL,
                    group.colours = NULL, as.percent = TRUE, x.axis.title = NULL,
-                   x.size = 20, y.size = 20, x.angle = 90, legend.text.size = 16,
-                   plot.text.size = 8) {            
+                   x.size = 6, y.size = 8, x.angle = 90, legend.text.size = 6,
+                   plot.text.size = 2, line.width = 1, legend.position = "right",
+                   legend.cols = 1, legend.key.height = unit(3, "lines")) {            
             
   if (col.sums == TRUE){
   # Make space for totals to be added
@@ -107,7 +111,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   if (nrow(box_coords) > 0){
     g <- g + geom_rect(data=box_coords, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                                             ymax = ymax, x = NULL, y = NULL),
-                       color = "black", size = 1, fill = "transparent")   
+                       color = "black", size = line.width, fill = "transparent")   
   }
   
   # Plot the counts
@@ -130,11 +134,13 @@ setMethod("plotFreqHeatmap", signature("matrix"),
           axis.text.y = element_text(size = y.size),
           legend.text = element_text(size = legend.text.size),
           legend.title = element_text(size = legend.text.size),
-          legend.key.height = unit(5, "lines"))         
+          legend.position = legend.position,
+          legend.key.height = legend.key.height)         
   
-  # Colour xlabels by group
+  # Colour xlabels by group, make sure not to replace original args
   if (! is.null(group)){
-    g <- g + theme(axis.text.x=element_text(colour= clrs))
+    g <- g + theme(axis.text.x=element_text(colour= clrs, 
+                   size = x.size, angle = x.angle, hjust = 1))
   }
   
   return(g)

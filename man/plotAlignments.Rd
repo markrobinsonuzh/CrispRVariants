@@ -14,11 +14,11 @@ plotAlignments(obj, ...)
 
 \S4method{plotAlignments}{DNAString}(obj, ..., alns, ins.sites,
   highlight.pam = TRUE, show.plot = FALSE, target.loc = 17,
-  pam.start = NA, pam.end = NA, ins.size = 6, legend.cols = 3,
+  pam.start = NA, pam.end = NA, ins.size = 3, legend.cols = 3,
   xlab = NULL, xtick.labs = NULL, xtick.breaks = NULL,
-  plot.text.size = 8, axis.text.size = 16, legend.text.size = 16,
+  plot.text.size = 2, axis.text.size = 8, legend.text.size = 6,
   highlight.guide = TRUE, guide.loc = NULL, tile.height = 0.55,
-  max.insertion.size = 50)
+  max.insertion.size = 50, line.weight = 1, legend.symbol.size = ins.size)
 }
 \arguments{
 \item{freq.cutoff}{i (integer) only plot variants that occur >= i times
@@ -36,40 +36,56 @@ plotAlignments(obj, ...)
 named "start", "cigar" and "seq", for the start of the insertion in the
 corresponding sequence}
 
-\item{highlight.pam}{should location of PAM with respect to the target site be shown?
-(Default: TRUE)  If TRUE, and pam.start and pam.end are not supplied, PAM is inferred
-from target.loc}
+\item{highlight.pam}{should location of PAM with respect to the target site be
+indicated by a box? (Default: TRUE)  If TRUE, and pam.start and pam.end are not
+supplied, PAM is inferred from target.loc}
 
-\item{show.plot}{}
+\item{show.plot}{Should the plot be displayed (TRUE) or just returned as
+a ggplot object (FALSE).  (Default: FALSE)}
 
 \item{target.loc}{The location of the zero point / cleavage location.  Base n, where
 the zero point is between bases n and n+1}
 
-\item{pam.start}{}
+\item{pam.start}{The first location of the PAM with respect to the reference.}
 
-\item{pam.end}{}
+\item{pam.end}{The last location of the PAM with respect to the reference.
+Default is two bases after the pam.start}
 
-\item{ins.size}{}
+\item{ins.size}{The size of the symbols representing insertions within the plot.}
 
-\item{legend.cols}{}
+\item{legend.cols}{The number of columns in the legend.  (Default:3)}
 
-\item{xlab}{}
+\item{xlab}{A title for the x-axis (Default: NULL)}
 
-\item{xtick.labs}{}
+\item{xtick.labs}{Labels for the x-axis ticks (Default: NULL)}
 
-\item{xtick.breaks}{}
+\item{xtick.breaks}{Locations for x-axis tick breaks (Default: NULL)}
 
-\item{plot.text.size}{}
+\item{plot.text.size}{The size of the text inside the plot}
 
-\item{axis.text.size}{}
+\item{axis.text.size}{The size of the axis labels}
 
-\item{legend.text.size}{}
+\item{legend.text.size}{The size of the legend labels}
 
-\item{highlight.guide}{}
+\item{highlight.guide}{Should the guide be indicated by a box in
+the reference sequence?  (Default: TRUE)}
 
-\item{guide.loc}{}
+\item{guide.loc}{The location of the guide region to be highlighted,
+as an IRanges object. Will be inferred from target.loc if
+highlight.guide = TRUE and no guide.loc is supplied, assuming the guide
+plus PAM is 23bp (Default: NULL)}
 
-\item{tile.height}{}
+\item{tile.height}{The height of the tiles within the plot. (Default: 0.55)}
+
+\item{max.insertion.size}{The maximum length of an insertion to be shown in the
+legend.  If max.insertion.size = n, an insertion of length m > n will
+be annotated as "mI" in the figure.  (Default: 50)}
+
+\item{line.weight}{The line thickness for the vertical line indicating the
+zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)}
+
+\item{legend.symbol.size}{The size of the symbols indicating insertions
+in the legend.  (Default: ins.size)}
 
 \item{ref}{The reference sequence}
 }
@@ -79,16 +95,18 @@ A ggplot figure
 \description{
 Plot alignments with respect to a reference sequence
 
-Wrapper for CrisprSet$plotVariants.  Optionally filters a
-CrisprSet frequency table, then plots variants.  More information in
-\code{\link[crispRvariants]{CrisprSet}}
+(signature("CrisprSet")) Wrapper for CrisprSet$plotVariants
+Optionally filters a CrisprSet frequency table, then plots variants.
+More information in \code{\link[crispRvariants]{CrisprSet}}
 
-Plots a set of pairwise alignments to a reference sequence.
+(signature("DNAString"))  Plots a set of pairwise alignments to a reference sequence.
 Alignments should all be the same length as the reference sequences.
 This is achieved by removing insertions with respect to the reference,
 see \code{\link[crispRvariants]{seqsToAln}} for these alignments.
 Insertions are indicated by symbols in the plot and a table showing the
-inserted sequences below the plot.
+inserted sequences below the plot.  The default options are intended for a
+figure 6-8 inches wide, with figure height best chosen according to the number
+of different variants and insertions to be displayed.
 }
 \author{
 Helen Lindsay

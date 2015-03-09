@@ -16,10 +16,16 @@ setMethod("plotVariants", signature("CrisprSet"),
           function(obj, ..., txdb, add.chr = TRUE, 
                    plotAlignments.args = list(),
                    plotFreqHeatmap.args = list()){
-            
+   
   if(!(class(txdb) == "TxDb" | class(txdb) == "TranscriptDb") ){
     stop("txdb should be a (GenomicFeatures) transcript database object")
   }
+  
+  dots <- list(...)
+  annotate_nms = c("target.colour","target.size","gene.text.size", "panel.margin")
+  annotate_args = dots[names(dots) %in% annotate_nms]
+  dots[annotate_nms] <- NULL
+  
   target <- obj$target
   if (add.chr == TRUE){
     # If adding "chr" to target chromosomes matches txdb chromosomes, do so
@@ -30,12 +36,16 @@ setMethod("plotVariants", signature("CrisprSet"),
     target_levels[idxs] <- wchr[idxs]  
     target <- renameSeqlevels(target, target_levels)
   }
-  gene_p <- annotateGenePlot(txdb, target)
+  annotate_args <- modifyList(list(txdb = txdb, target = target), annotate_args)
+  gene_p <- do.call(annotateGenePlot, annotate_args)
+  
   plotAlignments.args$obj = obj
   aln_p <- do.call(plotAlignments, plotAlignments.args)
   plotFreqHeatmap.args$obj = obj
   heat_p <- do.call(plotFreqHeatmap, plotFreqHeatmap.args) 
-  result <- arrangePlots(gene_p, aln_p, heat_p, ...)    
+  arrange_args = list(gene_p, aln_p, heat_p)
+  result <- do.call(arrangePlots, arrange_args)
+  
   return(result)
 })
 
@@ -54,7 +64,7 @@ setMethod("plotVariants", signature("CrisprSet"),
 #'Margins of right.plot are constrained by the left.plot.
 arrangePlots <- function(top.plot, left.plot, right.plot, fig.height = NULL,
                          col.wdth.ratio  = c(2, 1), row.ht.ratio = c(1,6), 
-                         left.plot.margin = unit(c(0.25,0,10,0.5), "lines")){
+                         left.plot.margin = unit(c(0.1,0,8,0.2), "lines")){
         
   # Set the size ratio of the top and bottom rows
   plot_hts <- if (is.null(fig.height)){ row.ht.ratio 
@@ -87,8 +97,9 @@ arrangePlots <- function(top.plot, left.plot, right.plot, fig.height = NULL,
 #'@param gene.text.size Size for figure label
 #'@param panel.margin Unit object, margin size
 annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 1, 
-                             gene.text.size = 20, 
-                             panel.margin = unit(c(0.25,0.25,0.25,0.25), "lines")){
+                             gene.text.size = 12, 
+                             panel.margin = unit(c(0.1,0.1,0.1,0.1), "lines")){
+  
   # Make the gene plot
   stopifnot(require(ggbio))
   genes <- genes(txdb)
@@ -99,7 +110,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 
   } else{
     gene_id <- mcols(wh)$gene_id
     cat("Creating transcript plot with ggbio\n")
-    p1 <- ggbio::autoplot(txdb, wh, label = FALSE)
+    p1 <- invisible(ggbio::autoplot(txdb, wh, label = FALSE))
     
     #Pull off the y limits from the transcript plot
     yranges <- ggplot_build(p1)$panel$ranges[[1]]$y.range 
@@ -113,7 +124,8 @@ annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 
       theme_minimal() + ggtitle(gene_id) + 
       theme(axis.text.x = element_text(size = gene.text.size), 
             text = element_text(size = gene.text.size),
-            panel.margin = panel.margin) 
+            panel.margin = panel.margin,
+            plot.title = element_text(size = gene.text.size)) 
     
     p1 <- as.list(attributes(p1))$ggplot
     p1 <- ggplotGrob(p1)    
