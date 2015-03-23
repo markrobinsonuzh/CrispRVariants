@@ -27,7 +27,7 @@ readsToTargets(reads, targets, ...)
 \S4method{readsToTargets}{character,GRanges}(reads, targets, ..., references,
   primer.ranges = NULL, reverse.complement = TRUE, collapse.pairs = FALSE,
   use.consensus = TRUE, ignore.strand = TRUE, names = NULL,
-  verbose = FALSE)
+  bpparam = BiocParallel::SerialParam(), verbose = FALSE)
 
 alnsToCrisprSet(alns, reference, target, reverse.complement, collapse.pairs,
   names, use.consensus, verbose, ...)
@@ -60,6 +60,9 @@ they can be used to assign such reads to the correct target.}
 
 \item{ignore.strand}{Should strand be considered when finding overlaps?
 (See \code{\link[GenomicAlignments]{findOverlaps}} )}
+
+\item{bpparam}{A BiocParallel parameter for parallelising across reads.
+Default: no parallelisation.  (See \code{\link[BiocParallel]})}
 
 \item{keep.unpaired}{For paired reads, should unpaired alignments be kept? (Default: TRUE)}
 

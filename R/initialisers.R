@@ -93,7 +93,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
             if (is.null(names)){
               names <- reads
             }
-            
+            names <- as.character(names)
             cset <- alnsToCrisprSet(alns, reference, target, reverse.complement, 
                                     collapse.pairs, names, use.consensus, verbose, ...)
             return(cset)

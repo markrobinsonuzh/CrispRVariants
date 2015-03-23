@@ -11,8 +11,10 @@ plotFreqHeatmap(obj, ...)
 
 \S4method{plotFreqHeatmap}{matrix}(obj, ..., col.sums = TRUE,
   row.sums = FALSE, group = NULL, group.colours = NULL,
-  as.percent = TRUE, x.axis.title = NULL, x.size = 20, y.size = 20,
-  x.angle = 90, legend.text.size = 16, plot.text.size = 8)
+  as.percent = TRUE, x.axis.title = NULL, x.size = 6, y.size = 8,
+  x.angle = 90, legend.text.size = 6, plot.text.size = 2,
+  line.width = 1, legend.position = "right", legend.cols = 1,
+  legend.key.height = unit(3, "lines"))
 
 \S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = nrow(obj$cigar_freqs),
   freq.cutoff = 0)
@@ -47,6 +49,12 @@ per sample (TRUE) or the actual counts (FALSE)?  (Default: TRUE)}
 \item{legend.text.size}{Font size for legend (Default: 16)}
 
 \item{plot.text.size}{Font size counts within plot (Default: 8)}
+
+\item{line.width}{}
+
+\item{legend.position}{}
+
+\item{legend.key.height}{}
 
 \item{top.n}{Show the n top ranked variants.  Note that if the nth and n+1th
 variants have equal rank, they will not be shown.   (Default: show all)}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/plotAlignments.R
 \name{setDNATileColours}
 \alias{setDNATileColours}
-\title{Format insertions for plotting}
+\title{Sets colours for plotting aligned DNA sequences.}
 \usage{
 setDNATileColours(m)
 }
@@ -10,11 +10,10 @@ setDNATileColours(m)
 \item{m}{A matrix with a column named "value" of the characters at each tile position.}
 }
 \description{
-Formats a table of insertions for plotting with \code{\link[crispRvariants]{plotAlignments}}.
+Sets tile colours for \code{\link[crispRvariants]{plotAlignments}} with a
+DNA alphabet.  Colour names must be valid.
 }
 \author{
-Helen Lindsay
-
 Helen Lindsay
 }
 

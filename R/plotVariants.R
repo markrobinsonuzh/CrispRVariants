@@ -96,39 +96,97 @@ arrangePlots <- function(top.plot, left.plot, right.plot, fig.height = NULL,
 #'@param target.size Thickness of box indicating target region
 #'@param gene.text.size Size for figure label
 #'@param panel.margin Unit object, margin size
+#'@param plot.title A title for the plot.  If no plot.title is supplied, the title is the 
+#'list of gene ids shown (default).  If plot.title == FALSE, the plot will not have a title.
+#'@param all.transcripts If  TRUE (default), all transcripts of genes overlapping 
+#'the target are shown, including transcripts that do not themselves overlap the target.
+#'If FALSE, only the transcripts that overlap the target are shown.
 annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 1, 
                              gene.text.size = 12, 
-                             panel.margin = unit(c(0.1,0.1,0.1,0.1), "lines")){
+                             panel.margin = unit(c(0.1,0.1,0.1,0.1), "lines"),
+                             plot.title = NULL, all.transcripts = TRUE)){
   
-  # Make the gene plot
-  stopifnot(require(ggbio))
-  genes <- genes(txdb)
-  wh <- genes[findOverlaps(genes, target, ignore.strand = TRUE)@queryHits]  
+  exByTx <-exonsBy(txdb,"tx")
+  utr5 <- fiveUTRsByTranscript(txdb)
+  utr3 <- threeUTRsByTranscript(txdb) 
   
-  if (length(wh) == 0){
-    p1 <- grob()
-  } else{
-    gene_id <- mcols(wh)$gene_id
-    cat("Creating transcript plot with ggbio\n")
-    p1 <- invisible(ggbio::autoplot(txdb, wh, label = FALSE))
-    
-    #Pull off the y limits from the transcript plot
-    yranges <- ggplot_build(p1)$panel$ranges[[1]]$y.range 
-    xranges <- ggplot_build(p1)$panel$ranges[[1]]$x.range
-    target_df <- data.frame(xmin = start(target), xmax = end(target), 
-                            ymin = yranges[1], ymax = yranges[2])
-    
-    p1 <-  p1 + geom_rect(data = target_df, 
-                          aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
-                          colour = target.colour, fill = NA, size = target.size) + 
-      theme_minimal() + ggtitle(gene_id) + 
-      theme(axis.text.x = element_text(size = gene.text.size), 
-            text = element_text(size = gene.text.size),
-            panel.margin = panel.margin,
-            plot.title = element_text(size = gene.text.size)) 
-    
-    p1 <- as.list(attributes(p1))$ggplot
-    p1 <- ggplotGrob(p1)    
+  exs <- findOverlaps(guide, exByTx)
+  
+  if (all.transcripts == TRUE){
+    genes <- suppressWarnings(select(txdb, key = unique(genes$GENEID), 
+                  keytype = "GENEID", columns = c("GENEID", "TXID", "TXNAME")))
+  } else {
+    genes <- select(txdb, key = as.character(subjectHits(exs)), 
+                    keytype = "TXID", columns = c("GENEID","TXNAME"))
   }
-  return(p1)
+  
+  txid <- as.character(genes$TXID)
+  # Get UTRs matching each transcript
+  all_sections <- lapply(txid, function(tid) {
+    u5 <- GRangesList()
+    u3 <- GRangesList()
+    if (tid %in% names(utr5)){ u5 <- utr5[tid] }
+    if (tid %in% names(utr3)){ u3 <- utr3[tid] }
+    utrs <- unlist(c(u5, u3))
+    split_ex <- disjoin(c(exByTx[[tid]], utrs))
+    split_ex$type = "exon"
+    split_ex$type[split_ex %in% utrs] <- "utr"
+    split_ex
+  })
+
+  all_exs <- do.call(c, all_sections)
+  min_st <- min(start(all_exs))
+  max_end <- max(end(all_exs))
+  
+  all_exs <- data.frame(start = start(all_exs), 
+                        end = end(all_exs), 
+                        ts = rep(1:length(all_sections), lapply(all_sections, length)),
+                        type = all_exs$type)
+  
+  colnames(all_exs) <- c("start", "end", "ts", "type")
+  
+  gene_spans <- do.call(c,unname(lapply(all_sections, range)))
+  
+  tcks <- unname(quantile(min_st:max_end, seq(1,100, by = 2)*0.01))
+  tcks <- c(tcks, start(gene_spans), end(gene_spans))
+  tcks <- lapply(gene_spans, function(sp){
+    tcks[tcks >= start(sp) & tcks <= end(sp)]  
+  })
+  
+  tcks <- data.frame(tloc = unlist(tcks), ys = rep(1:length(tcks), lapply(tcks, length)))
+
+  all_exs$ymax <- all_exs$ts + 0.3
+  all_exs$ymin <- all_exs$ts - 0.3 
+  is_utr <- all_exs$type == "utr"
+  all_exs$ymax[is_utr] <- all_exs$ts[is_utr] + 0.2
+  all_exs$ymin[is_utr] <- all_exs$ts[is_utr] - 0.2 
+ 
+  target_df <- data.frame(xmin = start(target), xmax = end(target), 
+                          ymin = 0, ymax = ceiling(max(all_exs$ymax)))
+  
+  if (is.null(plot.title)){ plot.title <- paste(unique(genes$GENEID), sep = ";")}
+  
+  p <- ggplot(tcks, aes(x = tloc, y = ys, group = ys)) + geom_line() + 
+    geom_point(shape = 62, size = 3) 
+  p <- p + geom_rect(data = all_exs, fill = "black", color = "black", 
+              aes(x = NULL, y = NULL, group = NULL, 
+                  xmin = start, xmax = end, ymin = ymin, ymax=ymax)) 
+  p <- p + geom_rect(data = target_df,
+                     aes(x = NULL, y = NULL, group = NULL,
+                         xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
+                         colour = target.colour, fill = NA, size = target.size)
+  if (! plot.title == FALSE){
+    p <- p + ggtitle(plot.title) 
+  }
+  p <- p + theme_minimal() +
+       theme(axis.text.x = element_text(size = gene.text.size), 
+          axis.text.y = element_blank(),
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.margin = panel.margin,
+          text = element_text(size = gene.text.size),
+          axis.ticks.y = element_blank()) +
+       ylab(NULL) + xlab(NULL) 
+  
+  return(p)
 }
