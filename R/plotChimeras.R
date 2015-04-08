@@ -84,9 +84,9 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20,
   }
   
   # Ord is the order of the "M" segments (can be more than number of alignments)
-  n_plus <- length(unlist(m_qry[is_plus]))
-  n_segs <- length(unlist(m_qry))
-  ord <- c((n_plus + 1):n_segs, 1:n_plus)
+  plus <- rep(which(is_plus), lapply(m_qry[is_plus], length))
+  minus <- rep(which(!is_plus), lapply(m_qry[!is_plus], length))
+  ord <- order(c(plus,minus))
 
   xs <- mapply(seq, unlist(start(m_qry[is_plus])), unlist(end(m_qry[is_plus])), 
                SIMPLIFY = FALSE)
@@ -105,6 +105,7 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20,
   y_lns <- sapply(ys, length)
   y_sums <- cumsum(y_lns)
   
+  n_segs <- length(unlist(m_qry))
   offsets <- c(0, unlist(ys)[y_sums[-n_segs] +1] - (unlist(ys)[y_sums[-n_segs]]+1))
   offsets[offsets > max_gap] <- gap_pad # clip large gaps
   
