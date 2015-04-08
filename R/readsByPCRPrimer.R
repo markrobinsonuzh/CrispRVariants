@@ -8,7 +8,8 @@
 #'assumption, and is misleading in the case of chimeric reads where sections
 #'clipped in one part of a chimera are aligned in another.
 #'@param bam A set of aligned reads
-#'@param primer_ranges A set of ranges that the unclipped reads may map to 
+#'@param primers A set of ranges that the unclipped reads may map to 
+#'@param ... Additional arguments
 #'@author Helen Lindsay
 #'@rdname readsByPCRPrimer
 #'@export
@@ -19,13 +20,13 @@ setGeneric("readsByPCRPrimer", function(bam, primers, ...) {
 #'at each end (Default: 0)
 #'@param verbose Print number of full and partial matches (Default: TRUE)
 #'@param ignore.strand Passed to \code{\link[GenomicAlignments]{findOverlaps}} 
-#'and \code{\link[GenomicAlignments]{disjoin}}. Should strand be ignored when 
+#'and \code{\link[GenomicRanges]{disjoin}}. Should strand be ignored when 
 #'finding overlaps.  (Default: TRUE) 
 #'@param allow.partial Should reads that do not match the PCR boundaries, but 
 #'map to a region covered by only one primer be considered matches?  (Default: TRUE)
 #'@param chimera.idxs Indices of chimeric reads within the bam.  If specified,
 #'chimeras overlapping multiple pcr primers will be removed.  
-#'@return A \code{\link[IRanges]{Hits}} object where "query" is the index with 
+#'@return A \code{\link[S4Vectors]{Hits}} object where "query" is the index with 
 #'respect to bam and "subject" is the index with respect to the primers.
 #'@seealso \code{\link[GenomicRanges]{GRanges}}, \code{\link[GenomicAlignments]{GAlignments}}
 #'@rdname readsByPCRPrimer
@@ -107,13 +108,13 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
 #'@description Extrapolates the mapping location of a read by assuming that 
 #'the clipped regions should map adjacent to the mapped locations.  This
 #'is not always a good assumption, particularly in the case of chimeric reads!
-#'@param bam A set of aligned reads
 #'@author Helen Lindsay
 #'@rdname addClipped
-setGeneric("addClipped", function(bam,...) {
+setGeneric("addClipped", function(bam, ...) {
   standardGeneric("addClipped")})
 
 #'@param bam A GAlignments object 
+#'@param ... additional arguments
 #'@return A \code{\link[GenomicRanges]{GRanges}} representation of the extended 
 #'mapping locations
 #'@rdname addClipped
@@ -132,15 +133,15 @@ setMethod("addClipped", signature("GAlignments"),
 #'@param readnames A set of read names, used for identifying chimeric read sets
 #'@param pcrhits A mapping between indices of reads and a set of pcr primers
 #'@param chimera_idxs location of chimeric reads within the bam
+#'@param ... Additional arguments
 #'@return pcrhits, with chimeric reads mapping to different primers omitted.
 #'@author Helen Lindsay
 #'@rdname rmMultiPCRChimera
 setGeneric("rmMultiPCRChimera", function(readnames, pcrhits, chimera_idxs, ...) {
   standardGeneric("rmMultiPCRChimera")})
 
-#'@param pcrhits A hits object where queryHits are indices in the bam and subjectHits are 
-#'indices within a list of pcr primer ranges.
-#'@param verbose 
+
+#'@param verbose Display information about the chimeras (Default: TRUE)
 #'@rdname rmMultiPCRChimera
 setMethod("rmMultiPCRChimera", signature("character", "Hits", "integer"),
           function(readnames, pcrhits, chimera_idxs, ..., verbose = TRUE){

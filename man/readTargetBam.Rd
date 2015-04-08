@@ -22,6 +22,9 @@ e.g. primer or cloning vector sequences that have a match in the genome}
 
 \item{verbose}{Print stats about number of alignments read and filtered.  (Default: FALSE)}
 }
+\value{
+A GenomicAlignments::GAlignment obj
+}
 \description{
 Includes options for excluding reads either by name or range.
 The latter is useful if chimeras are excluded.  Reads are excluded before

@@ -2,7 +2,7 @@
 #'
 #'This is an R implementation of Wibowo Arindrarto's abifpy.py trimming module,
 #'which itself implement's Richard Mott's trimming algorithm
-#'See \link{https://github.com/bow/abifpy} for more details.
+#'See \url{https://github.com/bow/abifpy} for more details.
 #'
 #'Requires Bioconductor package SangerseqR
 #'@param seqname name of sequence, to appear in fastq file
@@ -13,12 +13,16 @@
 #'@param min_seq_len minimum number of sequenced bases required in order to trim the read
 #'@param offset phred offset for quality scores
 #'@author Helen Lindsay
+#'@return None.  Sequences are appended to the outfname.
+#'@examples
+#'ab1_fname <- system.file("extdata", "IM2033.ab1", package = "crispRvariants")
+#'abifToFastq("IM2033", ab1_fname, "IM2033.fastq")
 #'@export
 abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05, 
                         min_seq_len = 20, offset = 33){
   # TO DO? check min_seq_len after trimming also?
   
-  sangerseqr <- require(sangerseqR)
+  sangerseqr <- requireNamespace("sangerseqR")
   stopifnot(sangerseqr == TRUE)
   
   # Translation of python function
@@ -30,15 +34,21 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
   
   # Remove the extra character if it exists
   nucseq <- substring(abif@data$PBAS.2, 1, length(abif@data$PLOC.2))
-  num_quals <- utf8ToInt(abif@data$PCON.2)[1:length(abif@data$PLOC.2)] 
+  # sangerSeqR PCON.2 is a UTF8-encoded character vector in release, an integer vector in devel
+  if (! typeof(abif@data$PCON.2) == "integer"){
+    num_quals <- utf8ToInt(abif@data$PCON.2)[1:length(abif@data$PLOC.2)] 
+  } else {
+    num_quals <- abif@data$PCON.2[1:length(abif@data$PLOC.2)] 
+  }
   
   if (trim == FALSE){
     writeFastq(outfname, list("seq" = nucseq, "quals" = rawToChar(as.raw(num_quals + 33))))
     return()
   }
   
+  trim_msg <- 'Sequence %s can not be trimmed because it is shorter than the trim segment size'
   if (nchar(nucseq) <= min_seq_len){
-    warning('Sequence can not be trimmed because it is shorter than the trim segment size')
+    warning(sprintf(trim_msg, seqname))
     return()
   } 
   
@@ -57,7 +67,7 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
   
   # Additional check that there is enough sequence (not in abifpy):
   if (trim_finish - trim_start < min_seq_len -1){
-    warning('Sequence can not be trimmed because it is shorter than the trim segment size')
+    warning(sprintf(trim_msg, seqname))
     return()
   }
   

@@ -1,12 +1,13 @@
-#'Display a dot plot of chimeric alignments
+#'@title Display a dot plot of chimeric alignments
 #'
-#'Produces a dot plot of a set of chimeric alignments.  For chimeric alignments,
+#'@description Produces a dot plot of a set of chimeric alignments.  For chimeric alignments,
 #'a single read is split into several, possibly overlapping alignmed blocks.
 #'Aligned sections of chimeric reads can be separated by large genomic distances, 
 #'or on separate chromosomes.  plotChimeras produces a dot plot, each aligned block 
 #'highlighted, and chromosomes shown in different colours. Large gaps between 
 #'aligned segments are collapsed and indicated on the plot with horizontal lines.  
-#'The X-axis shows each base of the entire read.    
+#'The X-axis shows each base of the entire read. Note that the mapping to the fwd strand 
+#'is shown if all strands agree   
 #'
 #'@param chimeric_alns A GAlignments object containing only the chimeric
 #' reads to be plotted 
@@ -15,35 +16,43 @@
 #'@param tick_sep How many bases should separate tick labels on plot.  Default 20.
 #'@param text_size Size of X and Y tick labels on plot.  Default 12
 #'@param title_size Size of X and Y axis labels on plot.  Default 16
+#'@param gap_pad How much should aligned blocks be separated by?  (Default: 20)
 #'@param legend_title Title for the legend.  Default "Chromosome"
 #'@param xangle Angle for x axis text (Default 90, i.e vertical)
+#'@return A ggplot2 dotplot of the chimeric alignments versus the reference sequence 
+#'@seealso \code{\link{findChimeras}} for finding chimeric alignment sets.
 #'@author Helen Lindsay
-#'
-#'@import GenomicAlignments
-#'@import ggplot2
-#'@import grid
-#'@import gridExtra
-#'@import GenomicRanges
-#'@import IRanges
-#'@import methods
-#'@import BiocParallel
-#'@importFrom reshape2 melt
 #'@export
+#'@examples
+#'bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
+#'                          package = "crispRvariants")
+#'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
+#'# Choose a single chimeric read set to plot:
+#'chimeras <- bam[names(bam) == "AB3092"]
 #'
-plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 10,  
-                         title_size = 16, legend_title = "Chromosome", xangle = 90){
+#'# This read aligns in 3 pieces, all on chromosome 18.  
+#'# The plot shows the alignment includes a small duplication and 
+#'# a long gap.
+#'plotChimeras(chimeras)
+plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, 
+                         text_size = 10,  title_size = 16, gap_pad = 20,
+                         legend_title = "Chromosome", xangle = 90){
   # max_gap: if genomic segments are separated by more than max_gap, 
   #          a gap in the y-axis will be introduced
   
   # To do: allow a region of interest to be annotated
-  # note that the mapping to the fwd strand is shown if all strands agree
+  #        add padding between different chromosomes
+  
   cigars <- cigar(chimeric_alns)
   genomic_locs <- as(chimeric_alns, "GRanges")
   
   ops <- CharacterList(explodeCigarOps(cigars))
   query_ranges <- cigarRangesAlongQuerySpace(cigars)
+  # For reference ranges, shift to actual genomic starting locations
   ref_ranges <- cigarRangesAlongReferenceSpace(cigars)
   ref_ranges <- shift(ref_ranges, start(genomic_locs) -1)
+  
+  # Find all "M" operations (runs of aligned bases)
   mm <- ops == "M"
   mm_idxs <- rep(1:length(genomic_locs), sum(mm))
   m_ref <- ref_ranges[mm]
@@ -54,21 +63,30 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   is_plus <- as.vector(strand(genomic_locs) == "+")
   two_strands <- length(unique(is_plus)) > 1
 
-  m_qry[is_plus] <- shift(m_qry[is_plus], hclipl[is_plus])
+  m_qry[is_plus] <- GenomicRanges::shift(m_qry[is_plus], hclipl[is_plus])
   
   # If the alignment includes segments to both strands, display wrt ref (+)
   if (two_strands) { 
+    # Want to get all query ranges with respect to the query on the forward strand
+    # (As is, cigar ranges are with respect to the genome)
     hsclipr <- as.numeric(gsub("^$", 0, gsub('.*[M]|[HS]$', "", cigars))) 
-    m_qry[!is_plus] <- shift(m_qry[!is_plus], (-1*start(m_qry[!is_plus])+1))
-    m_qry[!is_plus] <- shift(m_qry[!is_plus], hsclipr[!is_plus])  
+    
+    # Find the distance from the end of the -ve strand M ranges to the start of the last op
+    dist_to_last <- -1*(end(query_ranges) - max(start(query_ranges)) + 1)[mm][!is_plus]
+    
+    # Remove the offset from the left, add the offset from the right
+    m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], (-1*start(m_qry[!is_plus])+1))
+    m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], hsclipr[!is_plus] + dist_to_last) 
+    
   } else {
     # Else if only -ve, display wrt negative
-    m_qry[!is_plus] <- shift(m_qry[!is_plus], hclipl[!is_plus])
+    m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], hclipl[!is_plus])
   }
   
-  plus_min <- c(which(is_plus), which(!is_plus))
-  plus_min <- rep(plus_min, lapply(m_qry, length))
-  ord <- order(plus_min)
+  # Ord is the order of the "M" segments (can be more than number of alignments)
+  n_plus <- length(unlist(m_qry[is_plus]))
+  n_segs <- length(unlist(m_qry))
+  ord <- c((n_plus + 1):n_segs, 1:n_plus)
 
   xs <- mapply(seq, unlist(start(m_qry[is_plus])), unlist(end(m_qry[is_plus])), 
                SIMPLIFY = FALSE)
@@ -77,24 +95,22 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
           unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
   } else {
     xs <- c(xs, mapply(function(x,y) seq(x,y), unlist(start(m_qry[!is_plus])), 
-          unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
+          unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))
   }
   
-  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)), SIMPLIFY = FALSE)#[ord]
-  #chrs <- seqnames(genomic_locs)[plus_min][ord]
+  ys <- mapply(seq, unlist(start(m_ref)), unlist(end(m_ref)), SIMPLIFY = FALSE)
   chrs <- seqnames(genomic_locs)
   
   # Introduce gaps for aligned segments separated by more than max_gap
   y_lns <- sapply(ys, length)
   y_sums <- cumsum(y_lns)
-  n_segs <- length(ys)
   
   offsets <- c(0, unlist(ys)[y_sums[-n_segs] +1] - (unlist(ys)[y_sums[-n_segs]]+1))
-  offsets[offsets > max_gap] <- max_gap # clip large gaps
+  offsets[offsets > max_gap] <- gap_pad # clip large gaps
   
   chr_chgs <- cumsum(seqnames(genomic_locs)[mm_idxs]@lengths) + 1
   #chr_chgs <- cumsum(chrs@lengths)+1 
-  offsets[chr_chgs[chr_chgs <= n_segs]] <- max_gap
+  offsets[chr_chgs[chr_chgs <= n_segs]] <- gap_pad
   
   # Setup data and plot
   pt_coords <- data.frame(x = unlist(xs), ylabs = unlist(ys))
@@ -108,13 +124,19 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   m_qry_start <- unlist(start(m_qry_range))
   m_qry_end <- unlist(end(m_qry_range))
   
-  box_ymins <- pt_coords$y[sapply(m_qry_start, function(x) max(which(pt_coords$x == x)))]
-  box_ymaxs <- pt_coords$y[sapply(m_qry_end, function(x) min(which(pt_coords$x == x)))]
+  aln_to_ranges <- split(1:n_segs, rep(1:length(m_qry), sapply(m_qry, length)))
   
-  box_coords <- data.frame(xmin = m_qry_start, xmax = m_qry_end, chrs = seqnames(genomic_locs),
-                           #ymin = pt_coords[pt_coords$x %in% m_qry_start, "y"],
-                           #ymax = pt_coords[pt_coords$x %in% m_qry_end, "y"])
-                           ymin  = box_ymins, ymax = box_ymaxs)
+  pt_ys <- relist(pt_coords$y, ys)
+  box_ranges <-  t(sapply(1:length(m_qry), function(i){
+      aln_ys <- unlist(pt_ys[aln_to_ranges[[i]]])
+      c(min(aln_ys), max(aln_ys))
+  }))
+  
+  box_ymins <- box_ranges[,1]
+  box_ymaxs <- box_ranges[,2]
+  
+  box_coords <- data.frame("xmin" = m_qry_start, "xmax" = m_qry_end, "chrs" = seqnames(genomic_locs),
+                           "ymin"  = box_ymins, "ymax" = box_ymaxs)
   
   gap_starts <- y_sums[which(offsets >= max_gap) -1]
   
@@ -139,8 +161,8 @@ plotChimeras <- function(chimeric_alns, max_gap = 10, tick_sep = 20, text_size =
   # Plotting
   p <- ggplot(pt_coords, aes(x=x,y=y)) + geom_point() +
        geom_rect(data = box_coords, aes(xmin = xmin, xmax = xmax, 
-                  ymin = ymin, ymax = ymax, x = NULL, y = NULL, fill = chrs, colour = chrs), 
-                  alpha = 0.25) + 
+                  ymin = ymin, ymax = ymax, x = NULL, y = NULL, fill = chrs,
+                  colour = chrs), alpha = 0.25) + 
        scale_y_continuous(expand = c(0,0), breaks = tick_pos, labels = tick_labs)+
        xlab("Read location") + ylab("Chromosomal location") +
        guides(fill = guide_legend(title = legend_title), 

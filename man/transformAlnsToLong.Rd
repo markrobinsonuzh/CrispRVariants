@@ -7,9 +7,12 @@
 transformAlnsToLong(ref, alns)
 }
 \arguments{
-\item{ref}{}
+\item{ref}{The reference sequence}
 
-\item{alns}{}
+\item{alns}{Character vector of aligned sequences}
+}
+\value{
+A matrix of characters and plotting locations
 }
 \description{
 Orders and transforms a reference sequence and a set of aligned sequences

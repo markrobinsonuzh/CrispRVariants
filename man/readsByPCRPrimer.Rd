@@ -20,13 +20,17 @@ readsByPCRPrimer(bam, primers, ...)
 \arguments{
 \item{bam}{A set of aligned reads}
 
+\item{primers}{A set of ranges that the unclipped reads may map to}
+
+\item{...}{Additional arguments}
+
 \item{tolerance}{Number of bases by which reads and primers may differ
 at each end (Default: 0)}
 
 \item{verbose}{Print number of full and partial matches (Default: TRUE)}
 
 \item{ignore.strand}{Passed to \code{\link[GenomicAlignments]{findOverlaps}}
-and \code{\link[GenomicAlignments]{disjoin}}. Should strand be ignored when
+and \code{\link[GenomicRanges]{disjoin}}. Should strand be ignored when
 finding overlaps.  (Default: TRUE)}
 
 \item{allow.partial}{Should reads that do not match the PCR boundaries, but
@@ -34,11 +38,9 @@ map to a region covered by only one primer be considered matches?  (Default: TRU
 
 \item{chimera.idxs}{Indices of chimeric reads within the bam.  If specified,
 chimeras overlapping multiple pcr primers will be removed.}
-
-\item{primer_ranges}{A set of ranges that the unclipped reads may map to}
 }
 \value{
-A \code{\link[IRanges]{Hits}} object where "query" is the index with
+A \code{\link[S4Vectors]{Hits}} object where "query" is the index with
 respect to bam and "subject" is the index with respect to the primers.
 }
 \description{

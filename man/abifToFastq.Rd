@@ -22,13 +22,20 @@ abifToFastq(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
 
 \item{offset}{phred offset for quality scores}
 }
+\value{
+None.  Sequences are appended to the outfname.
+}
 \description{
 This is an R implementation of Wibowo Arindrarto's abifpy.py trimming module,
 which itself implement's Richard Mott's trimming algorithm
-See \link{https://github.com/bow/abifpy} for more details.
+See \url{https://github.com/bow/abifpy} for more details.
 }
 \details{
 Requires Bioconductor package SangerseqR
+}
+\examples{
+ab1_fname <- system.file("extdata", "IM2033.ab1", package = "crispRvariants")
+abifToFastq("IM2033", ab1_fname, "IM2033.fastq")
 }
 \author{
 Helen Lindsay

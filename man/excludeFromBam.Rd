@@ -9,9 +9,12 @@ excludeFromBam(bam, exclude.ranges = GRanges(), exclude.names = NA)
 \arguments{
 \item{bam}{a GAlignments object}
 
-\item{exclude.ranges}{}
+\item{exclude.ranges}{Regions to exclude, as \code{\link[GenomicRanges]{GRanges}}.}
 
-\item{exclude.names}{}
+\item{exclude.names}{A character vector of alignments names to exclude}
+}
+\value{
+The bam minus the excluded regions
 }
 \description{
 Returns a GAlignments excluding reads based on either name and/or location

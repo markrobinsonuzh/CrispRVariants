@@ -15,7 +15,7 @@
 #'used in conjunction with target_start and target_end.
 #'@param target_start Genomic start of the region to be returned. 
 #'@param target_end Genomic end of the region to be returned.
-#'@export
+#'@return The sequences with insertions collapsed and deletions padded
 #'
 seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_start = NULL, 
                       target_end = NULL){

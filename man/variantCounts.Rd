@@ -13,14 +13,25 @@ variantCounts(obj, ...)
 \arguments{
 \item{obj}{An object containing variant counts}
 
+\item{...}{Additional arguments}
+
 \item{top.n}{(Integer n) If specified, return variants ranked at least n according
 to frequency across all samples (Default: 0, i.e. no cutoff)}
 
 \item{freq.cutoff}{(Integer n) Return variants with total count greater than or
 equal to n}
 }
+\value{
+A matrix of counts where rows are variants and columns are samples
+}
 \description{
 Returns a matrix of counts where rows are sequence variants an columns are samples
+}
+\examples{
+data("gol_clutch1")
+
+#Return a matrix of the 5 most frequent variants
+variantCounts(gol, top.n = 5)
 }
 \author{
 Helen Lindsay

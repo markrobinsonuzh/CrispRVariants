@@ -143,6 +143,7 @@ Return value:
 Helen Lindsay
 }
 \seealso{
+\code{\link{readsToTarget}} for initialising a CrisprSet,
 \code{\link[crispRvariants]{CrisprRun}}
 }
 

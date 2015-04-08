@@ -17,6 +17,8 @@ containing the sequence}
 
 \item{target}{A GRanges object}
 
+\item{...}{additional arguments}
+
 \item{reverse.complement}{Should the aligned reads be reverse complemented?}
 
 \item{verbose}{(Default: FALSE)}

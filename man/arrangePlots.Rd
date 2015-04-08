@@ -6,10 +6,11 @@
 \usage{
 arrangePlots(top.plot, left.plot, right.plot, fig.height = NULL,
   col.wdth.ratio = c(2, 1), row.ht.ratio = c(1, 6),
-  left.plot.margin = unit(c(0.1, 0, 8, 0.2), "lines"))
+  left.plot.margin = grid::unit(c(0.1, 0, 3, 0.2), "lines"))
 }
 \arguments{
-\item{top.plot}{ggplot grob, placed on top of the figure, spanning the figure width}
+\item{top.plot}{ggplot grob, placed on top of the figure, spanning the figure
+width}
 
 \item{left.plot}{ggplot, placed in the second row on the left}
 
@@ -25,6 +26,9 @@ figure height is the sum of the row.ht.ratio (Default: NULL)}
 
 \item{left.plot.margin}{Unit object specifying margins of left.plot.
 Margins of right.plot are constrained by the left.plot.}
+}
+\value{
+The arranged plots
 }
 \description{
 Arranges 3 plots in two rows.  The vertical margins of the

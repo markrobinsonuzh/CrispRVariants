@@ -1,26 +1,55 @@
 #'@title Trims reads to a target region.
-#'@description Trims aligned reads to a target region, optionally reverse
-#'complementing the alignments.         
+#'@description Trims aligned reads to one or several target regions, 
+#'optionally reverse complementing the alignments.         
 #'@param reads A GAlignments object, or a character vector of the filenames
 #'@param target A GRanges object specifying the range to narrow alignments to 
-#'@param reverse.complement Should the alignments be oriented to match 
-#'the strand of the target? (Default: TRUE)
-#'@param collapse.pairs  If reads are paired, should pairs be collapsed?  (Default: FALSE) 
-#'@param keep.unpaired For paired reads, should unpaired alignments be kept? (Default: TRUE)
-#'@param verbose Print progress and statistics (Default: FALSE)
 #'@author Helen Lindsay
 #'@rdname readsToTarget
+#'
+#'@import BiocParallel
+#'@import Biostrings
+#'@import ggplot2
+#'@import grid
+#'@import gridExtra
+#'@import GenomicAlignments
+#'@import GenomicRanges
+#'@import IRanges
+#'@import methods
+#'@import Rsamtools
+#'@importFrom reshape2 melt
+#'@importFrom AnnotationDbi select
 #'@export
 setGeneric("readsToTarget", function(reads, target, ...) {
   standardGeneric("readsToTarget")})
 
 
 #'@param name An experiment name for the reads.  (Default: NULL)  
-#'@return A CrisprRun object
+#'@param reverse.complement Should the alignments be oriented to match 
+#'the strand of the target? (Default: TRUE)
+#'@param collapse.pairs  If reads are paired, should pairs be collapsed?  (Default: FALSE) 
+#'@param use.consensus Take the consensus sequence for non-matching pairs? If FALSE,
+#'the sequence of the first read is used.  Can be very slow. (Default: FALSE)
+#'@param verbose Print progress and statistics (Default: FALSE)
+#'@return (signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object 
+#'@examples
+#'# Load the metadata table
+#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+#'md <- read.table(md_fname, sep = "\t", stringsAsFactors = FALSE)
+#'
+#'# Get bam filenames and their full paths
+#'bam_fnames <- sapply(md$bam.filename, function(fn){
+#'  system.file("extdata", fn, package = "crispRvariants")})
+#'
+#'reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'
+#'crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
+#'                            names = md$experiment.name, target.loc = 17)
+#'
 #'@rdname readsToTarget
 setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
-                   collapse.pairs = FALSE, use.consensus = TRUE, 
+                   collapse.pairs = FALSE, use.consensus = FALSE, 
                    verbose = FALSE, name = NULL){
             
             if (length(target) > 1){
@@ -73,9 +102,11 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
 #'@param names Experiment names for each bam file.  If not supplied, filenames are used.
 #'@param chimeras Flag to determine how chimeric reads are treated.  One of 
 #'"ignore", "exclude", and "merge".  Default "ignore", "merge" not implemented yet
-#'@param ref The reference sequence
+#'@param reference The reference sequence
+#'@param exclude.ranges Ranges to exclude from consideration, e.g. homologous to a pcr primer.
+#'@param exclude.names Alignment names to exclude
 #'@param ... Extra arguments for initialising CrisprSet
-#'@return A CrisprSet object
+#'@return (signature("character", "GRanges")) A \code{\link{CrisprSet}} object
 #'@rdname readsToTarget
 setMethod("readsToTarget", signature("character", "GRanges"),
           function(reads, target, ..., reference, reverse.complement = TRUE, 
@@ -83,6 +114,15 @@ setMethod("readsToTarget", signature("character", "GRanges"),
                    chimeras = c("ignore","exclude","merge"),
                    collapse.pairs = FALSE, use.consensus = TRUE, 
                    names = NULL, verbose = FALSE){  
+            
+            # Make sure the reference sequence consists of one sequence
+            # Coerce to "DNA string if necessary"
+            if (class(reference) == "character" | class(reference) == "DNAStringSet"){
+              if (length(reference) > 1){
+                stop("Reference should be a single sequence, as a DNAString")
+              }
+              reference <- as(reference[1], "DNAString")
+            }
             
             alns <- lapply(reads, readTargetBam, target = target, 
                            exclude.ranges = exclude.ranges,
@@ -104,23 +144,24 @@ setMethod("readsToTarget", signature("character", "GRanges"),
 #'@rdname readsToTarget
 setGeneric("readsToTargets", function(reads, targets, ...) {
   standardGeneric("readsToTargets")})
-  
+
+#'@param targets A set of targets to narrow reads to
+#'@param references A set of reference sequences matching the targets
 #'@param primer.ranges A set of GRanges, corresponding to the targets.
 #'Read lengths are typically greater than target regions, and it can 
 #'be that reads span multiple targets.  If primer.ranges are available,
 #'they can be used to assign such reads to the correct target.  
-#'@param ... Additional arguments for initialising the CrisprSet
-#'primer.ranges are supplied
 #'@param ignore.strand Should strand be considered when finding overlaps?
 #'(See \code{\link[GenomicAlignments]{findOverlaps}} )
 #'@param bpparam A BiocParallel parameter for parallelising across reads.  
-#'Default: no parallelisation.  (See \code{\link[BiocParallel]})
+#'Default: no parallelisation.  (See \code{\link[BiocParallel]{bpparam}})
 #'@rdname readsToTarget
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
                    reverse.complement = TRUE, collapse.pairs = FALSE, 
                    use.consensus = TRUE, ignore.strand = TRUE, 
-                   names = NULL, bpparam = BiocParallel::SerialParam(), verbose = FALSE){
+                   names = NULL, bpparam = BiocParallel::SerialParam(), 
+                   verbose = FALSE){
           
             # ACCOUNT FOR CHIMERIC READS OR NOT?
             
@@ -133,8 +174,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               names <- reads
             }
             
-    
-            param <- ScanBamParam(what = c("seq", "flag"))
+            param <- Rsamtools::ScanBamParam(what = c("seq", "flag"))
             args <- list(...)
                       
             bamsByPCR <- bplapply(seq_along(reads), function(i){
@@ -206,8 +246,6 @@ setMethod("readsToTargets", signature("character", "GRanges"),
 
 
 
-#'@title Internal crispRvariants function for converting a set of reads to a CrisprSet
-#'@rdname readsToTarget
 alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
                             collapse.pairs, names, use.consensus, verbose, ...){
   print(sprintf("Processing %s samples", length(alns)))
@@ -260,6 +298,7 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
 #'@param chimeras Flag to determine how chimeric reads are treated.  One of 
 #'"ignore", "exclude", and "merge".  Default "ignore".  
 #'@param verbose Print stats about number of alignments read and filtered.  (Default: FALSE)
+#'@return A GenomicAlignments::GAlignment obj
 readTargetBam <- function(file, target, exclude.ranges = GRanges(), 
                           exclude.names = NA,
                           chimeras = c("ignore","exclude","merge"),
@@ -276,7 +315,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
   }
   bam <- GenomicAlignments::readGAlignments(file, param = param, use.names = TRUE)
   #Exclude reads by name or range
-  temp <- crispRvariants:::excludeFromBam(bam, exclude.ranges, exclude.names)    
+  temp <- excludeFromBam(bam, exclude.ranges, exclude.names)    
   
   if (verbose == TRUE){
     original <- length(bam)
@@ -327,6 +366,7 @@ rcAlns <- function(target.strand, reverse.complement){
 #'@param target A GRanges object
 #'@param reverse.complement Should the aligned reads be reverse complemented?
 #'@param verbose (Default: FALSE)
+#'@param ... additional arguments
 #'@author Helen Lindsay
 #'@rdname narrowAlignments
 #'@export
@@ -550,7 +590,7 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
       # Overwrite the sequence of the non-concordant pairs.
       # The concordant alignments are at the start of keep
       ncc_idxs <- cumsum(concordant & is_first)[concordant & is_first & !same_seq]
-      mcols(keep_alns[ncc_idxs])$seq <- DNAStringSet(consensus)
+      mcols(keep_alns[ncc_idxs])$seq <- Biostrings::DNAStringSet(consensus)
     }
   }  
   if (length(keep) == 0) return(NULL)

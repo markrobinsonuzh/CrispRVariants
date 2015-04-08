@@ -9,6 +9,9 @@ reverseCigar(cigar)
 \arguments{
 \item{cigar}{the cigar string.}
 }
+\value{
+The reversed cigar string
+}
 \description{
 For example, the string "20M5D15M" would become "15M5D20M"
 }

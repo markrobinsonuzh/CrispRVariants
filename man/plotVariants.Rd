@@ -12,7 +12,7 @@ plotVariants(obj, ...)
   plotAlignments.args = list(), plotFreqHeatmap.args = list())
 }
 \arguments{
-\item{obj}{}
+\item{obj}{The object to be plotted}
 
 \item{...}{extra arguments for plot layout}
 
@@ -25,7 +25,38 @@ plotVariants(obj, ...)
 
 \item{plotFreqHeatmap.args}{Extra arguments for plotFreqHeatmap}
 }
+\value{
+A ggplot2 plot of the variants
+}
 \description{
 Plot alignments, frequencies and location of target sequence
+}
+\examples{
+#Load a CrisprSet object for plotting
+data("gol_clutch1")
+
+#Load the transcript db.  This is a subset of the Ensembl Danio Rerio v73 gtf
+# for the region 18:4640000-4650000 which includes the targeted gol gene
+
+library(GenomicFeatures)
+fn <- system.file("extdata", "Danio_rerio.Zv9.73.gol.sqlite",
+                 package = "crispRvariants")
+txdb <- loadDb(fn)
+
+# Plot the variants
+p <- plotVariants(gol, txdb = txdb)
+
+#In the above plot, the bottom margin is too large, the legend is
+#cut off, and the text within the plots could be larger.
+#These issues can be fixed with some adjustments:
+p <- plotVariants(gol, txdb = txdb,
+                 plotAlignments.args = list(plot.text.size = 4, legend.cols = 2),
+                 plotFreqHeatmap.args = list(plot.text.size = 4),
+                 left.plot.margin = grid::unit(c(0.1,0,0.5,1), "lines"))
+}
+\seealso{
+\code{\link{arrangePlots}} for general layout options
+and \code{\link{annotateGenePlot}} for options relating
+to the transcript plot.
 }
 

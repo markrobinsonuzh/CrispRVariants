@@ -2,10 +2,11 @@
 % Please edit documentation in R/plotVariants.R
 \name{annotateGenePlot}
 \alias{annotateGenePlot}
-\title{Plots gene structure and annotates with target location}
+\title{Plots and annotates transcripts}
 \usage{
 annotateGenePlot(txdb, target, target.colour = "red", target.size = 1,
-  gene.text.size = 12, panel.margin = unit(c(0.1, 0.1, 0.1, 0.1), "lines"))
+  gene.text.size = 10, panel.margin = grid::unit(c(0.1, 0.1, 0.1, 0.1),
+  "lines"), plot.title = NULL, all.transcripts = TRUE)
 }
 \arguments{
 \item{txdb}{A GenomicFeatures:TxDb object}
@@ -19,9 +20,20 @@ annotateGenePlot(txdb, target, target.colour = "red", target.size = 1,
 \item{gene.text.size}{Size for figure label}
 
 \item{panel.margin}{Unit object, margin size}
+
+\item{plot.title}{A title for the plot.  If no plot.title is supplied,
+the title is the list of gene ids shown (default).
+If plot.title == FALSE, the plot will not have a title.}
+
+\item{all.transcripts}{If  TRUE (default), all transcripts of genes overlapping
+the target are shown, including transcripts that do not themselves overlap the target.
+If FALSE, only the transcripts that overlap the target are shown.}
+}
+\value{
+A ggplot2 plot of the transcript structures
 }
 \description{
-Uses ggbio to plot the gene structure, annotates this with the
+Plots the gene structure, annotates this with the
 target location
 }
 

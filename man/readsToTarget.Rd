@@ -2,7 +2,6 @@
 % Please edit documentation in R/initialisers.R
 \docType{methods}
 \name{readsToTarget}
-\alias{alnsToCrisprSet}
 \alias{readsToTarget}
 \alias{readsToTarget,GAlignments,GRanges-method}
 \alias{readsToTarget,character,GRanges-method}
@@ -13,8 +12,8 @@
 readsToTarget(reads, target, ...)
 
 \S4method{readsToTarget}{GAlignments,GRanges}(reads, target, ...,
-  reverse.complement = TRUE, collapse.pairs = FALSE, use.consensus = TRUE,
-  verbose = FALSE, name = NULL)
+  reverse.complement = TRUE, collapse.pairs = FALSE,
+  use.consensus = FALSE, verbose = FALSE, name = NULL)
 
 \S4method{readsToTarget}{character,GRanges}(reads, target, ..., reference,
   reverse.complement = TRUE, exclude.ranges = GRanges(),
@@ -28,9 +27,6 @@ readsToTargets(reads, targets, ...)
   primer.ranges = NULL, reverse.complement = TRUE, collapse.pairs = FALSE,
   use.consensus = TRUE, ignore.strand = TRUE, names = NULL,
   bpparam = BiocParallel::SerialParam(), verbose = FALSE)
-
-alnsToCrisprSet(alns, reference, target, reverse.complement, collapse.pairs,
-  names, use.consensus, verbose, ...)
 }
 \arguments{
 \item{reads}{A GAlignments object, or a character vector of the filenames}
@@ -44,14 +40,27 @@ the strand of the target? (Default: TRUE)}
 
 \item{collapse.pairs}{If reads are paired, should pairs be collapsed?  (Default: FALSE)}
 
+\item{use.consensus}{Take the consensus sequence for non-matching pairs? If FALSE,
+the sequence of the first read is used.  Can be very slow. (Default: FALSE)}
+
 \item{verbose}{Print progress and statistics (Default: FALSE)}
 
 \item{name}{An experiment name for the reads.  (Default: NULL)}
+
+\item{reference}{The reference sequence}
+
+\item{exclude.ranges}{Ranges to exclude from consideration, e.g. homologous to a pcr primer.}
+
+\item{exclude.names}{Alignment names to exclude}
 
 \item{chimeras}{Flag to determine how chimeric reads are treated.  One of
 "ignore", "exclude", and "merge".  Default "ignore", "merge" not implemented yet}
 
 \item{names}{Experiment names for each bam file.  If not supplied, filenames are used.}
+
+\item{targets}{A set of targets to narrow reads to}
+
+\item{references}{A set of reference sequences matching the targets}
 
 \item{primer.ranges}{A set of GRanges, corresponding to the targets.
 Read lengths are typically greater than target regions, and it can
@@ -62,25 +71,31 @@ they can be used to assign such reads to the correct target.}
 (See \code{\link[GenomicAlignments]{findOverlaps}} )}
 
 \item{bpparam}{A BiocParallel parameter for parallelising across reads.
-Default: no parallelisation.  (See \code{\link[BiocParallel]})}
-
-\item{keep.unpaired}{For paired reads, should unpaired alignments be kept? (Default: TRUE)}
-
-\item{ref}{The reference sequence}
-
-\item{...}{Additional arguments for initialising the CrisprSet
-primer.ranges are supplied}
+Default: no parallelisation.  (See \code{\link[BiocParallel]{bpparam}})}
 }
 \value{
-A CrisprRun object
+(signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object
 
-A CrisprSet object
+(signature("character", "GRanges")) A \code{\link{CrisprSet}} object
 }
 \description{
-Trims aligned reads to a target region, optionally reverse
-complementing the alignments.
+Trims aligned reads to one or several target regions,
+optionally reverse complementing the alignments.
+}
+\examples{
+# Load the metadata table
+md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+md <- read.table(md_fname, sep = "\\t", stringsAsFactors = FALSE)
 
-Internal crispRvariants function for converting a set of reads to a CrisprSet
+# Get bam filenames and their full paths
+bam_fnames <- sapply(md$bam.filename, function(fn){
+ system.file("extdata", fn, package = "crispRvariants")})
+
+reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+
+crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
+                           names = md$experiment.name, target.loc = 17)
 }
 \author{
 Helen Lindsay

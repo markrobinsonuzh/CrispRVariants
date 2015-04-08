@@ -1,17 +1,44 @@
 #'@title Plot alignments, frequencies and location of target sequence
 #'@rdname plotVariants
+#'@param obj The object to be plotted
+#'@return A ggplot2 plot of the variants
 #'@export
 setGeneric("plotVariants", function(obj, ...) {
   standardGeneric("plotVariants")})
 
 #'@rdname plotVariants
-#'@param obj 
 #'@param txdb GenomicFeatures:TxDb object
 #'@param plotAlignments.args Extra arguments for plotAlignments
 #'@param plotFreqHeatmap.args Extra arguments for plotFreqHeatmap
 #'@param add.chr If target chromosome does not start with "chr", e.g. 
 #'"chr5", add the "chr" prefix.  (Default:TRUE)
 #'@param ... extra arguments for plot layout
+#'@seealso \code{\link{arrangePlots}} for general layout options
+#' and \code{\link{annotateGenePlot}} for options relating
+#' to the transcript plot.
+#'@examples
+#'#Load a CrisprSet object for plotting
+#'data("gol_clutch1") 
+#'
+#'#Load the transcript db.  This is a subset of the Ensembl Danio Rerio v73 gtf
+#'# for the region 18:4640000-4650000 which includes the targeted gol gene  
+#'
+#'library(GenomicFeatures)
+#'fn <- system.file("extdata", "Danio_rerio.Zv9.73.gol.sqlite", 
+#'                  package = "crispRvariants")
+#'txdb <- loadDb(fn)
+#'
+#'# Plot the variants
+#'p <- plotVariants(gol, txdb = txdb)
+#'
+#'#In the above plot, the bottom margin is too large, the legend is 
+#'#cut off, and the text within the plots could be larger.
+#'#These issues can be fixed with some adjustments:  
+#'p <- plotVariants(gol, txdb = txdb, 
+#'                  plotAlignments.args = list(plot.text.size = 4, legend.cols = 2),  
+#'                  plotFreqHeatmap.args = list(plot.text.size = 4), 
+#'                  left.plot.margin = grid::unit(c(0.1,0,0.5,1), "lines"))
+#'
 setMethod("plotVariants", signature("CrisprSet"),  
           function(obj, ..., txdb, add.chr = TRUE, 
                    plotAlignments.args = list(),
@@ -22,9 +49,12 @@ setMethod("plotVariants", signature("CrisprSet"),
   }
   
   dots <- list(...)
-  annotate_nms = c("target.colour","target.size","gene.text.size", "panel.margin")
-  annotate_args = dots[names(dots) %in% annotate_nms]
+  annotate_nms <- c("target.colour","target.size","gene.text.size", "panel.margin")
+  annotate_args <- dots[names(dots) %in% annotate_nms]
   dots[annotate_nms] <- NULL
+  
+  arrange_nms <-  c("fig.height","col.wdth.ratio", "row.ht.ratio", "left.plot.margin")
+  arrange_args <- dots[names(dots) %in% arrange_nms]
   
   target <- obj$target
   if (add.chr == TRUE){
@@ -43,7 +73,8 @@ setMethod("plotVariants", signature("CrisprSet"),
   aln_p <- do.call(plotAlignments, plotAlignments.args)
   plotFreqHeatmap.args$obj = obj
   heat_p <- do.call(plotFreqHeatmap, plotFreqHeatmap.args) 
-  arrange_args = list(gene_p, aln_p, heat_p)
+  arrange_args = modifyList(list(top.plot = gene_p, left.plot = aln_p, 
+                                 right.plot = heat_p), arrange_args)
   result <- do.call(arrangePlots, arrange_args)
   
   return(result)
@@ -52,7 +83,8 @@ setMethod("plotVariants", signature("CrisprSet"),
 #'@title Arrange plots for plotVariants:CrisprSet
 #'@description Arranges 3 plots in two rows.  The vertical margins of the
 #'left.plot and right.plot constrained to be equal 
-#'@param top.plot ggplot grob, placed on top of the figure, spanning the figure width
+#'@param top.plot ggplot grob, placed on top of the figure, spanning the figure 
+#'width
 #'@param left.plot ggplot, placed in the second row on the left
 #'@param right.plot ggplot, placed in the second row on the right.  
 #'y-axis labels are removed.
@@ -62,9 +94,10 @@ setMethod("plotVariants", signature("CrisprSet"),
 #'@param col.wdth.ratio  Vector specifying column width ratio (Default: c(2, 1))
 #'@param left.plot.margin Unit object specifying margins of left.plot.  
 #'Margins of right.plot are constrained by the left.plot.
+#'@return The arranged plots
 arrangePlots <- function(top.plot, left.plot, right.plot, fig.height = NULL,
-                         col.wdth.ratio  = c(2, 1), row.ht.ratio = c(1,6), 
-                         left.plot.margin = unit(c(0.1,0,8,0.2), "lines")){
+                      col.wdth.ratio  = c(2, 1), row.ht.ratio = c(1,6), 
+                      left.plot.margin = grid::unit(c(0.1,0,3,0.2), "lines")){
         
   # Set the size ratio of the top and bottom rows
   plot_hts <- if (is.null(fig.height)){ row.ht.ratio 
@@ -78,17 +111,18 @@ arrangePlots <- function(top.plot, left.plot, right.plot, fig.height = NULL,
   left.plot <- left.plot + theme(plot.margin = left.plot.margin)            
  
   # Convert plots to grobs, lock plot heights
-  p2 <- ggplotGrob(left.plot)  
-  p3 <- ggplotGrob(right.plot)
+  p2 <- ggplot2::ggplotGrob(left.plot)  
+  p3 <- ggplot2::ggplotGrob(right.plot)
   p3$heights <- p2$heights  
     
   # Return arranged plots
-  return(grid.arrange(top.plot, arrangeGrob(p2, p3, ncol = 2, widths = col.wdth.ratio), 
-                      nrow = 2, heights = plot_hts, newpage = FALSE))
+  return(gridExtra::grid.arrange(top.plot, 
+         gridExtra::arrangeGrob(p2, p3, ncol = 2, widths = col.wdth.ratio), 
+         nrow = 2, heights = plot_hts, newpage = FALSE))
 }
 
-#'@title Plots gene structure and annotates with target location
-#'@description Uses ggbio to plot the gene structure, annotates this with the
+#'@title Plots and annotates transcripts
+#'@description Plots the gene structure, annotates this with the
 #'target location
 #'@param txdb A GenomicFeatures:TxDb object
 #'@param target Location of target (GRanges)
@@ -96,29 +130,33 @@ arrangePlots <- function(top.plot, left.plot, right.plot, fig.height = NULL,
 #'@param target.size Thickness of box indicating target region
 #'@param gene.text.size Size for figure label
 #'@param panel.margin Unit object, margin size
-#'@param plot.title A title for the plot.  If no plot.title is supplied, the title is the 
-#'list of gene ids shown (default).  If plot.title == FALSE, the plot will not have a title.
+#'@param plot.title A title for the plot.  If no plot.title is supplied, 
+#'the title is the list of gene ids shown (default).  
+#'If plot.title == FALSE, the plot will not have a title.
 #'@param all.transcripts If  TRUE (default), all transcripts of genes overlapping 
 #'the target are shown, including transcripts that do not themselves overlap the target.
 #'If FALSE, only the transcripts that overlap the target are shown.
-annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 1, 
-                             gene.text.size = 12, 
-                             panel.margin = unit(c(0.1,0.1,0.1,0.1), "lines"),
-                             plot.title = NULL, all.transcripts = TRUE)){
+#'@return A ggplot2 plot of the transcript structures 
+annotateGenePlot <- function(txdb, target, target.colour = "red", 
+                        target.size = 1, gene.text.size = 10, 
+                        panel.margin = grid::unit(c(0.1,0.1,0.1,0.1), "lines"),
+                        plot.title = NULL, all.transcripts = TRUE){
   
-  exByTx <-exonsBy(txdb,"tx")
-  utr5 <- fiveUTRsByTranscript(txdb)
-  utr3 <- threeUTRsByTranscript(txdb) 
+  genomicfeatures <- requireNamespace("GenomicFeatures")
+  stopifnot(genomicfeatures == TRUE)
   
-  exs <- findOverlaps(guide, exByTx)
+  exByTx <- GenomicFeatures::exonsBy(txdb,"tx")
+  utr5 <- GenomicFeatures::fiveUTRsByTranscript(txdb)
+  utr3 <- GenomicFeatures::threeUTRsByTranscript(txdb) 
+  
+  exs <- findOverlaps(target, exByTx)
+  genes <- AnnotationDbi::select(txdb, keys = as.character(subjectHits(exs)), 
+                  keytype = "TXID", columns = c("GENEID","TXNAME"))
   
   if (all.transcripts == TRUE){
-    genes <- suppressWarnings(select(txdb, key = unique(genes$GENEID), 
+    genes <- suppressWarnings(AnnotationDbi::select(txdb, keys = unique(genes$GENEID), 
                   keytype = "GENEID", columns = c("GENEID", "TXID", "TXNAME")))
-  } else {
-    genes <- select(txdb, key = as.character(subjectHits(exs)), 
-                    keytype = "TXID", columns = c("GENEID","TXNAME"))
-  }
+  } 
   
   txid <- as.character(genes$TXID)
   # Get UTRs matching each transcript
@@ -139,22 +177,23 @@ annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 
   max_end <- max(end(all_exs))
   
   all_exs <- data.frame(start = start(all_exs), 
-                        end = end(all_exs), 
-                        ts = rep(1:length(all_sections), lapply(all_sections, length)),
-                        type = all_exs$type)
+                end = end(all_exs), 
+                ts = rep(1:length(all_sections), lapply(all_sections, length)),
+                type = all_exs$type)
   
   colnames(all_exs) <- c("start", "end", "ts", "type")
   
   gene_spans <- do.call(c,unname(lapply(all_sections, range)))
   
   tcks <- unname(quantile(min_st:max_end, seq(1,100, by = 2)*0.01))
-  tcks <- c(tcks, start(gene_spans), end(gene_spans))
   tcks <- lapply(gene_spans, function(sp){
-    tcks[tcks >= start(sp) & tcks <= end(sp)]  
+    tcks[tcks > start(sp) & tcks < end(sp)]  
   })
   
-  tcks <- data.frame(tloc = unlist(tcks), ys = rep(1:length(tcks), lapply(tcks, length)))
-
+  tcks <- data.frame("tloc" = unlist(tcks), 
+                     "ys" = rep(1:length(tcks), lapply(tcks, length)))
+  lns <- data.frame(tloc = c(start(gene_spans),end(gene_spans)), ys = rep(seq_along(gene_spans),2))
+  
   all_exs$ymax <- all_exs$ts + 0.3
   all_exs$ymin <- all_exs$ts - 0.3 
   is_utr <- all_exs$type == "utr"
@@ -166,15 +205,25 @@ annotateGenePlot <- function(txdb, target, target.colour = "red", target.size = 
   
   if (is.null(plot.title)){ plot.title <- paste(unique(genes$GENEID), sep = ";")}
   
-  p <- ggplot(tcks, aes(x = tloc, y = ys, group = ys)) + geom_line() + 
-    geom_point(shape = 62, size = 3) 
+  # Choose either right or left pointing arrows for the transcript plots
+  if (as.character(strand(target)) == "-"){
+    shp <- 60
+  } else {
+    shp <- 62
+  }
+  
+  p <- ggplot2::ggplot(tcks, aes_string(x = "tloc", y = "ys", group = "ys")) + 
+    geom_point(shape = shp, size = 4) + geom_line(data = lns) 
+  
   p <- p + geom_rect(data = all_exs, fill = "black", color = "black", 
-              aes(x = NULL, y = NULL, group = NULL, 
-                  xmin = start, xmax = end, ymin = ymin, ymax=ymax)) 
+                     aes(x = NULL, y = NULL, group = NULL, 
+                     xmin = start, xmax = end, ymin = ymin, ymax = ymax)) 
+
   p <- p + geom_rect(data = target_df,
                      aes(x = NULL, y = NULL, group = NULL,
                          xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
-                         colour = target.colour, fill = NA, size = target.size)
+                         colour = target.colour, fill = NA, size = target.size)  
+  
   if (! plot.title == FALSE){
     p <- p + ggtitle(plot.title) 
   }

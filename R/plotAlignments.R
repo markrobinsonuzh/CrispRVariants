@@ -1,5 +1,7 @@
 #'@title Plot alignments with respect to a reference sequence  
 #'@rdname plotAlignments
+#'@param obj The object to be plot
+#'@param ... Additional arguments 
 #'@export
 setGeneric("plotAlignments", function(obj, ...) {
   standardGeneric("plotAlignments")})
@@ -14,6 +16,10 @@ setGeneric("plotAlignments", function(obj, ...) {
 #' (default: plot all)
 #'@param renumbered If TRUE, the x-axis is numbered with respect to the target
 #' (default: TRUE)
+#'@examples
+#'#Load a CrisprSet object and plot
+#'data("gol_clutch1") 
+#'plotAlignments(gol)
 setMethod("plotAlignments", signature("CrisprSet"),  
           function(obj, ..., freq.cutoff = 0, 
                    top.n = nrow(obj$cigar_freqs),
@@ -35,7 +41,6 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'figure 6-8 inches wide, with figure height best chosen according to the number 
 #'of different variants and insertions to be displayed.
 #'
-#'@param ref The reference sequence
 #'@param alns A named character vector of aligned sequences, with insertions removed
 #'@param ins.sites A table of insertion_sites, which must include cols 
 #'named "start", "cigar" and "seq", for the start of the insertion in the 
@@ -73,7 +78,7 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@param legend.symbol.size The size of the symbols indicating insertions
 #'in the legend.  (Default: ins.size)
 #'@return A ggplot figure  
-#'@seealso \code{\link[crispRvariants]{seqsToAln}}, \code{\link[ggplot2]}
+#'@seealso \code{\link{seqsToAln}}, \code{\link[ggplot2]{ggplot}}
 #'@author Helen Lindsay
 #'@rdname plotAlignments
 setMethod("plotAlignments", signature("DNAString"),  
@@ -223,8 +228,9 @@ setMethod("plotAlignments", signature("DNAString"),
 #'@description Orders and transforms a reference sequence and a set of aligned sequences 
 #'into long format, i.e. one observation (tile position) per row.  Used internally by 
 #'\code{\link[crispRvariants]{plotAlignments}}.
-#'@param ref
-#'@param alns
+#'@param ref The reference sequence
+#'@param alns Character vector of aligned sequences
+#'@return A matrix of characters and plotting locations
 #'@author Helen Lindsay
 transformAlnsToLong <- function(ref, alns){
   # Reverse alignment order, as ggplot geom_tile plots bottom up  
@@ -246,6 +252,7 @@ transformAlnsToLong <- function(ref, alns){
 #'@description Sets tile colours for \code{\link[crispRvariants]{plotAlignments}} with a 
 #'DNA alphabet.  Colour names must be valid.  
 #'@param m A matrix with a column named "value" of the characters at each tile position. 
+#'@return A matrix with additional columns specifying tile and text colours
 #'@author Helen Lindsay
 setDNATileColours <- function(m){
   ambig_codes <- c('K','M','R','Y','S','W','B','V','H','D')
@@ -262,10 +269,11 @@ setDNATileColours <- function(m){
   return(m)
 }
 
-#'@title Makes a basic tile plot of aligned sequences
+
 makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
                                   xtick.labs, xtick.breaks, tile.height){
 
+  
   # Plot aligned sequences  
   p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols)) +
     geom_tile(aes(alpha = isref), height = tile.height) + 
@@ -276,7 +284,7 @@ makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
                        axis.text.x = element_text(size = axis.text.size), 
                        axis.title.x = element_text(vjust = -0.5), 
                        legend.position = "bottom")
-  
+    
   if (is.null(xtick.labs)){   
     # expand is the distance from the axis, multiplicative + additive
     p <- p + scale_x_continuous(expand = c(0,0.25))  

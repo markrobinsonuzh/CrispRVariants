@@ -40,7 +40,8 @@
 #'@field cigar_freqs A matrix of counts for each variant
 #'@field target The target location, as a GRanges object
 #'@author Helen Lindsay
-#'@seealso \code{\link[crispRvariants]{CrisprRun}}
+#'@seealso \code{\link{readsToTarget}} for initialising a CrisprSet,
+#'\code{\link[crispRvariants]{CrisprRun}}
 #'@export CrisprSet
 #'@exportClass CrisprSet 
 CrisprSet = setRefClass(
@@ -226,7 +227,7 @@ Input parameters:
     all_cigars <- unlist(cig_by_run)
     unique_cigars <- !duplicated(unlist(cig_by_run))  
     
-    co <- do.call(c, unlist(lapply(cset$crispr_runs, function(x) x$cigar_ops), 
+    co <- do.call(c, unlist(lapply(.self$crispr_runs, function(x) x$cigar_ops), 
                             use.names = FALSE))[unique_cigars]    
     idxs <- co != "M"
     
@@ -335,7 +336,7 @@ Return value:
     
     if (verbose) cat("Looking up variant locations\n")
     
-    stopifnot(require(VariantAnnotation))
+    stopifnot(requireNamespace("VariantAnnotation"))
     
     gr <- .self$.getUniqueIndelRanges(add_chr)
     locs <- VariantAnnotation::locateVariants(gr, txdb, AllVariants())

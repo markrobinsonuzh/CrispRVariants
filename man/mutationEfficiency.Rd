@@ -14,6 +14,8 @@ mutationEfficiency(obj, ...)
 \arguments{
 \item{obj}{An object containing variant counts}
 
+\item{...}{additional arguments}
+
 \item{snv}{Single nucleotide variants (SNVs) may be considered as mutations ("include"),
 treated as ambiguous sequences and not counted at all ("exclude"), or treated as
 non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant")}
@@ -26,6 +28,10 @@ A vector of efficiency statistics per sample and overall
 }
 \description{
 Returns the percentage of sequences that contain at least one mutation.
+}
+\examples{
+data("gol_clutch1")
+mutationEfficiency(gol)
 }
 \author{
 Helen Lindsay

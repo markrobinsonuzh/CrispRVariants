@@ -9,7 +9,7 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param obj A matrix of counts with rows = feature, columns = sample
 #'@param col.sums Include a row of column totals at the top of the
 #'plot (Default: TRUE)
-#'@param row.sums 
+#'@param row.sums Include a column of row totals (Default: FALSE)
 #'@param group Grouping factor for columns.  If supplied, columns are
 #'ordered to match the levels  (Default: NULL)
 #'@param group.colours Colours for column groups, should match levels of "group".
@@ -22,16 +22,18 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param x.angle  Angle for x-labels (Default: 90, i.e. vertical)
 #'@param legend.text.size Font size for legend (Default: 16)
 #'@param plot.text.size Font size counts within plot (Default: 8)
-#'@param line.width
-#'@param legend.position
-#'@param legend.key.height
-#'@param ...
+#'@param line.width Line thickness of title box
+#'@param legend.position The position of the legend (Default: right)
+#'@param legend.key.height The height of the legend key, as a "unit" object.
+#'(See \code{\link[grid]{unit}}).
+#'@param ... additional arguments
+#'@return The ggplot2 plot of the variant frequencies 
 setMethod("plotFreqHeatmap", signature("matrix"),  
           function(obj, ..., col.sums = TRUE, row.sums = FALSE, group = NULL,
                    group.colours = NULL, as.percent = TRUE, x.axis.title = NULL,
                    x.size = 6, y.size = 8, x.angle = 90, legend.text.size = 6,
                    plot.text.size = 2, line.width = 1, legend.position = "right",
-                   legend.cols = 1, legend.key.height = unit(3, "lines")) {            
+                   legend.key.height = grid::unit(3, "lines")) {            
             
   if (col.sums == TRUE){
   # Make space for totals to be added
@@ -152,6 +154,12 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'variants have equal rank, they will not be shown.   (Default: show all)
 #'@param freq.cutoff Show variants with frequency >= freq.cutoff 
 #'(Default: 0, i.e. no cutoff)
+#'@examples
+#'#Load a CrisprSet object for plotting
+#'data("gol_clutch1")
+#'
+#'# Plot the frequency heatmap
+#'plotFreqHeatmap(gol)
 setMethod("plotFreqHeatmap", signature("CrisprSet"),  
           function(obj, ..., top.n = nrow(obj$cigar_freqs), freq.cutoff = 0) {
   

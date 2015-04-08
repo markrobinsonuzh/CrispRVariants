@@ -21,6 +21,9 @@ used in conjunction with target_start and target_end.}
 
 \item{target_end}{Genomic end of the region to be returned.}
 }
+\value{
+The sequences with insertions collapsed and deletions padded
+}
 \description{
 Creates a one-to-one text alignment of a set of cigar strings with respect
 to the reference sequence by collapsing insertions and introducing gaps

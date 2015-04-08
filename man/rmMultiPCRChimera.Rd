@@ -18,10 +18,9 @@ rmMultiPCRChimera(readnames, pcrhits, chimera_idxs, ...)
 
 \item{chimera_idxs}{location of chimeric reads within the bam}
 
-\item{verbose}{}
+\item{...}{Additional arguments}
 
-\item{pcrhits}{A hits object where queryHits are indices in the bam and subjectHits are
-indices within a list of pcr primer ranges.}
+\item{verbose}{Display information about the chimeras (Default: TRUE)}
 }
 \value{
 pcrhits, with chimeric reads mapping to different primers omitted.

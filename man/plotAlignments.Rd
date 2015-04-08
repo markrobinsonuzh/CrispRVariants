@@ -21,6 +21,10 @@ plotAlignments(obj, ...)
   max.insertion.size = 50, line.weight = 1, legend.symbol.size = ins.size)
 }
 \arguments{
+\item{obj}{The object to be plot}
+
+\item{...}{Additional arguments}
+
 \item{freq.cutoff}{i (integer) only plot variants that occur >= i times
 (default: 0, i.e no frequency cutoff)}
 
@@ -86,8 +90,6 @@ zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)}
 
 \item{legend.symbol.size}{The size of the symbols indicating insertions
 in the legend.  (Default: ins.size)}
-
-\item{ref}{The reference sequence}
 }
 \value{
 A ggplot figure
@@ -108,10 +110,15 @@ inserted sequences below the plot.  The default options are intended for a
 figure 6-8 inches wide, with figure height best chosen according to the number
 of different variants and insertions to be displayed.
 }
+\examples{
+#Load a CrisprSet object and plot
+data("gol_clutch1")
+plotAlignments(gol)
+}
 \author{
 Helen Lindsay
 }
 \seealso{
-\code{\link[crispRvariants]{seqsToAln}}, \code{\link[ggplot2]}
+\code{\link{seqsToAln}}, \code{\link[ggplot2]{ggplot}}
 }
 

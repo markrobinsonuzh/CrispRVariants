@@ -5,7 +5,8 @@
 \title{Display a dot plot of chimeric alignments}
 \usage{
 plotChimeras(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 10,
-  title_size = 16, legend_title = "Chromosome", xangle = 90)
+  title_size = 16, gap_pad = 20, legend_title = "Chromosome",
+  xangle = 90)
 }
 \arguments{
 \item{chimeric_alns}{A GAlignments object containing only the chimeric
@@ -20,9 +21,14 @@ aligned before blocks are collapsed, in bases.  Default 10}
 
 \item{title_size}{Size of X and Y axis labels on plot.  Default 16}
 
+\item{gap_pad}{How much should aligned blocks be separated by?  (Default: 20)}
+
 \item{legend_title}{Title for the legend.  Default "Chromosome"}
 
 \item{xangle}{Angle for x axis text (Default 90, i.e vertical)}
+}
+\value{
+A ggplot2 dotplot of the chimeric alignments versus the reference sequence
 }
 \description{
 Produces a dot plot of a set of chimeric alignments.  For chimeric alignments,
@@ -31,9 +37,25 @@ Aligned sections of chimeric reads can be separated by large genomic distances,
 or on separate chromosomes.  plotChimeras produces a dot plot, each aligned block
 highlighted, and chromosomes shown in different colours. Large gaps between
 aligned segments are collapsed and indicated on the plot with horizontal lines.
-The X-axis shows each base of the entire read.
+The X-axis shows each base of the entire read. Note that the mapping to the fwd strand
+is shown if all strands agree
+}
+\examples{
+bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
+                         package = "crispRvariants")
+bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
+# Choose a single chimeric read set to plot:
+chimeras <- bam[names(bam) == "AB3092"]
+
+# This read aligns in 3 pieces, all on chromosome 18.
+# The plot shows the alignment includes a small duplication and
+# a long gap.
+plotChimeras(chimeras)
 }
 \author{
 Helen Lindsay
+}
+\seealso{
+\code{\link{findChimeras}} for finding chimeric alignment sets.
 }
 

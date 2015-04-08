@@ -9,6 +9,9 @@ setDNATileColours(m)
 \arguments{
 \item{m}{A matrix with a column named "value" of the characters at each tile position.}
 }
+\value{
+A matrix with additional columns specifying tile and text colours
+}
 \description{
 Sets tile colours for \code{\link[crispRvariants]{plotAlignments}} with a
 DNA alphabet.  Colour names must be valid.

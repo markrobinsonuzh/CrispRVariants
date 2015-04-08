@@ -11,9 +11,9 @@ addClipped(bam, ...)
 \S4method{addClipped}{GAlignments}(bam, ...)
 }
 \arguments{
-\item{bam}{A set of aligned reads}
-
 \item{bam}{A GAlignments object}
+
+\item{...}{additional arguments}
 }
 \value{
 A \code{\link[GenomicRanges]{GRanges}} representation of the extended

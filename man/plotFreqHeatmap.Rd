@@ -13,8 +13,8 @@ plotFreqHeatmap(obj, ...)
   row.sums = FALSE, group = NULL, group.colours = NULL,
   as.percent = TRUE, x.axis.title = NULL, x.size = 6, y.size = 8,
   x.angle = 90, legend.text.size = 6, plot.text.size = 2,
-  line.width = 1, legend.position = "right", legend.cols = 1,
-  legend.key.height = unit(3, "lines"))
+  line.width = 1, legend.position = "right",
+  legend.key.height = grid::unit(3, "lines"))
 
 \S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = nrow(obj$cigar_freqs),
   freq.cutoff = 0)
@@ -22,12 +22,12 @@ plotFreqHeatmap(obj, ...)
 \arguments{
 \item{obj}{A matrix of counts with rows = feature, columns = sample}
 
-\item{...}{}
+\item{...}{additional arguments}
 
 \item{col.sums}{Include a row of column totals at the top of the
 plot (Default: TRUE)}
 
-\item{row.sums}{}
+\item{row.sums}{Include a column of row totals (Default: FALSE)}
 
 \item{group}{Grouping factor for columns.  If supplied, columns are
 ordered to match the levels  (Default: NULL)}
@@ -50,11 +50,12 @@ per sample (TRUE) or the actual counts (FALSE)?  (Default: TRUE)}
 
 \item{plot.text.size}{Font size counts within plot (Default: 8)}
 
-\item{line.width}{}
+\item{line.width}{Line thickness of title box}
 
-\item{legend.position}{}
+\item{legend.position}{The position of the legend (Default: right)}
 
-\item{legend.key.height}{}
+\item{legend.key.height}{The height of the legend key, as a "unit" object.
+(See \code{\link[grid]{unit}}).}
 
 \item{top.n}{Show the n top ranked variants.  Note that if the nth and n+1th
 variants have equal rank, they will not be shown.   (Default: show all)}
@@ -62,7 +63,17 @@ variants have equal rank, they will not be shown.   (Default: show all)}
 \item{freq.cutoff}{Show variants with frequency >= freq.cutoff
 (Default: 0, i.e. no cutoff)}
 }
+\value{
+The ggplot2 plot of the variant frequencies
+}
 \description{
 Plot a table of counts with colours indicating frequency
+}
+\examples{
+#Load a CrisprSet object for plotting
+data("gol_clutch1")
+
+# Plot the frequency heatmap
+plotFreqHeatmap(gol)
 }
 
