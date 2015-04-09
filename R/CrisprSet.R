@@ -63,8 +63,13 @@ CrisprSet$methods(
                         verbose = TRUE, ...){
     
     print(sprintf("Initialising CrisprSet with %s samples", length(crispr.runs)))
+    if (class(reference) == "DNAStringSet" | class(reference) == "character"){
+      if (length(reference) > 1){
+        stop("A CrisprSet contains alignments to exactly one reference sequence")
+      }
+      reference <- as(reference[[1]], "DNAString")
+    } 
     
-    reference <- as(reference, "DNAString")
     if (width(target) != length(reference)){
       stop("The target and the reference sequence must be the same width")
     }

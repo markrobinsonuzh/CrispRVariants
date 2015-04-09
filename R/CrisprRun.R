@@ -10,6 +10,7 @@
 #'@param rc (reverse complement)  Should the alignments be reverse complemented,
 #'i.e. displayed with respect to the negative strand?  (Default: FALSE)
 #'@param name A name for this set of reads, used in plots if present (Default: NULL)
+#'@param chimeras Off-target chimeric alignments not in bam.  (Default: empty)
 #'@param verbose Print information about initialisation progress (Default: TRUE) 
 #'@field alns A GAlignments object containing the narrowed reads.  Note that if the alignments
 #'are represented with respect to the reverse strand, the "start" remains with repect to the
@@ -20,6 +21,7 @@
 #'shortened to only insertion and deletion locations.  
 #'Set at initialisation of a CrisprSet object, but not at 
 #'initialisation of a CrisprRun object.
+#'@field chimeras Chimeric, off-target alignments corresponding to alignments in alns
 #'@seealso \code{\link[crispRvariants]{CrisprSet}}
 #'@author Helen Lindsay
 #'@export CrisprRun
@@ -34,12 +36,13 @@ CrisprRun = setRefClass(
              cigar_ops = "CompressedCharacterList",   
              insertions = "data.frame",
              ins_key = "integer", 
-             cigar_labels = "character")
+             cigar_labels = "character",
+             chimeras = "GAlignments")
 )
 
 CrisprRun$methods(
   initialize = function(bam, target, genome.ranges, rc = FALSE, name = NULL, 
-                        verbose = TRUE){
+                        chimeras = GenomicAlignments::GAlignments(), verbose = TRUE){
     #Attributes:
     # cigar_labels are labels for variant combinations, e.g. used in plotting
     
@@ -47,6 +50,7 @@ CrisprRun$methods(
     if (verbose == TRUE) cat(sprintf("\nInitialising CrisprRun %s\n", .self$name))
     
     alns <<- bam
+    chimeras <<- chimeras 
     genome_ranges <<- genome.ranges
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(bam))
     query_ranges <<- cigarRangesAlongQuerySpace(cigar(bam))

@@ -27,8 +27,11 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 #'@param reverse.complement Should the alignments be oriented to match 
 #'the strand of the target? (Default: TRUE)
 #'@param collapse.pairs  If reads are paired, should pairs be collapsed?  (Default: FALSE) 
+#'Note: only collapses primary alignments, and assumes that there is only one primary
+#'alignment per read.  May fail with blat alignments converted to bam. 
 #'@param use.consensus Take the consensus sequence for non-matching pairs? If FALSE,
 #'the sequence of the first read is used.  Can be very slow. (Default: FALSE)
+#'@param store.chimeras Should chimeric reads be stored?  (Default: FALSE)
 #'@param verbose Print progress and statistics (Default: FALSE)
 #'@return (signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object 
 #'@examples
@@ -50,7 +53,7 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
                    collapse.pairs = FALSE, use.consensus = FALSE, 
-                   verbose = FALSE, name = NULL){
+                   store.chimeras = FALSE, verbose = FALSE, name = NULL){
             
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
@@ -66,6 +69,18 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- reads[start(reads) <= start(target) & end(reads) >= end(target) & 
                          seqnames(reads) == as.character(seqnames(target))]
             
+            if (store.chimeras == TRUE){
+              # ASSUME THAT TARGET CHIMERAS HAVE BEEN MERGED AT THIS POINT
+              # find chimeric alignments for the reads that span the target 
+              # this step ensures that off-target reads are not kept
+              ch <- reads[findChimeras(reads[names(reads) %in% names(bam)])]
+              # which chimeras are not already in the bam
+              is_ch <- ! granges(ch) %in% granges(bam)
+              chimeras <- ch[is_ch]
+            } else {
+              chimeras <- GAlignments()
+            }
+              
             if (verbose){
               cat(sprintf("%s of %s reads span the target range\n", length(bam), length(reads)))
             }
@@ -94,7 +109,8 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- result$alignments
             genome.ranges <- result$genome.ranges
             
-            crun <- CrisprRun(bam, target, genome.ranges, rc = rc, name = name, verbose = verbose)      
+            crun <- CrisprRun(bam, target, genome.ranges, rc = rc, name = name, 
+                              chimeras = chimeras, verbose = verbose)      
             return(crun)
           })
 
@@ -247,7 +263,8 @@ setMethod("readsToTargets", signature("character", "GRanges"),
 
 
 alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
-                            collapse.pairs, names, use.consensus, verbose, ...){
+                            collapse.pairs, names, use.consensus, 
+                            store.chimeras = FALSE, verbose, ...){
   print(sprintf("Processing %s samples", length(alns)))
   crispr.runs <- lapply(seq_along(alns), function(i){
     crun <- readsToTarget(alns[[i]], target = target, 
@@ -528,10 +545,10 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
   
   # 1 = 2^0 = paired flag
   # 2048 = 2^11 = supplementary alignment flag
-  # As filtering for primary alignments occurs before finding duplicates, 
-  # singletons are excluded
   is_primary <- !(bitwAnd(mcols(alns)$flag, 2048) & bitwAnd(mcols(alns)$flag, 1)) 
-  pairs <- findChimeras(alns[is_primary])
+  pairs <- findChimeras(alns[is_primary]) # This just matches read names
+  
+  # If there are no pairs, no need to do anything further 
   if (length(pairs) == 0){
     if (keep.unpaired == TRUE){
       return(c(list("alignments" = alns), dots))
@@ -539,6 +556,7 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
       return(NULL)
     }
   }
+  # Pairs are primary alignments with the same name
   nms <- rle(names(alns)[is_primary][pairs]) 
   nms_codes <- rep(1:length(nms$lengths), nms$lengths)
   
