@@ -151,7 +151,8 @@ setMethod("readsToTarget", signature("character", "GRanges"),
             }
             names <- as.character(names)
             cset <- alnsToCrisprSet(alns, reference, target, reverse.complement, 
-                                    collapse.pairs, names, use.consensus, verbose, ...)
+                                    collapse.pairs, names, use.consensus, 
+                                    verbose, store.chimeras, ...)
             return(cset)
           })
 
@@ -264,8 +265,9 @@ setMethod("readsToTargets", signature("character", "GRanges"),
 
 alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
                             collapse.pairs, names, use.consensus, 
-                            store.chimeras = FALSE, verbose, ...){
+                            verbose, store.chimeras = FALSE, ...){
   print(sprintf("Processing %s samples", length(alns)))
+  print(sprintf("verbose = %s", verbose))
   crispr.runs <- lapply(seq_along(alns), function(i){
     crun <- readsToTarget(alns[[i]], target = target, 
                 reverse.complement = reverse.complement,

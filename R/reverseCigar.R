@@ -8,8 +8,14 @@ reverseCigar <- function(cigar){
   paste0(cigar.widths,cigar.ops, collapse = "")
 }
 
-#ALTERNATIVE IMPLEMENTATION TO TEST (VECTORISED)
-#wdths <- explodeCigarOpLengths(cigs)
-#ops <- explodeCigarOps(cigs)
-#temp <- rev(relist(rev(paste0(unlist(wdths), unlist(ops))), rev(wdths)))
-#result <- Map(paste, temp, collapse = "")
+#'@title Vectorised version of reverseCigar
+#'@description For example, the string "20M5D15M" would become "15M5D20M"
+#'reverseCigarv will replace reverseCigar after testing
+#'@param cigars the cigar string.  
+#'@return The reversed cigar string
+reverseCigarv <- function(cigars){
+  wdths <- explodeCigarOpLengths(cigars)
+  ops <- explodeCigarOps(cigars)
+  temp <- rev(relist(rev(paste0(unlist(wdths), unlist(ops))), rev(wdths)))
+  result <- as.character(Map(paste, temp, collapse = ""))
+}

@@ -213,7 +213,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   }
   
   p <- ggplot2::ggplot(tcks, aes_string(x = "tloc", y = "ys", group = "ys")) + 
-    geom_point(shape = shp, size = 4) + geom_line(data = lns) 
+    geom_point(shape = shp, size = 2) + geom_line(data = lns) 
   
   p <- p + geom_rect(data = all_exs, fill = "black", color = "black", 
                      aes(x = NULL, y = NULL, group = NULL, 

@@ -110,6 +110,49 @@ setMethod("plotAlignments", signature("DNAString"),
   # Add line for the cut site
   p <- p + geom_vline(xintercept= target.loc + 0.5, colour = "black", size = line.weight)# linetype = "dashed",
   
+  if (highlight.guide){
+    ymin = length(nms) - (tile.height / 2 + 0.25)
+    ymax = length(nms) + (tile.height / 2 + 0.25)
+    
+    if (is.null(guide.loc)){
+      xmin <- target.loc - 16.5
+      xmax <- xmin + 23
+    } else {
+      xmin <- start(guide.loc) - 0.5
+      xmax <- end(guide.loc) + 0.5
+    }
+    
+    guide_df <- data.frame(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
+    p <- p + geom_rect(data = guide_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, 
+                                            ymax = ymax, color = "black", x = NULL, y = NULL),
+                       size = line.weight, fill = "transparent") 
+  }
+  
+  # If pam_loc is given, highlight the pam in the reference
+  #  - 0.5 for tile boundaries not centres
+  if (highlight.pam == TRUE){
+    if (! is.na(pam.start)){    
+      if (is.na(pam.end)){
+        pam.end <- pam.start + 2
+      }
+    } else {
+      # Infer from the target location
+      pam.start <- target.loc + 4
+      pam.end <- target.loc + 6
+    }
+    
+    pam_df <- data.frame(xmin = pam.start - 0.5, xmax = pam.end + 0.5,
+                         ymin = length(nms) - (tile.height / 2 + 0.2),
+                         ymax = length(nms) + (tile.height / 2 + 0.2))
+    p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
+                                        ymax = ymax, x = NULL, y = NULL),
+                       color = "black", size = line.weight, fill = "transparent") 
+    #p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
+    #                           xmin = pam_df$xmin, xmax = pam_df$xmax, 
+    #                           ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
+    
+  }
+  
   # Make a data frame of insertion locations 
   ins_ord <- match(ins.sites$cigar, nms)    
 
@@ -174,49 +217,7 @@ setMethod("plotAlignments", signature("DNAString"),
   } else{
     p <- p + scale_fill_identity() 
   }
-  
-  if (highlight.guide){
-    ymin = length(nms) - (tile.height / 2 + 0.25)
-    ymax = length(nms) + (tile.height / 2 + 0.25)
-    
-    if (is.null(guide.loc)){
-      xmin <- target.loc - 16.5
-      xmax <- xmin + 23
-    } else {
-      xmin <- start(guide.loc) - 0.5
-      xmax <- end(guide.loc) + 0.5
-    }
-    
-    guide_df <- data.frame(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
-    p <- p + geom_rect(data = guide_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, 
-                                            ymax = ymax, color = "black", x = NULL, y = NULL),
-                       size = line.weight, fill = "transparent") 
-  }
-  
-  # If pam_loc is given, highlight the pam in the reference
-  #  - 0.5 for tile boundaries not centres
-  if (highlight.pam == TRUE){
-    if (! is.na(pam.start)){    
-      if (is.na(pam.end)){
-        pam.end <- pam.start + 2
-      }
-    } else {
-      # Infer from the target location
-      pam.start <- target.loc + 4
-      pam.end <- target.loc + 6
-    }
-      
-    pam_df <- data.frame(xmin = pam.start - 0.5, xmax = pam.end + 0.5,
-                         ymin = length(nms) - (tile.height / 2 + 0.2),
-                         ymax = length(nms) + (tile.height / 2 + 0.2))
-    p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
-                                        ymax = ymax, x = NULL, y = NULL),
-                       color = "black", size = line.weight, fill = "transparent") 
-    #p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
-    #                           xmin = pam_df$xmin, xmax = pam_df$xmax, 
-    #                           ymin = pam_df$ymin + 1, ymax = pam_df$ymax + 1)
-    
-  }
+
   if (show.plot == TRUE){
     print(p)
   }

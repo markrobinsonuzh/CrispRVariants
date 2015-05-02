@@ -91,6 +91,11 @@ Input parameters:
     names(temp) <- nm_as_num - subtract[nm_as_num]
     .self$field("ins_key", temp)  
     
+    # Remove the extra sequences from the chimeras
+    rm_by_nm <- names(alns)[idxs]
+    ch_to_keep <- !(names(.self$chimeras) %in% rm_by_nm)
+    .self$field("chimeras", .self$chimeras[ch_to_keep])
+
     .self$field("alns", .self$alns[-idxs])
     .self$field("cigar_labels", .self$cigar_labels[-idxs])
     .self$field("query_ranges", .self$query_ranges[-idxs])

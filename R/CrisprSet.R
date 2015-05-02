@@ -107,6 +107,7 @@ CrisprSet$methods(
                                         short = short.cigars, split.snv = split.snv)
     if (verbose == TRUE) cat("Counting variant combinations\n")
     .self$.countCigars(cig_by_run)
+    .self$getInsertions()
   },
   
   show = function(){
@@ -344,7 +345,7 @@ Return value:
     stopifnot(requireNamespace("VariantAnnotation"))
     
     gr <- .self$.getUniqueIndelRanges(add_chr)
-    locs <- VariantAnnotation::locateVariants(gr, txdb, AllVariants())
+    locs <- VariantAnnotation::locateVariants(gr, txdb, VariantAnnotation::AllVariants())
     if (verbose == TRUE) cat("Classifying variants\n")  
   
     locs_codes <- paste(seqnames(locs), start(locs), end(locs), sep = "_")
@@ -446,9 +447,9 @@ Return value:
     cig_freqs <- .self$.getFilteredCigarTable(top.n, freq.cutoff)
     
     alns <- .self$makePairwiseAlns(cig_freqs)
-    if (!("cigar" %in% colnames(.self$insertion_sites))){
-      .self$getInsertions() 
-    }
+    #if (!("cigar" %in% colnames(.self$insertion_sites))){
+    #  .self$getInsertions() 
+    #}
     
     # How should the x-axis be numbered? 
     # Baseline should be numbers, w optional genomic locations
