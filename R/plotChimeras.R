@@ -62,19 +62,22 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   genomic_locs <- as(chimeric.alns, "GRanges")
   is_plus <- as.vector(strand(genomic_locs) == "+")
   two_strands <- length(unique(is_plus)) > 1
+ 
+  # For reference ranges, shift to actual genomic starting locations
+  ref_ranges <- cigarRangesAlongReferenceSpace(cigars)
+  ref_ranges <- shift(ref_ranges, start(genomic_locs) -1)
   
   # Entirely negative strand chimeras may be displayed as aligned to reference
   # (wrt.forward = TRUE).  Default is wrt start of read
   if (two_strands == FALSE & wrt.forward == FALSE & ! any(is_plus)){
     cigars <- reverseCigarv(cigars)
+    ref_ranges <- relist(rev(unlist(rev(ref_ranges))), ref_ranges)
   }
   
   # Extract match ranges, these will be plotted
   ops <- CharacterList(explodeCigarOps(cigars))
   query_ranges <- cigarRangesAlongQuerySpace(cigars)
-  # For reference ranges, shift to actual genomic starting locations
-  ref_ranges <- cigarRangesAlongReferenceSpace(cigars)
-  ref_ranges <- shift(ref_ranges, start(genomic_locs) -1)
+
   
   # Find all "M" operations (runs of aligned bases)
   mm <- ops == "M"
@@ -99,8 +102,9 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
     m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], (-1*start(m_qry[!is_plus])+1))
     m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], hsclipr[!is_plus] + dist_to_last) 
     
-  } else if (wrt.forward == TRUE) {
-    # Else if only -ve, display wrt negative
+  #} else if (wrt.forward == TRUE) {
+  } else {
+  # Else if only -ve, display wrt negative
     m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], hclipl[!is_plus])
   }
   
