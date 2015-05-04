@@ -13,7 +13,8 @@ readsToTarget(reads, target, ...)
 
 \S4method{readsToTarget}{GAlignments,GRanges}(reads, target, ...,
   reverse.complement = TRUE, collapse.pairs = FALSE,
-  use.consensus = FALSE, verbose = FALSE, name = NULL)
+  use.consensus = FALSE, store.chimeras = FALSE, verbose = FALSE,
+  name = NULL)
 
 \S4method{readsToTarget}{character,GRanges}(reads, target, ..., reference,
   reverse.complement = TRUE, exclude.ranges = GRanges(),
@@ -38,10 +39,14 @@ readsToTargets(reads, targets, ...)
 \item{reverse.complement}{Should the alignments be oriented to match
 the strand of the target? (Default: TRUE)}
 
-\item{collapse.pairs}{If reads are paired, should pairs be collapsed?  (Default: FALSE)}
+\item{collapse.pairs}{If reads are paired, should pairs be collapsed?  (Default: FALSE)
+Note: only collapses primary alignments, and assumes that there is only one primary
+alignment per read.  May fail with blat alignments converted to bam.}
 
 \item{use.consensus}{Take the consensus sequence for non-matching pairs? If FALSE,
 the sequence of the first read is used.  Can be very slow. (Default: FALSE)}
+
+\item{store.chimeras}{Should chimeric reads be stored?  (Default: FALSE)}
 
 \item{verbose}{Print progress and statistics (Default: FALSE)}
 

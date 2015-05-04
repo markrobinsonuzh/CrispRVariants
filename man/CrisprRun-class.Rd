@@ -20,6 +20,8 @@ i.e. displayed with respect to the negative strand?  (Default: FALSE)}
 
 \item{name}{A name for this set of reads, used in plots if present (Default: NULL)}
 
+\item{chimeras}{Off-target chimeric alignments not in bam.  (Default: empty)}
+
 \item{verbose}{Print information about initialisation progress (Default: TRUE)}
 }
 \description{
@@ -40,6 +42,8 @@ optionally renumbered with respect to a new zero point (e.g. the cut site) and
 shortened to only insertion and deletion locations.
 Set at initialisation of a CrisprSet object, but not at
 initialisation of a CrisprRun object.}
+
+\item{\code{chimeras}}{Chimeric, off-target alignments corresponding to alignments in alns}
 }}
 \section{Methods}{
 

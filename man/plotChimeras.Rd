@@ -4,28 +4,38 @@
 \alias{plotChimeras}
 \title{Display a dot plot of chimeric alignments}
 \usage{
-plotChimeras(chimeric_alns, max_gap = 10, tick_sep = 20, text_size = 10,
-  title_size = 16, gap_pad = 20, legend_title = "Chromosome",
-  xangle = 90)
+plotChimeras(chimeric.alns, max.gap = 10, tick.sep = 20, text.size = 10,
+  title.size = 16, gap.pad = 20, legend.title = "Chromosome",
+  xangle = 90, wrt.forward = FALSE, annotate.within = 20,
+  annotations = GenomicRanges::GRanges())
 }
 \arguments{
-\item{chimeric_alns}{A GAlignments object containing only the chimeric
+\item{chimeric.alns}{A GAlignments object containing only the chimeric
 reads to be plotted}
 
-\item{max_gap}{The maximum gap between aligned blocks allowed
-aligned before blocks are collapsed, in bases.  Default 10}
+\item{max.gap}{If aligned segments are separated by more than max.gap,}
 
-\item{tick_sep}{How many bases should separate tick labels on plot.  Default 20.}
+\item{tick.sep}{How many bases should separate tick labels on plot.  Default 20.}
 
-\item{text_size}{Size of X and Y tick labels on plot.  Default 12}
+\item{text.size}{Size of X and Y tick labels on plot.  Default 12}
 
-\item{title_size}{Size of X and Y axis labels on plot.  Default 16}
+\item{title.size}{Size of X and Y axis labels on plot.  Default 16}
 
-\item{gap_pad}{How much should aligned blocks be separated by?  (Default: 20)}
+\item{gap.pad}{How much should aligned blocks be separated by?  (Default: 20)}
 
-\item{legend_title}{Title for the legend.  Default "Chromosome"}
+\item{legend.title}{Title for the legend.  Default "Chromosome"}
 
 \item{xangle}{Angle for x axis text (Default 90, i.e vertical)}
+
+\item{wrt.forward}{Should chimeric alignments where all members map to the
+negative strand be displayed with respect to the forward strand, i.e. as the
+cigar strand is written (TRUE), or the negative strand (FALSE) (Default: FALSE)}
+
+\item{annotate.within}{annot_aln ranges in "annotations" within n bases of a chimeric
+alignment (Default 50)}
+
+\item{annotations}{A list of GRanges.  Any that overlap with the chimeric alignments
+are highlighed in the plot.}
 }
 \value{
 A ggplot2 dotplot of the chimeric alignments versus the reference sequence
@@ -38,7 +48,7 @@ or on separate chromosomes.  plotChimeras produces a dot plot, each aligned bloc
 highlighted, and chromosomes shown in different colours. Large gaps between
 aligned segments are collapsed and indicated on the plot with horizontal lines.
 The X-axis shows each base of the entire read. Note that the mapping to the fwd strand
-is shown if all strands agree
+is shown if all strands agree.  The chimeric alignments must be sorted!
 }
 \examples{
 bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
@@ -48,7 +58,7 @@ bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 chimeras <- bam[names(bam) == "AB3092"]
 
 # This read aligns in 3 pieces, all on chromosome 18.
-# The plot shows the alignment includes a small duplication and
+# The plot shows the alignment annot_alns a small duplication and
 # a long gap.
 plotChimeras(chimeras)
 }

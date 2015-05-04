@@ -150,6 +150,9 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   utr3 <- GenomicFeatures::threeUTRsByTranscript(txdb) 
   
   exs <- findOverlaps(target, exByTx)
+  if (length(exs) == 0){
+    return ggplot()
+  }
   genes <- AnnotationDbi::select(txdb, keys = as.character(subjectHits(exs)), 
                   keytype = "TXID", columns = c("GENEID","TXNAME"))
   
