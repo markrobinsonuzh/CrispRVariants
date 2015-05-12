@@ -145,23 +145,33 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   genomicfeatures <- requireNamespace("GenomicFeatures")
   stopifnot(genomicfeatures == TRUE)
   
-  exByTx <- GenomicFeatures::exonsBy(txdb,"tx")
+  trns <- transcripts(txdb)
+  exs <- findOverlaps(target, trns, ignore.strand = TRUE)
+  
+  if (length(exs) == 0){
+    return(ggplot())
+  }
+  # Find the genes that overlap
+  genes <- AnnotationDbi::select(txdb,
+              keys = as.character(mcols(trns[subjectHits(exs)])$tx_id), 
+              keytype = "TXID", 
+              columns = c("GENEID","TXNAME", "EXONSTART", "EXONEND", "TXSTRAND"))
+  
+  # Find all (possibly non-overlapping) transcripts of overlapping genes
+  if (all.transcripts == TRUE){
+    genes <- suppressWarnings(AnnotationDbi::select(txdb, 
+              keys = unique(genes$GENEID), 
+              keytype = "GENEID", 
+              columns = c("GENEID", "TXID", "TXNAME","EXONSTART",
+              "EXONEND", "TXSTRAND")))
+  } 
+  gene_gr <- GRanges(seqnames(target), IRanges(genes$EXONSTART, genes$EXONEND),
+                     strand = genes$TXSTRAND, txid = genes$TXID)
+  
   utr5 <- GenomicFeatures::fiveUTRsByTranscript(txdb)
   utr3 <- GenomicFeatures::threeUTRsByTranscript(txdb) 
+  txid <- as.character(unique(genes$TXID))
   
-  exs <- findOverlaps(target, exByTx)
-  if (length(exs) == 0){
-    return ggplot()
-  }
-  genes <- AnnotationDbi::select(txdb, keys = as.character(subjectHits(exs)), 
-                  keytype = "TXID", columns = c("GENEID","TXNAME"))
-  
-  if (all.transcripts == TRUE){
-    genes <- suppressWarnings(AnnotationDbi::select(txdb, keys = unique(genes$GENEID), 
-                  keytype = "GENEID", columns = c("GENEID", "TXID", "TXNAME")))
-  } 
-  
-  txid <- as.character(genes$TXID)
   # Get UTRs matching each transcript
   all_sections <- lapply(txid, function(tid) {
     u5 <- GRangesList()
@@ -169,7 +179,10 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
     if (tid %in% names(utr5)){ u5 <- utr5[tid] }
     if (tid %in% names(utr3)){ u3 <- utr3[tid] }
     utrs <- unlist(c(u5, u3))
-    split_ex <- disjoin(c(exByTx[[tid]], utrs))
+    mcols(utrs) <- NULL
+    exons <- gene_gr[mcols(gene_gr)$txid == tid]
+    mcols(exons) <- NULL
+    split_ex <- disjoin(c(exons, utrs))
     split_ex$type = "exon"
     split_ex$type[split_ex %in% utrs] <- "utr"
     split_ex
@@ -193,9 +206,11 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
     tcks[tcks > start(sp) & tcks < end(sp)]  
   })
   
+  tck_lns <- lapply(tcks, length)
   tcks <- data.frame("tloc" = unlist(tcks), 
                      "ys" = rep(1:length(tcks), lapply(tcks, length)))
-  lns <- data.frame(tloc = c(start(gene_spans),end(gene_spans)), ys = rep(seq_along(gene_spans),2))
+  lns <- data.frame(tloc = c(start(gene_spans),end(gene_spans)), 
+                    ys = rep(seq_along(gene_spans),2))
   
   all_exs$ymax <- all_exs$ts + 0.3
   all_exs$ymin <- all_exs$ts - 0.3 
@@ -209,14 +224,15 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   if (is.null(plot.title)){ plot.title <- paste(unique(genes$GENEID), sep = ";")}
   
   # Choose either right or left pointing arrows for the transcript plots
-  if (as.character(strand(target)) == "-"){
-    shp <- 60
-  } else {
-    shp <- 62
-  }
+  strands <- unlist(lapply(all_sections, function(x) as.character(strand(x[1]))))
+  strands <- rep(strands, tck_lns)
+  strands[strands == "-"] <- 60
+  strands[strands == "+"] <- 62
+  tcks$shp <- as.integer(strands)
   
-  p <- ggplot2::ggplot(tcks, aes_string(x = "tloc", y = "ys", group = "ys")) + 
-    geom_point(shape = shp, size = 2) + geom_line(data = lns) 
+  p <- ggplot2::ggplot(tcks, aes(x = tloc, y = ys, group = ys)) + 
+    geom_point(aes(shape = shp), size = 2) + geom_line(data = lns) + 
+    scale_shape_identity()
   
   p <- p + geom_rect(data = all_exs, fill = "black", color = "black", 
                      aes(x = NULL, y = NULL, group = NULL, 
