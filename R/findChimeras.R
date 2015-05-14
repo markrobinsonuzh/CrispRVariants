@@ -7,6 +7,10 @@
 #' Note that the indices of all chimeric reads are returned, these are not 
 #' separated into individual chimeric sets.
 #'@param bam  A GAlignments object, must include names
+#'@param by.flag Can the chimeras be detected just using the supplementary
+#'alignment flag?  (Default: FALSE).  If TRUE, detects supplementary alignments 
+#'and returns reads with the same name as a supplementary alignment (quicker).
+#'If FALSE, all alignments with duplicated names are returned.
 #'@author Helen Lindsay
 #'@return A vector of indices of chimeric sequences within the original bam
 #'@seealso \code{\link{plotChimeras}} for plotting chimeric alignment sets.
@@ -17,15 +21,21 @@
 #'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 #'chimera_indices <- findChimeras(bam)
 #'chimeras <- bam[chimera_indices]
-findChimeras <- function(bam){
-  chimera_idxs <- which((duplicated(names(bam)) | 
-                         duplicated(names(bam), fromLast = TRUE)))
-  chimera_idxs <- chimera_idxs[order(as.factor(names(bam)[chimera_idxs]))]
+findChimeras <- function(bam, by.flag = FALSE){
+  if (by.flag == TRUE & ! "flag" %in% names(mcols(bam))){
+    stop("If 'by.cigar' is TRUE, bam must have a metadata column 'flag'")
+  }
+  if (by.flag == TRUE){
+    suppl <- bitwAnd(mcols(bam)$flag, 2048)
+    ch_names <- names(bam[suppl])
+    chimera_idxs <- names(bam) %in% ch_names
+  } else {
+    chimera_idxs <- which((duplicated(names(bam)) | 
+                           duplicated(names(bam), fromLast = TRUE)))
+  }
+  chimera_idxs <- chimera_idxs[order(as.factor(names(bam)[chimera_idxs]))] 
   return(chimera_idxs)
 }
-
-
-
 
 mergeChimeras <- function(bam){
   # Note: this does not check whether chimeras are mergeable (strands, chromosomes) - do not use!

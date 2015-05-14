@@ -102,7 +102,6 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
     m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], (-1*start(m_qry[!is_plus])+1))
     m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], hsclipr[!is_plus] + dist_to_last) 
     
-  #} else if (wrt.forward == TRUE) {
   } else {
   # Else if only -ve, display wrt negative
     m_qry[!is_plus] <- GenomicRanges::shift(m_qry[!is_plus], hclipl[!is_plus])
@@ -115,7 +114,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
 
   xs <- mapply(seq, unlist(start(m_qry[is_plus])), unlist(end(m_qry[is_plus])), 
                SIMPLIFY = FALSE)
-  #if (two_strands){
+
   if (wrt.forward == FALSE){
     xs <- c(xs, mapply(function(x,y) rev(seq(x,y)), unlist(start(m_qry[!is_plus])), 
           unlist(end(m_qry[!is_plus])), SIMPLIFY = FALSE))[ord]
@@ -245,7 +244,6 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   annot_aln <- annotations[queryHits(findOverlaps(annotations, aln_ranges,
                                   type = "within"))]
   
-  # TEST WITH MULTIPLE CHROMOSOMES
   gap_ranges <- gaps(aln_ranges, start = start(aln_ranges))
   a_to_gap <- findOverlaps(annotations, gap_ranges)
   
@@ -266,12 +264,6 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   rblocks <- flank(y_blocks, annotate.within, start = FALSE)
   rblocks <- setdiff(disjoin(c(rblocks, y_blocks, gap_ranges)), c(y_blocks, gap_ranges))
   annot_right <- findOverlaps(annotations, rblocks, type = "within")
-  
-  #___________________________
-  # Does the same annotation overlap left and right?
-  cat(sprintf("%s members of annotations overlap left and right\n",
-  length(intersect(queryHits(annot_left), queryHits(annot_right))) ))
-  #___________________________
   
   # Distance isn't very meaningful in gaps between chromosomes,
   # so just place the annotation on the correct side
