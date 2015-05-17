@@ -51,6 +51,8 @@ CrisprRun$methods(
     
     alns <<- bam
     chimeras <<- chimeras 
+    if (length(bam) == 0) { return() } 
+    
     genome_ranges <<- genome.ranges
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(bam))
     query_ranges <<- cigarRangesAlongQuerySpace(cigar(bam))
@@ -369,6 +371,7 @@ Result:
     
     # Shorten? -> Renumber?  If not renumbered, record starting location when different from 
     # target start
+    if (length(.self$alns) == 0) return(vector())
     
     if (! length(.self$cigar_labels) == 0){
       return(.self$cigar_labels)
@@ -385,13 +388,11 @@ Result:
         start_offset <- target_end - unlist(lapply(.self$genome_ranges, function(x) max(end(x))),
                                             use.names = FALSE)
         start_offset_new <- target_end - max(end(.self$genome_ranges))
-        #print(c(start_offset_new, start_offset, start_offset_new == start_offset))
         
       } else {
         start_offset <- unlist(lapply(.self$genome_ranges, function(x) min(start(x))), 
                                use.names = FALSE) - target_start
         start_offset_new <-  min(start(.self$genome_ranges)) - target_start 
-        #print(start_offset_new == start_offset)                      
       }
       is.nonzero <- start_offset != 0
       start_offset[is.nonzero] <- sprintf("(%s)", start_offset[is.nonzero])
@@ -458,8 +459,8 @@ Result:
   },
   
   .splitNonIndel = function(ref, cig_labels, match_label = "no variant", 
-                          mismatch_label = "SNV", cut_site = 18, upstream = 8, 
-                          downstream = 5){
+                          mismatch_label = "SNV", cut_site = 17, upstream = 8, 
+                          downstream = min(5, width(ref) - cut_site)){
   
   # Only consider mismatches up to (upstream) to the left of the cut and
   # (downstream) to the right of the cut
@@ -469,6 +470,10 @@ Result:
     
   no_var <- which(cig_labels == match_label & mcols(.self$alns)$seq != ref)
   if (length(no_var) == 0) return(cig_labels)
+  
+  if ((cut_site-upstream + 1) < 0 | (cut_site + downstream) > length(ref)){
+    stop("Specified range for detecting SNVs is greater than target range")    
+  }
   
   snv_range <- c((cut_site-upstream + 1):(cut_site + downstream))
   no_var_seqs <- as.matrix(mcols(.self$alns)$seq[no_var])

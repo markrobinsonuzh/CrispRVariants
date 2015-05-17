@@ -27,8 +27,8 @@ findChimeras <- function(bam, by.flag = FALSE){
   }
   if (by.flag == TRUE){
     suppl <- bitwAnd(mcols(bam)$flag, 2048)
-    ch_names <- names(bam[suppl])
-    chimera_idxs <- names(bam) %in% ch_names
+    ch_names <- names(bam[suppl != 0])
+    chimera_idxs <- which(names(bam) %in% ch_names)
   } else {
     chimera_idxs <- which((duplicated(names(bam)) | 
                            duplicated(names(bam), fromLast = TRUE)))

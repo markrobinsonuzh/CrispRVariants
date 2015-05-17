@@ -82,10 +82,9 @@ CrisprSet$methods(
     target <<- target   
     ref <<- reference 
     pars <<- list("match_label" = match.label, "target.loc" = target.loc, 
-                  "mismatch_label" = mismatch.label, "renumbered" = renumbered)
-    
-    #pars <<- modifyList(pars, ...)   
-    
+                  "mismatch_label" = mismatch.label, "renumbered" = renumbered,
+                  "all_chimeric" = FALSE)
+        
     crispr_runs <<- crispr.runs
     
     if (is.null(names)) {
@@ -94,12 +93,19 @@ CrisprSet$methods(
       names(.self$crispr_runs) <- names
     }
     nonempty_runs <- sapply(.self$crispr_runs, function(x) {
-      ! length(x$alns) == 0})
+      ! ( length(x$alns) == 0 & length(x$chimeras) == 0 ) 
+      })
     
     .self$crispr_runs <<- .self$crispr_runs[nonempty_runs]
     if (length(.self$crispr_runs) == 0) stop("no on target reads in any sample")
     
+    if (unique( sapply(.self$crispr_runs, function(x) length(x$alns)) == 0)){
+      pars["all_chimeric"] <<- TRUE  
+      return()
+    }
+    
     if (verbose == TRUE) cat("Renaming cigar strings\n")
+    
     cig_by_run <- .self$.setCigarLabels(renumbered = renumbered, target.loc = target.loc,
                                         target_start = start(target), target_end = end(target), 
                                         rc = rc, match_label = match.label, 
@@ -171,6 +177,13 @@ CrisprSet$methods(
       is_snv <- grep(.self$pars["mismatch_label"], rownames(m))
       new_order <- setdiff(1:nrow(m), c(is_ref,is_snv))
       m <- m[c(is_ref, is_snv, setdiff(1:nrow(m), c(is_ref,is_snv))),,drop = FALSE]
+    }
+    # Add the chimeric alignments to the bottom
+    ch_cnts <- sapply(.self$crispr_runs, function(crun) {
+       length(unqiue(crun$chimeras))
+    })
+    if (! unique(ch_cnts) == c(0)){
+      cigar_freqs <- 
     }
     
     cigar_freqs <<- m
@@ -257,6 +270,7 @@ Input parameters:
   },
   
   mutationEfficiency = function(snv = c("include","exclude","non_variant"),
+                                chimeras = c("include","exclude"), 
                                 exclude_cols = NULL){
 '
 Description:
@@ -277,6 +291,7 @@ Return value:
 
 '    
     snv <- match.arg(snv)
+    chimeras <- match.arg(chimeras)
     freqs <- .self$cigar_freqs
     
     if (length(exclude_cols) > 0){

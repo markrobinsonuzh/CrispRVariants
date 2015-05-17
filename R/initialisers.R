@@ -52,12 +52,20 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 #'@rdname readsToTarget
 setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
-                   collapse.pairs = FALSE, use.consensus = FALSE, 
+                   chimeras = NULL, collapse.pairs = FALSE, use.consensus = FALSE, 
                    store.chimeras = FALSE, verbose = FALSE, name = NULL){
-            
+                        
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
             }
+            
+            if (length(reads) == 0){
+              if (length(chimeras) == 0) {return(NULL)}
+              crun <- CrisprRun(reads, target, IRanges::IRangesList(), rc = rc, 
+                                name = name, chimeras = chimeras, verbose = verbose)  
+              return(crun)
+            }
+            
             if (collapse.pairs == TRUE){
               if (is.null(names(reads)) |  ! ("flag" %in% names(mcols(reads))) ){
                 stop("Reads must include names and bam flags for collapsing pairs")
@@ -65,6 +73,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             }  
             
             if (is.null(chimeras)) {
+              ### FETCH CHIMERAS HERE!
               chimeras <- GenomicAlignments::GAlignments()
               if (store.chimeras == TRUE) {
                 temp <- separateChimeras(reads, target, by.flag = collapse.pairs, 
@@ -80,10 +89,20 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
                          seqnames(reads) == as.character(seqnames(target))]
               
             if (verbose){
-              cat(sprintf("%s of %s reads span the target range\n", length(bam), length(reads)))
+              cat(sprintf("%s of %s nonchimeric reads span the target range\n",
+                          length(bam), length(reads)))
             }
-            if (length(bam) == 0) return(NULL)
             
+            # If bam and or chimeras are empty, no further calculation needed
+            if (length(bam) == 0 & length(chimeras) == 0) return(NULL)
+            
+            if (length(bam) == 0){
+              crun <- CrisprRun(bam, target, IRanges::IRangesList(), rc = rc, 
+                          name = name, chimeras = chimeras, verbose = verbose)  
+              return(crun)
+            }
+            
+            # If bam is non-empty, orient and narrow the reads to the target
             if (reverse.complement & as.character(strand(target)) == "*"){
              message(paste0("Target does not have a strand, but reverse.complement is TRUE.",
                             "Orienting reads to reference strand."))
@@ -96,15 +115,29 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             result <- narrowAlignments(bam, target, reverse.complement = rc, 
                                        verbose = verbose)
             bam <- result$alignments
-            
+                        
             # Collapse pairs of narrowed reads
+            
             if (collapse.pairs == TRUE){
               result <- collapsePairs(bam, genome.ranges = result$genome.ranges, 
                                       use.consensus = use.consensus, verbose = verbose)
             }
-            if (is.null(result)) return(NULL)
+            
+            print(sprintf("the length of result = %s", length(result)))
+            
+            if (length(result) == 0){
+              if (length(chimeras) == 0){ 
+                return(NULL) 
+              }
+              
+              crun <- CrisprRun(bam, target, IRanges::IRangesList(), rc = rc, 
+                                name = name, chimeras = chimeras, verbose = verbose)  
+              return(crun)
+            }            
             
             bam <- result$alignments
+            print("printing bam")
+            print(bam)
             genome.ranges <- result$genome.ranges
             
             crun <- CrisprRun(bam, target, genome.ranges, rc = rc, name = name, 
@@ -204,8 +237,9 @@ setMethod("readsToTargets", signature("character", "GRanges"),
                 return(NULL)
               } 
          
+              if (verbose) cat(sprintf("Assigning chimeric reads to targets \n"))
               temp <- separateChimeras(bam, targets, chimera.to.target, 
-                                       by.flag = collapse.pairs, verbose = verbose)
+                          by.flag = collapse.pairs, verbose = verbose)
               bam <- temp$bam
               chimerasByPCR <- temp$chimeras
               
@@ -213,7 +247,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               # If not, match reads to targets 
               if (! is.null(primer.ranges)){
                 hits <- readsByPCRPrimer(bam, primer.ranges, verbose = verbose)
-                splits <- split(bam[queryHits(hits)], subjectHits(hits))
+                splits <- split(queryHits(hits), subjectHits(hits))
               } else{
                 hits <- findOverlaps(targets, bam, type = "within")
                 duplicates <- (duplicated(subjectHits(hits)) | 
@@ -230,12 +264,13 @@ setMethod("readsToTargets", signature("character", "GRanges"),
                               nndups, nndups/bl*100))
                 } 
                 hits <- hits[!duplicates]
-                splits <- split(bam[subjectHits(hits)], queryHits(hits))
+                splits <- split(subjectHits(hits), queryHits(hits))
               }
               bamByPCR <- as.list(rep(NA, length(targets)))
-              #bamByPCR <- vector("list", length(targets))
               names(bamByPCR) <- seq_along(targets)
-              bamByPCR[names(splits)] <- splits
+              for (nm in names(splits)){
+                bamByPCR[nm] <- bam[splits[[nm]]]
+              }
               byPCR <- list(bamByPCR = bamByPCR, chimerasByPCR = chimerasByPCR)
               byPCR
             }, BPPARAM = bpparam)
@@ -250,11 +285,13 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             bamByPCR <- lapply(seq_along(temp[[1]]), tlist)
             
             result <- BiocParallel::bpmapply(function(bams, tgt, chs, ref) {
-              if (verbose == TRUE) 
+              if (verbose == TRUE){ 
                 cat(sprintf("\n\nWorking on target %s\n", names(tgt)))
+              }
+              
               cset <- alnsToCrisprSet(bams, ref, tgt, reverse.complement, 
-                         collapse.pairs, names(bams), use.consensus, verbose, 
-                         chimeras = ch)
+                         collapse.pairs, names, use.consensus, verbose, 
+                         chimeras = chs, ...)
             }, bamByPCR, as(targets, "GRangesList"), chimerasByPCR, 
             references, BPPARAM = bpparam)
             
@@ -318,12 +355,14 @@ separateChimeras <- function(bam, targets, tolerance = 100,
 alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
                             collapse.pairs, names, use.consensus, 
                             verbose, chimeras = NULL, store.chimeras = FALSE, ...){
-
-  print(sprintf("Processing %s samples", length(alns)))
-  print(sprintf("verbose = %s", verbose))
+  
   crispr.runs <- lapply(seq_along(alns), function(i){
-    crun <- readsToTarget(alns[[i]], target = target, 
-                reverse.complement = reverse.complement, chimeras = chimeras[i],
+    aln <- alns[[i]]
+    if (is.na(aln)) {aln <- GenomicAlignments::GAlignments()}
+    chim <- chimeras[[i]]
+    if (is.null(chim)) {chim <- GenomicAlignments::GAlignments()}
+    crun <- readsToTarget(aln, target = target, 
+                reverse.complement = reverse.complement, chimeras = chim,
                 collapse.pairs = collapse.pairs, use.consensus = use.consensus,
                 verbose = verbose, name = names[i])
     crun
@@ -345,6 +384,13 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
   }
   
   rc <- rcAlns(as.character(strand(target)),reverse.complement)
+
+  lapply(crispr.runs, function(cr){
+    print(cr)
+    print(cr$chimeras)
+  })
+  
+  
   cset <- CrisprSet(crispr.runs, reference, target, rc = rc,
                     verbose = verbose, names = names, ...)
   return(cset)
