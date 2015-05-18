@@ -136,8 +136,6 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             }            
             
             bam <- result$alignments
-            print("printing bam")
-            print(bam)
             genome.ranges <- result$genome.ranges
             
             crun <- CrisprRun(bam, target, genome.ranges, rc = rc, name = name, 
@@ -384,12 +382,6 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
   }
   
   rc <- rcAlns(as.character(strand(target)),reverse.complement)
-
-  lapply(crispr.runs, function(cr){
-    print(cr)
-    print(cr$chimeras)
-  })
-  
   
   cset <- CrisprSet(crispr.runs, reference, target, rc = rc,
                     verbose = verbose, names = names, ...)

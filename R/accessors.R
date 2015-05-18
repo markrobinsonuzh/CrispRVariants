@@ -13,6 +13,8 @@ setGeneric("variantCounts", function(obj, ...) {
 #'equal to n
 #'@param top.n  (Integer n) If specified, return variants ranked at least n according
 #' to frequency across all samples (Default: 0, i.e. no cutoff)
+#'@param include.chimeras Should chimeric reads be included in the counts table?
+#'(Default: TRUE)
 #'@rdname variantCounts
 #'@examples
 #'data("gol_clutch1")
@@ -20,10 +22,15 @@ setGeneric("variantCounts", function(obj, ...) {
 #'#Return a matrix of the 5 most frequent variants
 #'variantCounts(gol, top.n = 5)
 setMethod("variantCounts", signature("CrisprSet"),
-          function(obj, ..., top.n = NULL, freq.cutoff = 0){
-    if (is.null(top.n) & freq.cutoff == 0) return(obj$cigar_freqs)
+          function(obj, ..., top.n = NULL, freq.cutoff = 1, 
+                   include.chimeras = TRUE){
+    
+    if (is.null(top.n) & freq.cutoff == 0){
+        return(obj$.getFilteredCigarTable(include.chimeras = include.chimeras))
+    }
+    
     top.n <- ifelse(is.null(top.n), nrow(obj$cigar_freqs), top.n)
-    return(obj$.getFilteredCigarTable(top.n, freq.cutoff))
+    return(obj$.getFilteredCigarTable(top.n, freq.cutoff, include.chimeras))
 })
           
 
@@ -40,8 +47,8 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 #'@param snv  Single nucleotide variants (SNVs) may be considered as mutations ("include"),
 #'treated as ambiguous sequences and not counted at all ("exclude"), or treated as 
 #'non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant")
-#'@param chimeras Should chimeric alignments be counted as variants ("include") or not 
-#'considered when calculating mutation efficiency ("exclude")
+#'@param include.chimeras Should chimeric alignments be counted as variants 
+#'when calculating mutation efficiency (Default: TRUE
 #'@param exclude.cols A vector of names or indices of columns in the variant counts table
 #'that will not be considered when counting mutation efficiency  
 #'@rdname mutationEfficiency
@@ -51,7 +58,7 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 #'mutationEfficiency(gol)
 setMethod("mutationEfficiency", signature("CrisprSet"),
           function(obj, ..., snv = c("include","exclude","non_variant"),
-                   chimeras = c("include", "exclude"), exclude.cols = NULL){
+                   include.chimeras = TRUE, exclude.cols = NULL){
     return(obj$mutationEfficiency(snv = snv, chimeras = chimeras, 
                                   exclude_cols = exclude.cols))
 })

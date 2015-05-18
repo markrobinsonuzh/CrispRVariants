@@ -178,14 +178,7 @@ CrisprSet$methods(
       new_order <- setdiff(1:nrow(m), c(is_ref,is_snv))
       m <- m[c(is_ref, is_snv, setdiff(1:nrow(m), c(is_ref,is_snv))),,drop = FALSE]
     }
-    # Add the chimeric alignments to the bottom
-    ch_cnts <- sapply(.self$crispr_runs, function(crun) {
-       length(unqiue(crun$chimeras))
-    })
-    if (! unique(ch_cnts) == c(0)){
-      cigar_freqs <- 
-    }
-    
+  
     cigar_freqs <<- m
   },
   
@@ -228,11 +221,28 @@ Input parameters:
     }
   },
   
-  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), freq.cutoff = 0){
-    rs <- rowSums(.self$cigar_freqs)
+  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), freq.cutoff = 1,
+                                    include.chimeras = TRUE){
+    
+    # Add the chimeric alignments to the bottom
+    if (include.chimeras == TRUE){
+      ch_cnts <- sapply(.self$crispr_runs, function(crun) {
+        length(unique(names(crun$chimeras)))
+      })
+      m <- .self$cigar_freqs
+      m_nms <- rownames(m)
+      m <- rbind(m, ch_cnts)
+      rownames(m) <- c(m_nms, "Other")
+      if (top.n == nrow(.self$cigar_freqs)) top.n <- top.n + 1
+    } else {
+      m <- .self$cigar_freqs
+    }
+    
+    # Default freq cutoff drops "Other" if there are no chimeras
+    rs <- rowSums(m)
     minfreq <- rs >= freq.cutoff
     topn <- rank(-rs) <= top.n
-    cig_freqs <- .self$cigar_freqs[minfreq & topn ,, drop = FALSE] 
+    cig_freqs <- m[minfreq & topn ,, drop = FALSE] 
     return(cig_freqs) 
   },
   
@@ -270,7 +280,7 @@ Input parameters:
   },
   
   mutationEfficiency = function(snv = c("include","exclude","non_variant"),
-                                chimeras = c("include","exclude"), 
+                                include.chimeras = TRUE, 
                                 exclude_cols = NULL){
 '
 Description:
@@ -284,6 +294,7 @@ Input parameters:
   snv:    One of "include" (consider reads with mismatches to be mutated),
           "exclude" (do not include reads with snvs in efficiency calculations),
           and "non_variant" (consider reads with mismatches to be non-mutated).
+  include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
   exclude_cols:   A list of column indices to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
 Return value:
@@ -291,9 +302,11 @@ Return value:
 
 '    
     snv <- match.arg(snv)
-    chimeras <- match.arg(chimeras)
     freqs <- .self$cigar_freqs
-    
+    if (include.chimeras == TRUE){
+      freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+    }
+
     if (length(exclude_cols) > 0){
       freqs <- freqs[,-exclude_cols, drop = FALSE]
     }
@@ -435,8 +448,8 @@ Return value:
     return(p)
   },
   
-  plotVariants = function(freq.cutoff = 0, top.n = nrow(.self$cigar_freqs), 
-                          renumbered = .self$pars["renumbered"], ...){
+  plotVariants = function(freq.cutoff = 1, top.n = nrow(.self$cigar_freqs), 
+                   renumbered = .self$pars["renumbered"], add.other = TRUE, ...){
 '
 Description:
   Wrapper for crispRvariants:plotAlignments, optionally filters the table 
@@ -453,21 +466,23 @@ Input parameters:
   renumbered:       If TRUE, the x-axis is numbered with respect to the target 
                     (cut) site.  If FALSE, x-axis shows genomic locations.
                     (default: TRUE)
+  add.other         Add a blank row named "Other" for chimeric alignments,
+                    if there are any (Default: TRUE)
   ...               additional arguments for plotAlignments
 
 Return value:
   A ggplot2 plot object.  Call "print(obj)" to display  
 '    
-     
+    
     cig_freqs <- .self$.getFilteredCigarTable(top.n, freq.cutoff)
-    
+    # If there are no chimeric alignments, drop "Other"
+    if ("Other" %in% rownames(cig_freqs)){
+      cig_freqs <- cig_freqs[rownames(cig_freqs) != "Other",, drop = FALSE]
+    } else {
+      add.other <- FALSE
+    }
+
     alns <- .self$makePairwiseAlns(cig_freqs)
-    #if (!("cigar" %in% colnames(.self$insertion_sites))){
-    #  .self$getInsertions() 
-    #}
-    
-    # How should the x-axis be numbered? 
-    # Baseline should be numbers, w optional genomic locations
    
     dots <- list(...) 
 
@@ -483,11 +498,12 @@ Return value:
       
       args <- list(obj = .self$ref, alns = alns, ins.sites = .self$insertion_sites, 
                    xtick.labs = target_coords, xtick.breaks = xbreaks,
-                   target.loc =  tloc)                     
+                   target.loc =  tloc, add.other = add.other)                     
     } else {
       args <- list(obj = .self$ref, alns = alns, ins.sites = .self$insertion_sites, 
-                   target.loc =  tloc)   
+                   target.loc = tloc, add.other = add.other)   
     }
+
     args <- modifyList(args, dots)
     p <- do.call(plotAlignments, args) 
 

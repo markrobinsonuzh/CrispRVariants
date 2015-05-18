@@ -16,6 +16,7 @@ setGeneric("plotAlignments", function(obj, ...) {
 #' (default: plot all)
 #'@param renumbered If TRUE, the x-axis is numbered with respect to the target
 #' (default: TRUE)
+#'@param add.other Add a blank row for "Other" alignments (Default:TRUE)
 #'@examples
 #'#Load a CrisprSet object and plot
 #'data("gol_clutch1") 
@@ -23,9 +24,11 @@ setGeneric("plotAlignments", function(obj, ...) {
 setMethod("plotAlignments", signature("CrisprSet"),  
           function(obj, ..., freq.cutoff = 0, 
                    top.n = nrow(obj$cigar_freqs),
-                   renumbered = obj$pars["renumbered"]) {
+                   renumbered = obj$pars["renumbered"], add.other = TRUE) {
+            
             plot_obj <- obj$plotVariants(freq.cutoff = freq.cutoff, top.n = top.n, 
-                                         renumbered = renumbered, ...)
+                                         renumbered = renumbered, 
+                                         add.other = add.other, ...)
             
             return(plot_obj)
           })
@@ -77,6 +80,8 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)
 #'@param legend.symbol.size The size of the symbols indicating insertions
 #'in the legend.  (Default: ins.size)
+#'@param add.other Add a blank row labelled "Other" to the plot, for combining
+#'with plotFreqHeatmap (default: FALSE)
 #'@return A ggplot figure  
 #'@seealso \code{\link{seqsToAln}}, \code{\link[ggplot2]{ggplot}}
 #'@author Helen Lindsay
@@ -88,12 +93,15 @@ setMethod("plotAlignments", signature("DNAString"),
            xtick.breaks = NULL, plot.text.size = 2, axis.text.size = 8, 
            legend.text.size = 6, highlight.guide=TRUE, guide.loc = NULL,
            tile.height = 0.55, max.insertion.size = 50, line.weight = 1,
-           legend.symbol.size = ins.size){
+           legend.symbol.size = ins.size, add.other = FALSE){
   
   # Insertion locations are determined by matching ins.sites$cigar with names(alns)
   ref <- obj
   
-  m <- transformAlnsToLong(ref, alns)
+  print("in plot alignments, add.other")
+  print(add.other)
+  m <- transformAlnsToLong(ref, alns, add.other = add.other)
+  
   m <- setDNATileColours(m)
   nms <- m$Var1[1:(length(alns) + 1)]
 
@@ -231,11 +239,18 @@ setMethod("plotAlignments", signature("DNAString"),
 #'\code{\link[crispRvariants]{plotAlignments}}.
 #'@param ref The reference sequence
 #'@param alns Character vector of aligned sequences
+#'@param add.other Add a blank row labelled "Other" (Default: FALSE)
 #'@return A matrix of characters and plotting locations
 #'@author Helen Lindsay
-transformAlnsToLong <- function(ref, alns){
+transformAlnsToLong <- function(ref, alns, add.other = FALSE){
   # Reverse alignment order, as ggplot geom_tile plots bottom up  
   aln_chrs <- strsplit(c(rev(alns), Reference = as.character(ref)), "")
+  
+  # Add a blank row which will get white tiles
+  if (add.other == TRUE){
+    aln_chrs <- c(list(rep("",length(aln_chrs[[1]]))), aln_chrs)
+    names(aln_chrs)[[1]] <- "Other"
+  }
   
   # Test that all alignments and reference have the same length
   if (! length(unique(lapply(aln_chrs, length))) == 1){
@@ -244,7 +259,8 @@ transformAlnsToLong <- function(ref, alns){
   
   temp <- t(as.data.frame(aln_chrs))
   rownames(temp) <- names(aln_chrs)
-  m <- melt(temp)
+  m <- reshape2::melt(temp)
+
   return(m)
 }
 
@@ -260,10 +276,11 @@ setDNATileColours <- function(m){
   ambig <- which(! m$value %in% c("A", "C", "T", "G", "N", "-"))
   
   m$value <- as.character(m$value)  
-  m$value <- factor(m$value, levels = c(c("A", "C", "T", "G", "N", "-"), ambig_codes))  
+  m$value <- factor(m$value, levels = c(c("A", "C", "T", "G", "N", "-", ""),
+                                        ambig_codes))  
   m$isref <- as.character(ifelse(m$Var1 == "Reference", 1, 0.75))
-  m_cols <- c(c("#4daf4a", "#377eb8", "#e41a1c", "#000000", "#CCCCCC","#FFFFFF"),
-              rep("#CCCCCC", length(ambig_codes)))
+  m_cols <- c(c("#4daf4a", "#377eb8", "#e41a1c", "#000000", "#CCCCCC","#FFFFFF", 
+                "#FFFFFF"), rep("#CCCCCC", length(ambig_codes)))
   names(m_cols) <- c(c("A", "C", "T", "G", "N","-"), ambig_codes)
   m$cols <- m_cols[m$value]
   m$text_cols <- ifelse(m$cols == "#000000" & m$isref == 1, "#FFFFFF", "#000000")
@@ -274,7 +291,6 @@ setDNATileColours <- function(m){
 makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
                                   xtick.labs, xtick.breaks, tile.height){
 
-  
   # Plot aligned sequences  
   p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols)) +
     geom_tile(aes(alpha = isref), height = tile.height) + 
@@ -298,6 +314,7 @@ makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
       p <- p + scale_x_continuous(expand = c(0,0.25), breaks = xtick.breaks,
                                   labels = xtick.labs) 
     }
+
   }
   return(p)
 }
