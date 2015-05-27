@@ -97,11 +97,7 @@ setMethod("plotAlignments", signature("DNAString"),
   
   # Insertion locations are determined by matching ins.sites$cigar with names(alns)
   ref <- obj
-  
-  print("in plot alignments, add.other")
-  print(add.other)
   m <- transformAlnsToLong(ref, alns, add.other = add.other)
-  
   m <- setDNATileColours(m)
   nms <- m$Var1[1:(length(alns) + 1)]
 
@@ -118,9 +114,11 @@ setMethod("plotAlignments", signature("DNAString"),
   # Add line for the cut site
   p <- p + geom_vline(xintercept= target.loc + 0.5, colour = "black", size = line.weight)# linetype = "dashed",
   
+  top_row <- ifelse(add.other, length(nms) + 1, length(nms))
+  
   if (highlight.guide){
-    ymin = length(nms) - (tile.height / 2 + 0.25)
-    ymax = length(nms) + (tile.height / 2 + 0.25)
+    ymin = top_row - (tile.height / 2 + 0.25)
+    ymax = top_row + (tile.height / 2 + 0.25)
     
     if (is.null(guide.loc)){
       xmin <- target.loc - 16.5
@@ -150,8 +148,8 @@ setMethod("plotAlignments", signature("DNAString"),
     }
     
     pam_df <- data.frame(xmin = pam.start - 0.5, xmax = pam.end + 0.5,
-                         ymin = length(nms) - (tile.height / 2 + 0.2),
-                         ymax = length(nms) + (tile.height / 2 + 0.2))
+                         ymin = top_row - (tile.height / 2 + 0.2),
+                         ymax = top_row + (tile.height / 2 + 0.2))
     p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                                         ymax = ymax, x = NULL, y = NULL),
                        color = "black", size = line.weight, fill = "transparent") 

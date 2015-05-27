@@ -59,6 +59,29 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 setMethod("mutationEfficiency", signature("CrisprSet"),
           function(obj, ..., snv = c("include","exclude","non_variant"),
                    include.chimeras = TRUE, exclude.cols = NULL){
-    return(obj$mutationEfficiency(snv = snv, chimeras = chimeras, 
-                                  exclude_cols = exclude.cols))
+    return(obj$mutationEfficiency(snv = snv, include.chimeras = include.chimeras, 
+                                  exclude.cols = exclude.cols))
 })
+
+
+#'@title Find frequent SNVs
+#'@description Find single nucleotide variants (SNVs) above a specified frequency 
+#'in a table of variants.      
+#'@param obj An object containing variant counts
+#'@param ... additional arguments
+#'@author Helen Lindsay
+#'@rdname findSNVs 
+#'@export
+setGeneric("findSNVs", function(obj, ...) {
+  standardGeneric("findSNVs")})
+
+
+#'@rdname findSNVs
+#'@param freq minimum frequency snv to return (Default: 0.25)
+#'@param include.chimeras include chimeric reads when calculating SNV frequencies
+#'(Default: TRUE)
+#'@return A vector of SNVs and their frequencies 
+setMethod("findSNVs", signature("CrisprSet"),
+          function(obj, ..., freq = 0.25, include.chimeras = TRUE){
+            return(obj$getSNVs(min.freq = freq, include.chimeras = include.chimeras))
+          })

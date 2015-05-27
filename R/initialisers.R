@@ -73,7 +73,6 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             }  
             
             if (is.null(chimeras)) {
-              ### FETCH CHIMERAS HERE!
               chimeras <- GenomicAlignments::GAlignments()
               if (store.chimeras == TRUE) {
                 temp <- separateChimeras(reads, target, by.flag = collapse.pairs, 
@@ -122,8 +121,6 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
               result <- collapsePairs(bam, genome.ranges = result$genome.ranges, 
                                       use.consensus = use.consensus, verbose = verbose)
             }
-            
-            print(sprintf("the length of result = %s", length(result)))
             
             if (length(result) == 0){
               if (length(chimeras) == 0){ 
@@ -290,7 +287,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(bams, ref, tgt, reverse.complement, 
                          collapse.pairs, names, use.consensus, verbose, 
                          chimeras = chs, ...)
-            }, bamByPCR, as(targets, "GRangesList"), chimerasByPCR, 
+            }, bamByPCR, GRangesList(as.list(targets)), chimerasByPCR, 
             references, BPPARAM = bpparam)
             
             if (!is.null(names(targets))) {

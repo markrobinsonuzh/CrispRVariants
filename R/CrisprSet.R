@@ -278,10 +278,28 @@ Input parameters:
     
     return(GRanges(chrom, ir))
   },
-  
+
+  getSNVs = function(min.freq = 0.25, include.chimeras = TRUE){
+    cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+    snv <- .self$pars["mismatch_label"]
+    snv_nms <- rownames(cig_fqs)[grep(snv, rownames(cig_fqs))]
+    all_snv_locs <- strsplit(gsub(sprintf("%s|:", snv), "", snv_nms), ",")
+    snv_locs <- unique(unlist(all_snv_locs))
+    asv <- unlist(all_snv_locs)
+    total_count <- sum(cig_fqs)
+    snv_fqs <- structure(vector(length = length(snv_locs)), names = snv_locs)
+    for (snv_loc in snv_locs){
+      nms <- snv_nms[sapply(relist(asv == snv_loc, all_snv_locs), any)]
+      snv_count <- sum(cig_fqs[nms,])
+      fq <- snv_count/total_count
+      snv_fqs[snv_loc] <- fq
+    }
+    return(snv_fqs[snv_fqs >= min.freq])
+  },
+
   mutationEfficiency = function(snv = c("include","exclude","non_variant"),
                                 include.chimeras = TRUE, 
-                                exclude_cols = NULL){
+                                exclude.cols = NULL){
 '
 Description:
   Calculates summary statistics for the mutation efficiency, i.e.
@@ -295,7 +313,7 @@ Input parameters:
           "exclude" (do not include reads with snvs in efficiency calculations),
           and "non_variant" (consider reads with mismatches to be non-mutated).
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
-  exclude_cols:   A list of column indices to exclude from calculation, e.g. if one
+  exclude.cols:   A list of column indices to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
 Return value:
   A vector of efficiency statistics per sample and overall
@@ -307,8 +325,8 @@ Return value:
       freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
 
-    if (length(exclude_cols) > 0){
-      freqs <- freqs[,-exclude_cols, drop = FALSE]
+    if (length(exclude.cols) > 0){
+      freqs <- freqs[,-exclude.cols, drop = FALSE]
     }
     
     is_snv <- grep(.self$pars$mismatch_label, rownames(freqs))
@@ -328,8 +346,8 @@ Return value:
     average <- mean(mutant_efficiency)
     median <- median(mutant_efficiency)
     overall <- sum(mutants)/ sum(total_seqs) * 100
-    result <- round(c(mutant_efficiency, average, median, overall),2)
-    names(result) <- c(colnames(freqs), "Average","Median","Overall")
+    result <- round(c(mutant_efficiency, average, median, overall, sum(total_seqs)),2)
+    names(result) <- c(colnames(freqs), "Average","Median","Overall","ReadCount")
     return(result)
   },
   

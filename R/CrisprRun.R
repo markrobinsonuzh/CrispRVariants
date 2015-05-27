@@ -440,9 +440,9 @@ Result:
         sprintf('%s:%sD', as.numeric(mutn["start"]), as.numeric(mutn["rwidth"]))
       }else if (mutn["op"] == "I"){
         sprintf('%s:%sI', as.numeric(mutn["start"]), as.numeric(mutn["qwidth"]))
-      }
-      
+      } 
     }
+    
     result <- rep(match_label, length(idxs))
     if (nrow(info) > 0) {
       short_ops <- apply(info, 1, getShortOp)
