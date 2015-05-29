@@ -102,7 +102,7 @@ Input parameters:
   verbose:      If TRUE, print the number of sequences removed (default: TRUE)}
 
 \item{\code{mutationEfficiency(snv = c("include", "exclude", "non_variant"),
-  include.chimeras = TRUE, exclude_cols = NULL)}}{Description:
+  include.chimeras = TRUE, exclude.cols = NULL)}}{Description:
   Calculates summary statistics for the mutation efficiency, i.e.
   the percentage of reads that contain a variant.  Reads that do not 
   contain and insertion or deletion, but do contain a single nucleotide 
@@ -114,7 +114,7 @@ Input parameters:
           "exclude" (do not include reads with snvs in efficiency calculations),
           and "non_variant" (consider reads with mismatches to be non-mutated).
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
-  exclude_cols:   A list of column indices to exclude from calculation, e.g. if one
+  exclude.cols:   A list of column indices to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
 Return value:
   A vector of efficiency statistics per sample and overall}
