@@ -163,7 +163,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
               if (length(reference) > 1){
                 stop("Reference should be a single sequence, as a DNAString")
               }
-              reference <- as(reference[1], "DNAString")
+              reference <- as(reference[[1]], "DNAString")
             }
             
             temp <- lapply(reads, readTargetBam, target = target, 
@@ -446,7 +446,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
     return(list(bam = bam, chimeras = GenomicAlignments::GRanges()))
   } 
   if (chimeras == "count"){
-    temp <- separateChimeras(reads, target, 
+    temp <- separateChimeras(bam, target, 
                              by.flag = by.flag, verbose = verbose)
     return(list(bam = temp$bam, chimeras = temp$chimeras[[1]]))    
   }
