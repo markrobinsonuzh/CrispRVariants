@@ -62,7 +62,9 @@ CrisprSet$methods(
                         split.snv = TRUE, upstream.snv = 8, downstream.snv = 5,
                         verbose = TRUE, ...){
     
-    print(sprintf("Initialising CrisprSet with %s samples", length(crispr.runs)))
+    print(sprintf("Initialising CrisprSet %s:%s-%s with %s samples", 
+                  as.character(seqnames(target)), start(target), end(target),
+                  length(crispr.runs)))
     if (class(reference) == "DNAStringSet" | class(reference) == "character"){
       if (length(reference) > 1){
         stop("A CrisprSet contains alignments to exactly one reference sequence")

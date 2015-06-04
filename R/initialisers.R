@@ -54,7 +54,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
                    chimeras = NULL, collapse.pairs = FALSE, use.consensus = FALSE, 
                    store.chimeras = FALSE, verbose = FALSE, name = NULL){
-                        
+            
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
             }
@@ -87,7 +87,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- reads[start(reads) <= start(target) & end(reads) >= end(target) & 
                          seqnames(reads) == as.character(seqnames(target))]
               
-            if (verbose){
+            if (verbose == TRUE){
               cat(sprintf("%s of %s nonchimeric reads span the target range\n",
                           length(bam), length(reads)))
             }
@@ -179,7 +179,8 @@ setMethod("readsToTarget", signature("character", "GRanges"),
             names <- as.character(names)
             cset <- alnsToCrisprSet(alns, reference, target, reverse.complement, 
                                     collapse.pairs, names, use.consensus, 
-                                    chimeras = chimeras, verbose, ...)
+                                    verbose = verbose, chimeras = chimeras, ...)
+            
             return(cset)
           })
 
@@ -431,7 +432,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
   bam <- temp 
   
   if (length(bam) == 0 | ch.action == "ignore"){
-    return(list(bam = bam, chimeras = GenomicAlignments::GRanges()))
+    return(list(bam = bam, chimeras = GenomicAlignments::GAlignments()))
   } 
   
   chimera_idxs <- findChimeras(bam)
