@@ -354,7 +354,14 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
   
   crispr.runs <- lapply(seq_along(alns), function(i){
     aln <- alns[[i]]
-    if (is.na(aln)) {aln <- GenomicAlignments::GAlignments()}
+    
+    if (!class(aln) == "GAlignments") {
+      # Remove print statments after testing
+      print("Empty aln")
+      print(aln)
+      aln <- GenomicAlignments::GAlignments()
+    }
+    
     chim <- chimeras[[i]]
     if (is.null(chim)) {chim <- GenomicAlignments::GAlignments()}
     crun <- readsToTarget(aln, target = target, 

@@ -281,7 +281,26 @@ Input parameters:
     return(GRanges(chrom, ir))
   },
 
+  filterVariants = function(names = NULL, columns = NULL, include.chimeras = TRUE){
+    # Relies on having short cigars, remove other options?
+    
+    cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+    vars <- strsplit(rownames(cig_fqs), ",")
+    
+    remove <- unique(unlist(strsplit(c(names, columns), ",")))
+    mask <- relist(!gsub(".*:", "", unlist(vars)) %in% remove, vars)
+    vars <- as.list(IRanges::CharacterList(vars)[mask])
+    vars <- lapply(vars, paste, sep = ",", collapse = ",")
+    
+    cig_fqs <- cig_fqs[!vars == "",, drop = FALSE]
+    vars <- vars[!vars == ""]
+    cig_fqs <- rowsum(cig_fqs, unlist(vars))
+    cig_fqs
+  },
+
   getSNVs = function(min.freq = 0.25, include.chimeras = TRUE){
+    # Relies on having short cigars, remove other options?
+    
     cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     snv <- .self$pars["mismatch_label"]
     snv_nms <- rownames(cig_fqs)[grep(snv, rownames(cig_fqs))]
