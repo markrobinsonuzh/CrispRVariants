@@ -281,19 +281,43 @@ Input parameters:
     return(GRanges(chrom, ir))
   },
 
-  filterVariants = function(names = NULL, columns = NULL, include.chimeras = TRUE){
+  filterVariants = function(cig_freqs = NULL, names = NULL, columns = NULL,
+                            include.chimeras = TRUE){
     # Relies on having short cigars, remove other options?
+    # Column must include only column names from .self$cigar_freqs
+    # Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D"
+    # Accepts a mutation combination with location
     
-    cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+    warn("This function will not correctly count SNVs as variants after filtering")
+    if (is.null(cig_freqs)){
+      cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+    }
     vars <- strsplit(rownames(cig_fqs), ",")
+    if (length(columns) > 0){
+      # Select the rownames that occur in columns
+      cols <- rownames(cig_fqs)[rowsums(cig_fqs[,columns]) > 0]
+    } else {
+      cols <- NULL
+    }
+      
+    to_remove <- c(names, cols)
+    has_loc <- grepl(":", to_remove)
+    by_loc <- to_remove[has_loc]               
+    by_size <- to_remove[!has_loc]
     
-    remove <- unique(unlist(strsplit(c(names, columns), ",")))
-    mask <- relist(!gsub(".*:", "", unlist(vars)) %in% remove, vars)
+    # Remove by location
+    loc_mask <- !grepl(paste(by_loc, collapse = "|"), unlist(vars))
+    
+    # Remove by size - cannot be mutation combinations
+    size_mask <- !(gsub(".*:", "", unlist(vars)) %in% by_size)
+    
+    mask <- relist(loc_mask & size_mask, vars)
     vars <- as.list(IRanges::CharacterList(vars)[mask])
     vars <- lapply(vars, paste, sep = ",", collapse = ",")
     
     cig_fqs <- cig_fqs[!vars == "",, drop = FALSE]
-    vars <- vars[!vars == ""]
+    # Here: by counting as non-variant, some SNVs may be missed
+    vars[vars == ""] <- .self$pars$match_label
     cig_fqs <- rowsum(cig_fqs, unlist(vars))
     cig_fqs
   },
@@ -320,7 +344,8 @@ Input parameters:
 
   mutationEfficiency = function(snv = c("include","exclude","non_variant"),
                                 include.chimeras = TRUE, 
-                                exclude.cols = NULL){
+                                exclude.cols = NULL, 
+                                filter.vars = NULL, filter.cols = NULL){
 '
 Description:
   Calculates summary statistics for the mutation efficiency, i.e.
@@ -336,6 +361,9 @@ Input parameters:
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
   exclude.cols:   A list of column indices to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
+  filter.vars:    Variants that should not be counted as mutations.
+  filter.cols:    Column names to be considered controls.  Variants occuring in
+                  a control sample will not be counted as mutations.
 Return value:
   A vector of efficiency statistics per sample and overall
 
@@ -344,6 +372,11 @@ Return value:
     freqs <- .self$cigar_freqs
     if (include.chimeras == TRUE){
       freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+    }
+    
+    if (length(filter.vars) > 0 | length(filter.cols) > 0){
+      freqs <- .self$filterVariants(cig_freqs = freqs, names = filter.vars,
+                                    columns = filter.cols)
     }
 
     if (length(exclude.cols) > 0){

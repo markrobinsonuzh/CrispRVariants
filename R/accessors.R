@@ -51,6 +51,10 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 #'when calculating mutation efficiency (Default: TRUE
 #'@param exclude.cols A vector of names or indices of columns in the variant counts table
 #'that will not be considered when counting mutation efficiency  
+#'@param filter.vars Variants to remove before calculating efficiency.  May be either
+#'a variant size, e.g. "1D", or a particular variant/variant combination, e.g. -5:3D
+#'@param filter.cols A vector of control sample names.  Any variants present in the control
+#'samples will not be counted towards the efficiency.
 #'@rdname mutationEfficiency
 #'@return A vector of efficiency statistics per sample and overall
 #'@examples
@@ -58,9 +62,11 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 #'mutationEfficiency(gol)
 setMethod("mutationEfficiency", signature("CrisprSet"),
           function(obj, ..., snv = c("include","exclude","non_variant"),
-                   include.chimeras = TRUE, exclude.cols = NULL){
+                   include.chimeras = TRUE, exclude.cols = NULL, 
+                   filter.vars = NULL, filter.cols = NULL){
     return(obj$mutationEfficiency(snv = snv, include.chimeras = include.chimeras, 
-                                  exclude.cols = exclude.cols))
+                                  exclude.cols = exclude.cols, 
+                                  filter.vars = NULL, filter.cols = NULL))
 })
 
 
