@@ -231,10 +231,15 @@ Input parameters:
       ch_cnts <- sapply(.self$crispr_runs, function(crun) {
         length(unique(names(crun$chimeras)))
       })
+    
       m <- .self$cigar_freqs
-      m_nms <- rownames(m)
-      m <- rbind(m, ch_cnts)
-      rownames(m) <- c(m_nms, "Other")
+      if (length(m) > 0){
+        m_nms <- rownames(m)
+        m <- rbind(m, ch_cnts)
+        rownames(m) <- c(m_nms, "Other")
+      } else {
+        m <- matrix(ch_cnts, nrow = 1, dimnames =list("Other", names(ch_cnts)))
+      }
       if (top.n == nrow(.self$cigar_freqs)) top.n <- top.n + 1
     } else {
       m <- .self$cigar_freqs
@@ -288,14 +293,14 @@ Input parameters:
     # Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D"
     # Accepts a mutation combination with location
     
-    warn("This function will not correctly count SNVs as variants after filtering")
+    #warning("This function will not correctly count SNVs as variants after filtering")
     if (is.null(cig_freqs)){
-      cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
+      cig_freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
-    vars <- strsplit(rownames(cig_fqs), ",")
+    vars <- strsplit(rownames(cig_freqs), ",")
     if (length(columns) > 0){
       # Select the rownames that occur in columns
-      cols <- rownames(cig_fqs)[rowsums(cig_fqs[,columns]) > 0]
+      cols <- rownames(cig_freqs)[rowsums(cig_freqs[,columns]) > 0]
     } else {
       cols <- NULL
     }
@@ -304,22 +309,25 @@ Input parameters:
     has_loc <- grepl(":", to_remove)
     by_loc <- to_remove[has_loc]               
     by_size <- to_remove[!has_loc]
-    
+    loc_mask <- rep(TRUE, length(unlist(vars)))
+    size_mask <- loc_mask
+                    
     # Remove by location
-    loc_mask <- !grepl(paste(by_loc, collapse = "|"), unlist(vars))
-    
+    if (length(by_loc) > 0){
+      loc_mask <- !grepl(paste(by_loc, collapse = "|"), unlist(vars))
+    }
     # Remove by size - cannot be mutation combinations
-    size_mask <- !(gsub(".*:", "", unlist(vars)) %in% by_size)
-    
+    if (length(by_size) > 0){
+      size_mask <- !(gsub(".*:", "", unlist(vars)) %in% by_size)
+    }
     mask <- relist(loc_mask & size_mask, vars)
     vars <- as.list(IRanges::CharacterList(vars)[mask])
     vars <- lapply(vars, paste, sep = ",", collapse = ",")
     
-    cig_fqs <- cig_fqs[!vars == "",, drop = FALSE]
     # Here: by counting as non-variant, some SNVs may be missed
     vars[vars == ""] <- .self$pars$match_label
-    cig_fqs <- rowsum(cig_fqs, unlist(vars))
-    cig_fqs
+    cig_freqs <- rowsum(cig_freqs, unlist(vars))
+    cig_freqs
   },
 
   getSNVs = function(min.freq = 0.25, include.chimeras = TRUE){

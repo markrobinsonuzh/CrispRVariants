@@ -66,7 +66,8 @@ setMethod("mutationEfficiency", signature("CrisprSet"),
                    filter.vars = NULL, filter.cols = NULL){
     return(obj$mutationEfficiency(snv = snv, include.chimeras = include.chimeras, 
                                   exclude.cols = exclude.cols, 
-                                  filter.vars = NULL, filter.cols = NULL))
+                                  filter.vars = filter.vars, 
+                                  filter.cols = filter.cols))
 })
 
 
