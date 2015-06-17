@@ -279,8 +279,15 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             chimerasByPCR <- lapply(seq_along(temp[[1]]), tlist)
             temp <- lapply(byPCR, "[[", "bamByPCR")
             bamByPCR <- lapply(seq_along(temp[[1]]), tlist)
+            tg_gr <- GRangesList(as.list(targets))
             
-            result <- BiocParallel::bpmapply(function(bams, tgt, chs, ref) {
+            dummy <- gc()
+            
+            result <- BiocParallel::bplapply(seq_along(bamByPCR), function(i){
+              bams <- bamByPCR[[i]]
+              tgt <- tg_gr[[i]]
+              chs <- chimerasByPCR[[i]]
+              ref <- references[i]
               if (verbose == TRUE){ 
                 cat(sprintf("\n\nWorking on target %s\n", names(tgt)))
               }
@@ -288,8 +295,7 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(bams, ref, tgt, reverse.complement, 
                          collapse.pairs, names, use.consensus, verbose, 
                          chimeras = chs, ...)
-            }, bamByPCR, GRangesList(as.list(targets)), chimerasByPCR, 
-            references, BPPARAM = bpparam)
+            }, BPPARAM = bpparam)
             
             if (!is.null(names(targets))) {
               names(result) <- names(targets)
@@ -340,8 +346,9 @@ separateChimeras <- function(bam, targets, tolerance = 100,
   }
   
   # Remove chimeras from the bam
-  bam <- bam[-ch_idxs] 
-  
+  if (length(ch_idxs) >= 2){
+    bam <- bam[-ch_idxs] 
+  }
   # Return list of chimerasByPCR and bam
   return(list(bam = bam, chimerasByPCR = chimerasByPCR))
 }
@@ -356,9 +363,6 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
     aln <- alns[[i]]
     
     if (!class(aln) == "GAlignments") {
-      # Remove print statments after testing
-      print("Empty aln")
-      print(aln)
       aln <- GenomicAlignments::GAlignments()
     }
     

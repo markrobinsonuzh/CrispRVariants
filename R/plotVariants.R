@@ -150,7 +150,6 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   
   if (length(exs) == 0){
     return(grid::grid.rect(gp=grid::gpar(col="white"), draw = FALSE))
-    #return(ggplot())
   }
   # Find the genes that overlap
   genes <- AnnotationDbi::select(txdb,

@@ -8,8 +8,9 @@
 \usage{
 mutationEfficiency(obj, ...)
 
-\S4method{mutationEfficiency}{CrisprSet}(obj, ..., snv = c("include",
-  "exclude", "non_variant"), include.chimeras = TRUE, exclude.cols = NULL)
+\S4method{mutationEfficiency}{CrisprSet}(obj, ..., snv = c("non_variant",
+  "include", "exclude"), include.chimeras = TRUE, exclude.cols = NULL,
+  filter.vars = NULL, filter.cols = NULL)
 }
 \arguments{
 \item{obj}{An object containing variant counts}
@@ -18,13 +19,19 @@ mutationEfficiency(obj, ...)
 
 \item{snv}{Single nucleotide variants (SNVs) may be considered as mutations ("include"),
 treated as ambiguous sequences and not counted at all ("exclude"), or treated as
-non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant")}
+non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant", default)}
 
 \item{include.chimeras}{Should chimeric alignments be counted as variants
 when calculating mutation efficiency (Default: TRUE}
 
 \item{exclude.cols}{A vector of names or indices of columns in the variant counts table
 that will not be considered when counting mutation efficiency}
+
+\item{filter.vars}{Variants to remove before calculating efficiency.  May be either
+a variant size, e.g. "1D", or a particular variant/variant combination, e.g. -5:3D}
+
+\item{filter.cols}{A vector of control sample names.  Any variants present in the control
+samples will not be counted towards the efficiency.}
 }
 \value{
 A vector of efficiency statistics per sample and overall

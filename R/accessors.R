@@ -46,7 +46,7 @@ setGeneric("mutationEfficiency", function(obj, ...) {
                
 #'@param snv  Single nucleotide variants (SNVs) may be considered as mutations ("include"),
 #'treated as ambiguous sequences and not counted at all ("exclude"), or treated as 
-#'non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant")
+#'non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant", default)
 #'@param include.chimeras Should chimeric alignments be counted as variants 
 #'when calculating mutation efficiency (Default: TRUE
 #'@param exclude.cols A vector of names or indices of columns in the variant counts table
@@ -61,7 +61,7 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 #'data("gol_clutch1")
 #'mutationEfficiency(gol)
 setMethod("mutationEfficiency", signature("CrisprSet"),
-          function(obj, ..., snv = c("include","exclude","non_variant"),
+          function(obj, ..., snv = c("non_variant", "include","exclude"),
                    include.chimeras = TRUE, exclude.cols = NULL, 
                    filter.vars = NULL, filter.cols = NULL){
     return(obj$mutationEfficiency(snv = snv, include.chimeras = include.chimeras, 

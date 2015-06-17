@@ -350,7 +350,7 @@ Input parameters:
     return(snv_fqs[snv_fqs >= min.freq])
   },
 
-  mutationEfficiency = function(snv = c("include","exclude","non_variant"),
+  mutationEfficiency = function(snv = c("non_variant", "include","exclude"),
                                 include.chimeras = TRUE, 
                                 exclude.cols = NULL, 
                                 filter.vars = NULL, filter.cols = NULL){
@@ -562,7 +562,8 @@ Return value:
       add.other <- FALSE
     }
 
-    alns <- .self$makePairwiseAlns(cig_freqs)
+    no_other <- cig_freqs[rownames(cig_freqs) != "Other",, drop = FALSE]
+    alns <- .self$makePairwiseAlns(no_other)
    
     dots <- list(...) 
 

@@ -101,7 +101,7 @@ Input parameters:
                 variant combination may contain.  (default: 0)
   verbose:      If TRUE, print the number of sequences removed (default: TRUE)}
 
-\item{\code{mutationEfficiency(snv = c("include", "exclude", "non_variant"),
+\item{\code{mutationEfficiency(snv = c("non_variant", "include", "exclude"),
   include.chimeras = TRUE, exclude.cols = NULL, filter.vars = NULL,
   filter.cols = NULL)}}{Description:
   Calculates summary statistics for the mutation efficiency, i.e.
