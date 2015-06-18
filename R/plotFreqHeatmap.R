@@ -151,7 +151,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 
 #'@rdname plotFreqHeatmap
 #'@param top.n  Show the n top ranked variants.  Note that if the nth and n+1th 
-#'variants have equal rank, they will not be shown.   (Default: show all)
+#'variants have equal rank, they will not be shown.   (Default: 50)
 #'@param freq.cutoff Show variants with frequency >= freq.cutoff 
 #'(Default: 0, i.e. no cutoff)
 #'@examples
@@ -161,7 +161,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'# Plot the frequency heatmap
 #'plotFreqHeatmap(gol)
 setMethod("plotFreqHeatmap", signature("CrisprSet"),  
-          function(obj, ..., top.n = nrow(obj$cigar_freqs), freq.cutoff = 0) {
+          function(obj, ..., top.n = 50, freq.cutoff = 0) {
   
   result <- obj$heatmapCigarFreqs(top.n = top.n, freq.cutoff = freq.cutoff, ...)          
   return(result)

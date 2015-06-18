@@ -15,6 +15,8 @@ setGeneric("variantCounts", function(obj, ...) {
 #' to frequency across all samples (Default: 0, i.e. no cutoff)
 #'@param include.chimeras Should chimeric reads be included in the counts table?
 #'(Default: TRUE)
+#'@param include.nonvariant Should sequences without indels be returned? 
+#'(Default:TRUE)
 #'@rdname variantCounts
 #'@examples
 #'data("gol_clutch1")
@@ -23,14 +25,16 @@ setGeneric("variantCounts", function(obj, ...) {
 #'variantCounts(gol, top.n = 5)
 setMethod("variantCounts", signature("CrisprSet"),
           function(obj, ..., top.n = NULL, freq.cutoff = 1, 
-                   include.chimeras = TRUE){
+              include.chimeras = TRUE, include.nonvariant=TRUE){
     
     if (is.null(top.n) & freq.cutoff == 0){
-        return(obj$.getFilteredCigarTable(include.chimeras = include.chimeras))
+        return(obj$.getFilteredCigarTable(include.chimeras = include.chimeras,
+                                          include.nonvariant=include.nonvariant))
     }
     
     top.n <- ifelse(is.null(top.n), nrow(obj$cigar_freqs), top.n)
-    return(obj$.getFilteredCigarTable(top.n, freq.cutoff, include.chimeras))
+    return(obj$.getFilteredCigarTable(top.n, freq.cutoff, include.chimeras,
+                                      include.nonvariant))
 })
           
 

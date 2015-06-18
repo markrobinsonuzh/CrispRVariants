@@ -13,7 +13,7 @@ setGeneric("plotAlignments", function(obj, ...) {
 #'@param freq.cutoff i (integer) only plot variants that occur >= i times
 #' (default: 0, i.e no frequency cutoff)
 #'@param top.n (integer) Plot only the n most frequent variants 
-#' (default: plot all)
+#' (default: 50)
 #'@param renumbered If TRUE, the x-axis is numbered with respect to the target
 #' (default: TRUE)
 #'@param add.other Add a blank row for "Other" alignments (Default:TRUE)
@@ -23,7 +23,7 @@ setGeneric("plotAlignments", function(obj, ...) {
 #'plotAlignments(gol)
 setMethod("plotAlignments", signature("CrisprSet"),  
           function(obj, ..., freq.cutoff = 0, 
-                   top.n = nrow(obj$cigar_freqs),
+                   top.n = 50,
                    renumbered = obj$pars["renumbered"], add.other = TRUE) {
             
             plot_obj <- obj$plotVariants(freq.cutoff = freq.cutoff, top.n = top.n, 
@@ -73,9 +73,11 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #' highlight.guide = TRUE and no guide.loc is supplied, assuming the guide
 #' plus PAM is 23bp (Default: NULL)
 #'@param tile.height  The height of the tiles within the plot. (Default: 0.55)
-#'@param max.insertion.size The maximum length of an insertion to be shown in the 
+#'@param max.insertion.size  The maximum length of an insertion to be shown in the 
 #'legend.  If max.insertion.size = n, an insertion of length m > n will 
 #'be annotated as "mI" in the figure.  (Default: 50)
+#'@param min.insertion.freq  Display inserted sequences that occur in at least
+#'x% of sequences with an insertion of this size and length (Default: 5)
 #'@param line.weight  The line thickness for the vertical line indicating the 
 #'zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)
 #'@param legend.symbol.size The size of the symbols indicating insertions
@@ -92,8 +94,8 @@ setMethod("plotAlignments", signature("DNAString"),
            ins.size = 3, legend.cols = 3, xlab = NULL, xtick.labs = NULL,
            xtick.breaks = NULL, plot.text.size = 2, axis.text.size = 8, 
            legend.text.size = 6, highlight.guide=TRUE, guide.loc = NULL,
-           tile.height = 0.55, max.insertion.size = 50, line.weight = 1,
-           legend.symbol.size = ins.size, add.other = FALSE){
+           tile.height = 0.55, max.insertion.size = 50, min.insertion.freq = 5,
+           line.weight = 1, legend.symbol.size = ins.size, add.other = FALSE){
   
   # Insertion locations are determined by matching ins.sites$cigar with names(alns)
   ref <- obj
@@ -165,19 +167,33 @@ setMethod("plotAlignments", signature("DNAString"),
   if (nrow(ins.sites) > 0 & length(na.omit(ins_ord)) > 0){ 
     ins_points <- data.frame(x = ins.sites[!is.na(ins_ord),"start"] - 0.5,
                              y = na.omit(ins_ord) + 0.45, 
-                             seq = ins.sites[!is.na(ins_ord),"seq"])
+                             seq = ins.sites[!is.na(ins_ord),"seq"],
+                    count = as.integer(ins.sites[!is.na(ins_ord),"count"]))
     
-    # Merge multiple insertions at single plotting location, format to fixed width
-    ins_points <- ins_points[!duplicated(ins_points),]
+    ins_points <- aggregate(ins_points$count, 
+                            by = as.list(ins_points[,c(1:3)]), FUN = sum)
+    colnames(ins_points) <- c("x","y","seq", "count")
     
+    ## Merge multiple insertions at single plotting location, format to fixed width
+    #ins_points <- ins_points[!duplicated(ins_points),]
     xy_locs <- paste(ins_points$x, ins_points$y, sep = "_")
+    
+    # Remove low frequency alleles
+    temp <- rowsum(ins_points$count, xy_locs)
+    totals <- as.vector(temp)
+    names(totals) <- rownames(temp)
+    keep <- (ins_points$count/totals[xy_locs])*100 > min.insertion.freq
+    ins_points <- ins_points[keep,]
+    xy_locs <- paste(ins_points$x, ins_points$y, sep = "_")
+    
+    # Join alleles, format strings for legend  
     seqs <- ins.sites[!is.na(ins_ord),"seq"]
     splits <- split(ins_points$seq, xy_locs)
     x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
     
     key_sep <- max(max(sapply(splits, length))) + 0.5
     
-    # Collapse sequences with multiple alleles, or longer than max.insertion.size
+    # Collapse sequences longer than max.insertion.size
     x <- lapply(splits, function(y){
       result <- as.character(y) 
       if (length(result) > 1){
@@ -193,9 +209,12 @@ setMethod("plotAlignments", signature("DNAString"),
       result 
     })
     
+    #######
     new_seqs <- unlist(x)[unique(xy_locs)]
     max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
+    #########
+    
     
     ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
     ins_points$seq <- new_seqs
@@ -218,7 +237,7 @@ setMethod("plotAlignments", signature("DNAString"),
                             override.aes = list(fill = fill_clrs, size = legend.symbol.size)))
     p <- p + theme(legend.key = element_blank(), 
                    legend.text = element_text(size = legend.text.size),
-                   legend.margin = unit(2, "lines"))
+                   legend.margin = grid::unit(2, "lines"))
     
   } else{
     p <- p + scale_fill_identity() 

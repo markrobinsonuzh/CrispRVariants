@@ -224,7 +224,7 @@ Input parameters:
   },
   
   .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), freq.cutoff = 1,
-                                    include.chimeras = TRUE){
+                                    include.chimeras = TRUE, include.nonvariant = TRUE){
     
     # Add the chimeric alignments to the bottom
     if (include.chimeras == TRUE){
@@ -243,6 +243,11 @@ Input parameters:
       if (top.n == nrow(.self$cigar_freqs)) top.n <- top.n + 1
     } else {
       m <- .self$cigar_freqs
+    }
+    
+    if (include.nonvariant == FALSE){
+      nvr <- sprintf("%s|%s", .self$pars$match_label, .self$pars$mismatch_label)
+      m <- m[!grepl(nvr, rownames(m)),,drop = FALSE]
     }
     
     # Default freq cutoff drops "Other" if there are no chimeras
@@ -521,7 +526,7 @@ Return value:
                                x.axis.title = NULL, x.angle = 90,  
                                freq.cutoff = 0, top.n = nrow(.self$cigar_freqs), ...){
     
-    cig_freqs <- .getFilteredCigarTable(top.n, freq.cutoff)
+    cig_freqs <- .self$.getFilteredCigarTable(top.n, freq.cutoff)
     p <- plotFreqHeatmap(cig_freqs, as.percent = as.percent, x.size = x.size, 
                                y.size = y.size, x.axis.title = x.axis.title,
                                x.angle = x.angle, ...)
@@ -562,9 +567,7 @@ Return value:
       add.other <- FALSE
     }
 
-    no_other <- cig_freqs[rownames(cig_freqs) != "Other",, drop = FALSE]
-    alns <- .self$makePairwiseAlns(no_other)
-   
+    alns <- .self$makePairwiseAlns(cig_freqs)
     dots <- list(...) 
 
     tloc <- ifelse(is.na(.self$pars$target.loc), 17, .self$pars$target.loc)
