@@ -244,8 +244,8 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               if (! is.null(primer.ranges)){
                 hits <- readsByPCRPrimer(bam, primer.ranges, verbose = verbose)
                 splits <- split(queryHits(hits), subjectHits(hits))
-              } else{
-                hits <- findOverlaps(targets, bam, type = "within")
+              } else{  
+                hits <- findOverlaps(targets, bam, type = "within", ignore.strand = TRUE)
                 duplicates <- (duplicated(subjectHits(hits)) | 
                                 duplicated(subjectHits(hits), fromLast = TRUE))                
                 if (verbose){
@@ -318,7 +318,7 @@ separateChimeras <- function(bam, targets, tolerance = 100,
 
   # Assign chimeras to targets
   tgt_plus_tol <- targets + tolerance
-  hits <- findOverlaps(chimeras, tgt_plus_tol)
+  hits <- findOverlaps(chimeras, tgt_plus_tol, ignore.strand = TRUE)
   splits <- split(queryHits(hits), subjectHits(hits))
   
   #For each hit, collect all alignments with the same name
@@ -655,7 +655,7 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
   # 1 = 2^0 = paired flag
   # 2048 = 2^11 = supplementary alignment flag
   is_primary <- !(bitwAnd(mcols(alns)$flag, 2048) & bitwAnd(mcols(alns)$flag, 1)) 
-  pairs <- findChimeras(alns[is_primary]) # This just matches read names
+  pairs <- findChimeras(alns[is_primary], by.flag = FALSE) # This just matches read names
   
   # If there are no pairs, no need to do anything further 
   if (length(pairs) == 0){

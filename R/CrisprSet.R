@@ -223,8 +223,11 @@ Input parameters:
     }
   },
   
-  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), freq.cutoff = 1,
-                                    include.chimeras = TRUE, include.nonvariant = TRUE){
+  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), 
+                                    min.count = 0, min.freq = 0, 
+                                    include.chimeras = TRUE, 
+                                    include.nonvariant = TRUE,
+                                    result = c("counts", "proportions")){
     
     # Add the chimeric alignments to the bottom
     if (include.chimeras == TRUE){
@@ -240,22 +243,44 @@ Input parameters:
       } else {
         m <- matrix(ch_cnts, nrow = 1, dimnames =list("Other", names(ch_cnts)))
       }
+      # If all rows should be returned, add 1 to top.n
       if (top.n == nrow(.self$cigar_freqs)) top.n <- top.n + 1
     } else {
       m <- .self$cigar_freqs
+    }
+    
+    # Filtering takes precedence over removing nonvariants
+    # and selecting top.n
+  
+    # Default freq cutoff drops "Other" if there are no chimeras
+    propns <- prop.table(m,2)
+    # At least one column has proportion greater than cutoff
+    keep_freq <- rowSums(propns >= min.freq) > 0
+    keep_count <- rowSums(m >= min.count) > 0
+    propns <- propns[keep_freq & keep_count,, drop = FALSE] * 100
+       
+    # Top variants are calculated by proportional contributions
+    rs <- rowSums(propns)
+    topn <- rank(-rs) <= top.n    
+    
+    if (result == "proportions"){
+      # Return proportions
+      m <- propns[topn ,, drop = FALSE] 
+    } else {
+      # Return counts
+      m <- m[keep_freq & keep_count,, drop = FALSE][topn,, drop = FALSE]
     }
     
     if (include.nonvariant == FALSE){
       nvr <- sprintf("%s|%s", .self$pars$match_label, .self$pars$mismatch_label)
       m <- m[!grepl(nvr, rownames(m)),,drop = FALSE]
     }
+   
+    return(m) 
     
-    # Default freq cutoff drops "Other" if there are no chimeras
-    rs <- rowSums(m)
-    minfreq <- rs >= freq.cutoff
-    topn <- rank(-rs) <= top.n
-    cig_freqs <- m[minfreq & topn ,, drop = FALSE] 
-    return(cig_freqs) 
+    # TO DO (ORIGNALLY?) - REORDER BY PROPORTION!!
+    
+    
   },
   
   .getUniqueIndelRanges = function(add_chr = TRUE, add_to_ins = TRUE){
