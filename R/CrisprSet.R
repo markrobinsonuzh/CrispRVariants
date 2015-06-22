@@ -253,11 +253,11 @@ Input parameters:
     # and selecting top.n
   
     # Default freq cutoff drops "Other" if there are no chimeras
-    propns <- prop.table(m,2)
+    propns <- prop.table(m,2) * 100
     # At least one column has proportion greater than cutoff
     keep_freq <- rowSums(propns >= min.freq) > 0
     keep_count <- rowSums(m >= min.count) > 0
-    propns <- propns[keep_freq & keep_count,, drop = FALSE] * 100
+    propns <- propns[keep_freq & keep_count,, drop = FALSE]
        
     # Top variants are calculated by proportional contributions
     rs <- rowSums(propns)
@@ -279,8 +279,7 @@ Input parameters:
     return(m) 
     
     # TO DO (ORIGNALLY?) - REORDER BY PROPORTION!!
-    
-    
+    # m match + order m mismatch + order m variant
   },
   
   .getUniqueIndelRanges = function(add_chr = TRUE, add_to_ins = TRUE){
@@ -549,16 +548,23 @@ Return value:
   
   heatmapCigarFreqs = function(as.percent = FALSE, x.size = 8, y.size = 8, 
                                x.axis.title = NULL, x.angle = 90,  
-                               freq.cutoff = 0, top.n = nrow(.self$cigar_freqs), ...){
+                               min.freq = 0, min.count = 0, 
+                               top.n = nrow(.self$cigar_freqs), 
+                               type = "counts", ...){
     
-    cig_freqs <- .self$.getFilteredCigarTable(top.n, freq.cutoff)
+    # Doesn't currently allow option to exclude non-variant
+    
+    cig_freqs <- .self$.getFilteredCigarTable(top.n, min.count, min.freq, 
+                                              result = type)
+    header <- NULL
+    if (type == "counts") header <- colSums()
     p <- plotFreqHeatmap(cig_freqs, as.percent = as.percent, x.size = x.size, 
                                y.size = y.size, x.axis.title = x.axis.title,
                                x.angle = x.angle, ...)
     return(p)
   },
   
-  plotVariants = function(freq.cutoff = 1, top.n = nrow(.self$cigar_freqs), 
+  plotVariants = function(min.freq = 0, min.count = 0, top.n = nrow(.self$cigar_freqs), 
                    renumbered = .self$pars["renumbered"], add.other = TRUE, ...){
 '
 Description:
@@ -567,8 +573,10 @@ Description:
   collapsing insertions and displaying insertion sequences below the plot.
 
 Input parameters:
-  freq.cutoff:      i (integer) only plot variants that occur >= i times
-                    (default: 0, i.e no frequency cutoff)
+  min.freq:         i(%) include variants that occur in at least i% of reads
+                    in at least one sample
+  min.count         i (integer) include variants that occur at leas i times in
+                    at least one sample
   top.n:            n (integer) Plot only the n most frequent variants 
                     (default: plot all)
                     Note that if there are ties in variant ranks, 
@@ -584,7 +592,7 @@ Return value:
   A ggplot2 plot object.  Call "print(obj)" to display  
 '    
     
-    cig_freqs <- .self$.getFilteredCigarTable(top.n, freq.cutoff)
+    cig_freqs <- .self$.getFilteredCigarTable(top.n, min.freq, min.count)
     # If there are no chimeric alignments, drop "Other"
     if ("Other" %in% rownames(cig_freqs)){
       cig_freqs <- cig_freqs[rownames(cig_freqs) != "Other",, drop = FALSE]

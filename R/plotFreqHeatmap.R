@@ -9,7 +9,8 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param obj A matrix of counts with rows = feature, columns = sample
 #'@param col.sums Include a row of column totals at the top of the
 #'plot (Default: TRUE)
-#'@param row.sums Include a column of row totals (Default: FALSE)
+#'@param header Alternative column titles, e.g. column sums
+#'for the unfiltered data set (Default: NULL)
 #'@param group Grouping factor for columns.  If supplied, columns are
 #'ordered to match the levels  (Default: NULL)
 #'@param group.colours Colours for column groups, should match levels of "group".
@@ -29,20 +30,27 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param ... additional arguments
 #'@return The ggplot2 plot of the variant frequencies 
 setMethod("plotFreqHeatmap", signature("matrix"),  
-          function(obj, ..., col.sums = TRUE, row.sums = FALSE, group = NULL,
+          function(obj, ..., col.sums = TRUE, header = NULL, group = NULL,
                    group.colours = NULL, as.percent = TRUE, x.axis.title = NULL,
                    x.size = 6, y.size = 8, x.angle = 90, legend.text.size = 6,
                    plot.text.size = 2, line.width = 1, legend.position = "right",
-                   legend.key.height = grid::unit(3, "lines")) {            
-            
-  if (col.sums == TRUE){
+                   legend.key.height = grid::unit(2, "lines")) {            
+  
   # Make space for totals to be added
+  if (length(header) == ncol(obj)){
+    col.sums <- TRUE
+  } else if (length(header) > 0){
+    stop("Header length should equal to the number of columns of obj")
+  }
+  
+  if (col.sums == TRUE){
     obj <- rbind(Total = rep(NA, ncol(obj)), obj)
   }
 
+  # If a sample group is supplied, reorder the columns of counts  
   if (! is.null(group)){
     if (! class(group) == "factor") group <- factor(group, levels = unique(group)) 
-    # If a sample group is supplied, reorder the columns of counts  
+    
     obj <- obj[,order(group), drop = FALSE] 
     group <- group[order(group)]
     
@@ -55,10 +63,6 @@ setMethod("plotFreqHeatmap", signature("matrix"),
       clrs <- group.colours[group] 
     }   
   }    
-  
-  if (row.sums == TRUE){
-    obj <- cbind(obj, Total = rep(NA, nrow(obj)))
-  }
   
   counts <- reshape2::melt(obj)  
   colnames(counts) <- c("Feature", "Sample","Count")
@@ -85,31 +89,17 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   xranges <- ggplot_build(g)$panel$ranges[[1]]$x.range  
   yranges <- ggplot_build(g)$panel$ranges[[1]]$y.range  
   
-  # Add values for totals, plot boxes around totals
-  if (row.sums == TRUE){
-    totals <- rowSums(obj, na.rm = TRUE)
-    row_totals <- (nrow(counts)-nrow(obj)+1):nrow(counts)
-    counts$Count[row_totals] <- totals
-    counts$ff[row_totals] <- "bold"
-    box_coords[box_row,] <- c(max(xranges)-1.05, max(xranges) + 0.05, min(yranges), 
-                              max(yranges))
-    box_row <- 2
-  }
-  
   if (col.sums == TRUE){ 
     idxs <- which(is.na(counts$Count))
-    csums <- colSums(obj, na.rm = TRUE)
-    if (row.sums == TRUE) csums <- csums[1:(length(csums) -1)]
-    counts$Count[idxs] <- csums
+    if (length(header) != ncol(obj)){
+      header <- colSums(obj, na.rm = TRUE)
+    }
+    counts$Count[idxs] <- header
     counts$ff[idxs] <- "bold"
     box_coords[box_row,] <- c(min(xranges), max(xranges), 
                              nrow(obj) -0.5,max(yranges))  
   }
   
-  if (row.sums == TRUE & col.sums == TRUE){
-    tc <- sum(obj, na.rm = TRUE)
-    counts[(counts$Sample=="Total" & counts$Feature == "Total"),"Count"] <- tc 
-  }
   if (nrow(box_coords) > 0){
     g <- g + geom_rect(data=box_coords, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
                                             ymax = ymax, x = NULL, y = NULL),
@@ -152,8 +142,11 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'@rdname plotFreqHeatmap
 #'@param top.n  Show the n top ranked variants.  Note that if the nth and n+1th 
 #'variants have equal rank, they will not be shown.   (Default: 50)
-#'@param freq.cutoff Show variants with frequency >= freq.cutoff 
-#'(Default: 0, i.e. no cutoff)
+#'@param min.freq i (%) only plot variants with frequency >= i% in at least
+#' one sample (default: 0, i.e no frequency cutoff)
+#'@param min.count i (integer) only plot variants with count >= i in at least
+#' one sample (default: 0, i.e no count cutoff)
+#'@param type Plot either "counts" or "proportions"
 #'@examples
 #'#Load a CrisprSet object for plotting
 #'data("gol_clutch1")
@@ -161,8 +154,10 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'# Plot the frequency heatmap
 #'plotFreqHeatmap(gol)
 setMethod("plotFreqHeatmap", signature("CrisprSet"),  
-          function(obj, ..., top.n = 50, freq.cutoff = 0) {
+          function(obj, ..., top.n = 50, min.freq = 0, min.count = 0, 
+                   type = c("counts", "proportions")) {
   
-  result <- obj$heatmapCigarFreqs(top.n = top.n, freq.cutoff = freq.cutoff, ...)          
+  result <- obj$heatmapCigarFreqs(top.n = top.n, min.freq = min.freq,
+                                  min.count = min.count, result = type, ...)          
   return(result)
 })      

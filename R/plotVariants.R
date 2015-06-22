@@ -32,7 +32,7 @@ setGeneric("plotVariants", function(obj, ...) {
 #'p <- plotVariants(gol, txdb = txdb)
 #'
 #'#In the above plot, the bottom margin is too large, the legend is 
-#'#cut off, and the text within the plots could be larger.
+#'#cut off, and the text within the plots should be larger.
 #'#These issues can be fixed with some adjustments:  
 #'p <- plotVariants(gol, txdb = txdb, 
 #'                  plotAlignments.args = list(plot.text.size = 4, legend.cols = 2),  

@@ -2,16 +2,21 @@
 #'@rdname plotAlignments
 #'@param obj The object to be plot
 #'@param ... Additional arguments 
+#'@return A ggplot2 figure  
+#'@seealso \code{\link{seqsToAln}}, \code{\link[ggplot2]{ggplot}}
+#'@author Helen Lindsay
 #'@export
 setGeneric("plotAlignments", function(obj, ...) {
   standardGeneric("plotAlignments")})
 
 #'@rdname plotAlignments
-#'@description (signature("CrisprSet")) Wrapper for CrisprSet$plotVariants  
+#'@description (signature("CrisprSet")) Wrapper for CrisprSet$plotVariants.    
 #'Optionally filters a CrisprSet frequency table, then plots variants.  
 #'More information in \code{\link[crispRvariants]{CrisprSet}} 
-#'@param freq.cutoff i (integer) only plot variants that occur >= i times
-#' (default: 0, i.e no frequency cutoff)
+#'@param min.freq i (%) only plot variants with frequency >= i% in at least
+#' one sample (default: 0, i.e no frequency cutoff)
+#'@param min.count i (integer) only plot variants with count >= i in at least
+#' one sample (default: 0, i.e no count cutoff)
 #'@param top.n (integer) Plot only the n most frequent variants 
 #' (default: 50)
 #'@param renumbered If TRUE, the x-axis is numbered with respect to the target
@@ -22,11 +27,13 @@ setGeneric("plotAlignments", function(obj, ...) {
 #'data("gol_clutch1") 
 #'plotAlignments(gol)
 setMethod("plotAlignments", signature("CrisprSet"),  
-          function(obj, ..., freq.cutoff = 0, 
-                   top.n = 50,
-                   renumbered = obj$pars["renumbered"], add.other = TRUE) {
+          function(obj, ..., min.freq = 0, min.count = 0, 
+                   top.n = 50, renumbered = obj$pars["renumbered"],
+                   add.other = TRUE) {
             
-            plot_obj <- obj$plotVariants(freq.cutoff = freq.cutoff, top.n = top.n, 
+            plot_obj <- obj$plotVariants(min.freq = min.freq,
+                                         min.count = min.count,
+                                         top.n = top.n, 
                                          renumbered = renumbered, 
                                          add.other = add.other, ...)
             
@@ -38,7 +45,7 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@description (signature("DNAString"))  Plots a set of pairwise alignments to a reference sequence.
 #'Alignments should all be the same length as the reference sequences.  
 #'This is achieved by removing insertions with respect to the reference, 
-#'see \code{\link[crispRvariants]{seqsToAln}} for these alignments.
+#'see \code{\link[crispRvariants]{seqsToAln}}.
 #'Insertions are indicated by symbols in the plot and a table showing the
 #'inserted sequences below the plot.  The default options are intended for a 
 #'figure 6-8 inches wide, with figure height best chosen according to the number 
@@ -76,17 +83,14 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@param max.insertion.size  The maximum length of an insertion to be shown in the 
 #'legend.  If max.insertion.size = n, an insertion of length m > n will 
 #'be annotated as "mI" in the figure.  (Default: 50)
-#'@param min.insertion.freq  Display inserted sequences that occur in at least
-#'x% of sequences with an insertion of this size and length (Default: 5)
+#'@param min.insertion.freq  Display inserted sequences with frequency at least x
+#'amongst the sequences with an insertion of this size and length (Default: 5)
 #'@param line.weight  The line thickness for the vertical line indicating the 
 #'zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)
 #'@param legend.symbol.size The size of the symbols indicating insertions
 #'in the legend.  (Default: ins.size)
 #'@param add.other Add a blank row labelled "Other" to the plot, for combining
 #'with plotFreqHeatmap (default: FALSE)
-#'@return A ggplot figure  
-#'@seealso \code{\link{seqsToAln}}, \code{\link[ggplot2]{ggplot}}
-#'@author Helen Lindsay
 #'@rdname plotAlignments
 setMethod("plotAlignments", signature("DNAString"),  
   function(obj, ..., alns, ins.sites, highlight.pam = TRUE, show.plot = FALSE, 
