@@ -227,8 +227,10 @@ Input parameters:
                                     min.count = 0, min.freq = 0, 
                                     include.chimeras = TRUE, 
                                     include.nonvariant = TRUE,
-                                    result = c("counts", "proportions")){
+                                    type = c("counts", "proportions")){
     
+    result <- match.arg(type)
+     
     # Add the chimeric alignments to the bottom
     if (include.chimeras == TRUE){
       ch_cnts <- sapply(.self$crispr_runs, function(crun) {
@@ -555,12 +557,18 @@ Return value:
     # Doesn't currently allow option to exclude non-variant
     
     cig_freqs <- .self$.getFilteredCigarTable(top.n, min.count, min.freq, 
-                                              result = type)
+                                              type = type)
     header <- NULL
-    if (type == "counts") header <- colSums()
-    p <- plotFreqHeatmap(cig_freqs, as.percent = as.percent, x.size = x.size, 
-                               y.size = y.size, x.axis.title = x.axis.title,
-                               x.angle = x.angle, ...)
+    if (type == "counts"){ header <- colSums(.self$.getFilteredCigarTable())
+    } else if (type == "proportions"){
+      header <- round(colSums(cig_freqs), 2)
+      cig_freqs <- round(cig_freqs, 2)
+    }
+    
+    p <- plotFreqHeatmap(cig_freqs, header = header, as.percent = as.percent, 
+                         x.size = x.size, y.size = y.size, 
+                         x.axis.title = x.axis.title,
+                         x.angle = x.angle, ...)
     return(p)
   },
   

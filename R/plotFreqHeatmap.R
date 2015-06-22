@@ -158,6 +158,6 @@ setMethod("plotFreqHeatmap", signature("CrisprSet"),
                    type = c("counts", "proportions")) {
   
   result <- obj$heatmapCigarFreqs(top.n = top.n, min.freq = min.freq,
-                                  min.count = min.count, result = type, ...)          
+                                  min.count = min.count, type = type, ...)          
   return(result)
 })      
