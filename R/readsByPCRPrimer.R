@@ -80,9 +80,9 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
               }
               rhits <- rhits[!is_dup]
               rhits_to_primer <- remapHits(rhits, query.map = factor(remaining, 
-                                           levels = c(1:max(remaining))),
+                                           levels = c(1:length(bam))),
                                            subject.map = factor(subjectHits(dj_to_primer), 
-                                           levels = c(1:max(subjectHits(dj_to_primer)))))
+                                           levels = c(1:length(primers))))
               if (verbose){
                 rhitsl <- length(unique(rhits@queryHits))   
                 cat(sprintf("Of the %s reads that do not exactly match a pcr region,

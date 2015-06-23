@@ -600,7 +600,7 @@ Return value:
   A ggplot2 plot object.  Call "print(obj)" to display  
 '    
     
-    cig_freqs <- .self$.getFilteredCigarTable(top.n, min.freq, min.count)
+    cig_freqs <- .self$.getFilteredCigarTable(top.n, min.count, min.freq)
     # If there are no chimeric alignments, drop "Other"
     if ("Other" %in% rownames(cig_freqs)){
       cig_freqs <- cig_freqs[rownames(cig_freqs) != "Other",, drop = FALSE]
