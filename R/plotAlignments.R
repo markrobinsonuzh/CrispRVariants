@@ -27,7 +27,7 @@ setGeneric("plotAlignments", function(obj, ...) {
 #'data("gol_clutch1") 
 #'plotAlignments(gol)
 setMethod("plotAlignments", signature("CrisprSet"),  
-          function(obj, ..., min.freq = 0, min.count = 0, 
+          function(obj, ..., min.freq = 0, min.count = 1, 
                    top.n = 50, renumbered = obj$pars["renumbered"],
                    add.other = TRUE) {
             
@@ -194,8 +194,11 @@ setMethod("plotAlignments", signature("DNAString"),
     seqs <- ins.sites[!is.na(ins_ord),"seq"]
     splits <- split(ins_points$seq, xy_locs)
     x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
+    print("before collapsing")
+    print(x)
+    print(max(sapply(x,nchar)))
     
-    key_sep <- max(max(sapply(splits, length))) + 0.5
+    #key_sep <- max(max(sapply(splits, length))) + 0.5
     
     # Collapse sequences longer than max.insertion.size
     x <- lapply(splits, function(y){
@@ -203,7 +206,7 @@ setMethod("plotAlignments", signature("DNAString"),
       if (length(result) > 1){
         xlen <- nchar(result[1])
         if (xlen > max.insertion.size){
-          result <- sprintf("%sI (%s alleles)", xlen, length(result))
+          result <- sprintf("%sI (%s common alleles)", xlen, length(result))
         } else {
           result <- paste(result, collapse = ",\n")
         } 
@@ -218,7 +221,6 @@ setMethod("plotAlignments", signature("DNAString"),
     max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
     #########
-    
     
     ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
     ins_points$seq <- new_seqs

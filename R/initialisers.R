@@ -311,11 +311,30 @@ separateChimeras <- function(bam, targets, tolerance = 100,
   # chimeric reads. Tolerance is added on both sides
   # A better approach might be to explicitly consider where chimeras
   # join w.r.t read
+  # Worth warning if there are chimeras independent of the guide?
   
   # Find chimeras
   ch_idxs <- findChimeras(bam, by.flag)
   chimeras <- bam[ch_idxs]
-
+  original_ln <- length(chimeras)
+  
+  # If the target is completely contained within one member of the
+  # chimeric set (two if paired), do not count it as a chimera
+  guide_within <- subjectHits(findOverlaps(targets, chimeras, 
+                              ignore.strand = TRUE, type = "within"))
+  ordered <- unique(guide_within[order(guide_within)])
+  
+  lns_rle <- rle(names(chimeras)[ordered])$lengths
+  grps <- rep(1:length(lns_rle), lns_rle)
+  is_first <- paste(grps, bitwAnd(mcols(chimeras)$flag[ordered], 64),
+                    sep = ".")
+  not_dup <- !(duplicated(is_first) | duplicated(is_first, fromLast = TRUE))
+  
+  # Remove all chimeras with guides included from the chimeric sets
+  non_ch <- names(chimeras) %in% names(chimeras)[ordered][not_dup]
+  ch_idxs <- ch_idxs[!non_ch] 
+  chimeras <- bam[ch_idxs]
+  
   # Assign chimeras to targets
   tgt_plus_tol <- targets + tolerance
   hits <- findOverlaps(chimeras, tgt_plus_tol, ignore.strand = TRUE)
@@ -340,9 +359,13 @@ separateChimeras <- function(bam, targets, tolerance = 100,
     n_dup <- sum(duplicated(ibp) | duplicated(ibp, fromLast = TRUE))
     pct_inc <- n_inc/n_total * 100
     pct_multi <- n_dup/n_total * 100
-    cat(sprintf(paste0("%s from %s (%.2f%%) chimeric reads included\n",
+    removed <- length(chimeras) - original_ln
+    rm_pct <- removed/original_ln * 100
+    cat(sprintf(paste0("%s from %s (%.2f%%) chimeras did not involve guide\n",
+                       "%s from %s (%.2f%%) remaining chimeric reads included\n",
                        "%s (%.2f%%) assigned to more than one target\n"),
-                n_inc, n_total, pct_inc, n_dup, pct_multi))  
+                removed, original_ln, rm_pct, n_inc, n_total, 
+                pct_inc, n_dup, pct_multi))  
   }
   
   # Remove chimeras from the bam

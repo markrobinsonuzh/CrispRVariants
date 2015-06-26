@@ -10,7 +10,8 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param col.sums Include a row of column totals at the top of the
 #'plot (Default: TRUE)
 #'@param header Alternative column titles, e.g. column sums
-#'for the unfiltered data set (Default: NULL)
+#'for the unfiltered data set (Default: NULL).  If as.percent is true,
+#'header is assumed to be column sums for the full data set.
 #'@param group Grouping factor for columns.  If supplied, columns are
 #'ordered to match the levels  (Default: NULL)
 #'@param group.colours Colours for column groups, should match levels of "group".
@@ -30,19 +31,23 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param ... additional arguments
 #'@return The ggplot2 plot of the variant frequencies 
 setMethod("plotFreqHeatmap", signature("matrix"),  
-          function(obj, ..., col.sums = TRUE, header = NULL, group = NULL,
-                   group.colours = NULL, as.percent = TRUE, x.axis.title = NULL,
-                   x.size = 6, y.size = 8, x.angle = 90, legend.text.size = 6,
-                   plot.text.size = 2, line.width = 1, legend.position = "right",
+          function(obj, ..., col.sums = TRUE, header = NULL, 
+                   group = NULL, group.colours = NULL, as.percent = TRUE, 
+                   x.axis.title = NULL, x.size = 6, y.size = 8, x.angle = 90, 
+                   legend.text.size = 6, plot.text.size = 2, line.width = 1, 
+                   legend.position = "right",
                    legend.key.height = grid::unit(2, "lines")) {            
   
-  # Make space for totals to be added
+  # To do: Allow a separate object for colours          
+  #'param colour.vals A matrix of the same dimensions as obj containing 
+  #'numbers that will be used to colour the heatmap.               
+            
+  # Make space for totals to be added (either header or col.sums)
   if (length(header) == ncol(obj)){
     col.sums <- TRUE
   } else if (length(header) > 0){
     stop("Header length should equal to the number of columns of obj")
   }
-  
   if (col.sums == TRUE){
     obj <- rbind(Total = rep(NA, ncol(obj)), obj)
   }
@@ -54,7 +59,9 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     obj <- obj[,order(group), drop = FALSE] 
     group <- group[order(group)]
     
+    # if group.colours are not provided, use defaults
     if (is.null(group.colours)){
+      # defaults are different colours, mostly dark shades
       clrs <- c("#332288","#661100","#117733","#882255","#D55E00", 
                 "#0072B2","#AA4499","#009E73","#56B4E9","#CC79A7",
                 "#44AA99","#999933","#CC6677","#E69F00","#88CCEE")
@@ -70,7 +77,13 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   
   # Create coloured tile background
   if (as.percent == TRUE){
-    m <- apply(obj, 2, function(x) x/sum(na.omit(x)))  
+    # If a header is provided, assume it is col sums for the entire data set
+    if (length(header) > 0){
+      totals <- as.numeric(header)
+    } else {
+      totals <- colSums(na.omit(obj))
+    }
+    m <- t(t(obj)/totals)
     m <- melt(m)
     colnames(m) <- c("Feature", "Sample","Percentage")  
     m$Feature <- factor(m$Feature, levels = rev(levels(m$Feature)))
@@ -154,7 +167,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'# Plot the frequency heatmap
 #'plotFreqHeatmap(gol)
 setMethod("plotFreqHeatmap", signature("CrisprSet"),  
-          function(obj, ..., top.n = 50, min.freq = 0, min.count = 0, 
+          function(obj, ..., top.n = 50, min.freq = 0, min.count = 1, 
                    type = c("counts", "proportions")) {
   
   result <- obj$heatmapCigarFreqs(top.n = top.n, min.freq = min.freq,

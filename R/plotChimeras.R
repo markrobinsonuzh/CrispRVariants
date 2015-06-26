@@ -49,6 +49,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   # TO DO?
   # - extend y-axis to annotate regions that are close but not spanned
   # - label the chromosomal regions
+  # Count soft-clipped bases at ends?
   
   # Sort chromosomes by minimum read start of any segment on each chr
   temp_cigs <- cigarRangesAlongQuerySpace(cigar(chimeric.alns))
@@ -77,7 +78,6 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   # Extract match ranges, these will be plotted
   ops <- CharacterList(explodeCigarOps(cigars))
   query_ranges <- cigarRangesAlongQuerySpace(cigars)
-
   
   # Find all "M" operations (runs of aligned bases)
   mm <- ops == "M"
@@ -244,7 +244,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   annot_aln <- annotations[queryHits(findOverlaps(annotations, aln_ranges,
                                   type = "within"))]
   
-  gap_ranges <- gaps(aln_ranges, start = start(aln_ranges))
+  gap_ranges <- gaps(aln_ranges, start = min(start(aln_ranges)))
   a_to_gap <- findOverlaps(annotations, gap_ranges)
   
   # How far is annotation through gap range as a percentage 

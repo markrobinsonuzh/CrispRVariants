@@ -224,7 +224,7 @@ Input parameters:
   },
   
   .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), 
-                                    min.count = 0, min.freq = 0, 
+                                    min.count = 1, min.freq = 0, 
                                     include.chimeras = TRUE, 
                                     include.nonvariant = TRUE,
                                     type = c("counts", "proportions")){
@@ -238,7 +238,7 @@ Input parameters:
       })
     
       m <- .self$cigar_freqs
-      if (length(m) > 0){
+      if (length(m) > 0 & sum(ch_cnts) > 0){
         m_nms <- rownames(m)
         m <- rbind(m, ch_cnts)
         rownames(m) <- c(m_nms, "Other")
@@ -568,12 +568,12 @@ Return value:
     p <- plotFreqHeatmap(cig_freqs, header = header, as.percent = as.percent, 
                          x.size = x.size, y.size = y.size, 
                          x.axis.title = x.axis.title,
-                         x.angle = x.angle, ...)
+                         x.angle = x.angle, add.other = TRUE, ...)
     return(p)
   },
   
   plotVariants = function(min.freq = 0, min.count = 0, top.n = nrow(.self$cigar_freqs), 
-                   renumbered = .self$pars["renumbered"], add.other = TRUE, ...){
+                   renumbered = .self$pars["renumbered"], add.other = add.other, ...){
 '
 Description:
   Wrapper for crispRvariants:plotAlignments, optionally filters the table 
