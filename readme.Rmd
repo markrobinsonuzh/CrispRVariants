@@ -14,8 +14,11 @@ identifying sequences that differ from the reference sequence.
 
 # Installation
 
-crispRvariants can be installed using devtools::install_githup("markrobinsonuzh/crispRvariants"),
-or by downloading the source package and installing with repos=NULL
+Assuming the devtools package is installed, crispRvariants can be installed using:
+```{r eval=FALSE}
+devtools::install_githup("markrobinsonuzh/crispRvariants")
+```
+  or by downloading the source package and installing with repos=NULL
 
 # Quickstart guide
 
