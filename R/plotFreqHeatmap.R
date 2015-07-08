@@ -57,6 +57,9 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     if (! class(group) == "factor") group <- factor(group, levels = unique(group)) 
     
     obj <- obj[,order(group), drop = FALSE] 
+    if (length(header) > 1){
+      header <- header[order(group)]
+    }
     group <- group[order(group)]
     
     # if group.colours are not provided, use defaults
@@ -83,8 +86,8 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     } else {
       totals <- colSums(na.omit(obj))
     }
-    m <- t(t(obj)/totals)
-    m <- melt(m)
+    m <- t(t(obj)/totals) * 100
+    m <- reshape2::melt(m)
     colnames(m) <- c("Feature", "Sample","Percentage")  
     m$Feature <- factor(m$Feature, levels = rev(levels(m$Feature)))
     g <- ggplot(m, aes(x = Sample, y = Feature, fill = Percentage)) + geom_tile()

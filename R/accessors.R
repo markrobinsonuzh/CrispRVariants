@@ -28,11 +28,11 @@ setGeneric("variantCounts", function(obj, ...) {
 #'#Return a matrix of the 5 most frequent variants
 #'variantCounts(gol, top.n = 5)
 setMethod("variantCounts", signature("CrisprSet"),
-          function(obj, ..., top.n = NULL, min.freq = 0, min.count = 0, 
+          function(obj, ..., top.n = NULL, min.freq = 0, min.count = 1, 
               include.chimeras = TRUE, include.nonvariant=TRUE,
               result= "counts"){
     
-    if (is.null(top.n) & freq.cutoff == 0){
+    if (is.null(top.n) & min.freq == 0){
         return(obj$.getFilteredCigarTable(include.chimeras = include.chimeras,
                                           include.nonvariant=include.nonvariant))
     }

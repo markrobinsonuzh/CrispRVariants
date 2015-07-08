@@ -242,7 +242,7 @@ Input parameters:
         m_nms <- rownames(m)
         m <- rbind(m, ch_cnts)
         rownames(m) <- c(m_nms, "Other")
-      } else {
+      } else if (length(m) == 0){
         m <- matrix(ch_cnts, nrow = 1, dimnames =list("Other", names(ch_cnts)))
       }
       # If all rows should be returned, add 1 to top.n
