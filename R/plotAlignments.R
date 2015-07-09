@@ -194,9 +194,6 @@ setMethod("plotAlignments", signature("DNAString"),
     seqs <- ins.sites[!is.na(ins_ord),"seq"]
     splits <- split(ins_points$seq, xy_locs)
     x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
-    print("before collapsing")
-    print(x)
-    print(max(sapply(x,nchar)))
     
     #key_sep <- max(max(sapply(splits, length))) + 0.5
     

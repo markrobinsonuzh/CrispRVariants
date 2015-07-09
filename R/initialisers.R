@@ -54,9 +54,16 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
                    chimeras = NULL, collapse.pairs = FALSE, use.consensus = FALSE, 
                    store.chimeras = FALSE, verbose = FALSE, name = NULL){
+
             
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
+            }
+            
+            dots <- list(...)
+            keep.unpaired <- TRUE
+            if ("keep.unpaired" %in% names(dots)){
+              keep.unpaired <- dots["keep.unpaired"]
             }
             
             if (length(reads) == 0){
@@ -119,7 +126,8 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             
             if (collapse.pairs == TRUE){
               result <- collapsePairs(bam, genome.ranges = result$genome.ranges, 
-                                      use.consensus = use.consensus, verbose = verbose)
+                                      use.consensus = use.consensus, 
+                                      keep.unpaired = keep.unpaired, verbose = verbose)
             }
             
             if (length(result) == 0){
@@ -270,6 +278,14 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               byPCR <- list(bamByPCR = bamByPCR, chimerasByPCR = chimerasByPCR)
               byPCR
             }, BPPARAM = bpparam)
+                    
+            # Remove any empty alignments 
+            to_keep <- which(lapply(byPCR, length) > 0)
+            byPCR <- byPCR[to_keep]
+            names <- names[to_keep]
+            if (length(names) == 0){
+              stop("No files contain on target reads")
+            }
             
             # Reformat to list by guides instead of samples
             tlist <- function(i) {
@@ -295,11 +311,17 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               cset <- alnsToCrisprSet(bams, ref, tgt, reverse.complement, 
                          collapse.pairs, names, use.consensus, verbose, 
                          chimeras = chs, ...)
-            }, BPPARAM = bpparam)
+            }, BPPARAM = bpparam)            
+            
+            if (length(result) == 0){
+              warning("No reads span a target")
+              return(result)
+            }
             
             if (!is.null(names(targets))) {
               names(result) <- names(targets)
             }
+            
             result <- result[!sapply(result, is.null)]
             return(result)
           })
@@ -318,11 +340,19 @@ separateChimeras <- function(bam, targets, tolerance = 100,
   chimeras <- bam[ch_idxs]
   original_ln <- length(chimeras)
   
+  # Setup return data
+  chimerasByPCR <- vector("list", length(targets)) 
+  names(chimerasByPCR) <- as.character(seq_along(targets))
+  
   # If the target is completely contained within one member of the
   # chimeric set (two if paired), do not count it as a chimera
   guide_within <- subjectHits(findOverlaps(targets, chimeras, 
                               ignore.strand = TRUE, type = "within"))
   ordered <- unique(guide_within[order(guide_within)])
+  
+  if (length(ordered) == 0){
+    return(list(bam = bam, chimerasByPCR = chimerasByPCR))
+  }
   
   lns_rle <- rle(names(chimeras)[ordered])$lengths
   grps <- rep(1:length(lns_rle), lns_rle)
@@ -348,8 +378,6 @@ separateChimeras <- function(bam, targets, tolerance = 100,
   ibp <- unlist(idx_by_primer)
 
   alnsByPCR <- lapply(idx_by_primer, function(ids){ bam[ids]})
-  chimerasByPCR <- vector("list", length(targets)) 
-  names(chimerasByPCR) <- as.character(seq_along(targets))
   chimerasByPCR[names(splits)] <- alnsByPCR
   
   if (verbose == TRUE){
@@ -359,7 +387,8 @@ separateChimeras <- function(bam, targets, tolerance = 100,
     n_dup <- sum(duplicated(ibp) | duplicated(ibp, fromLast = TRUE))
     pct_inc <- n_inc/n_total * 100
     pct_multi <- n_dup/n_total * 100
-    removed <- length(chimeras) - original_ln
+    removed <- original_ln - length(chimeras)
+    
     rm_pct <- removed/original_ln * 100
     cat(sprintf(paste0("%s from %s (%.2f%%) chimeras did not involve guide\n",
                        "%s from %s (%.2f%%) remaining chimeric reads included\n",
