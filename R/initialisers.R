@@ -162,7 +162,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
           function(reads, target, ..., reference, reverse.complement = TRUE, 
                    exclude.ranges = GRanges(), exclude.names = NA,
                    chimeras = c("ignore","exclude","count", "merge"),
-                   collapse.pairs = FALSE, use.consensus = TRUE, 
+                   collapse.pairs = FALSE, use.consensus = FALSE, 
                    names = NULL, verbose = FALSE){  
             
             # Make sure the reference sequence consists of one sequence
@@ -209,7 +209,8 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'@param bpparam A BiocParallel parameter for parallelising across reads.  
 #'Default: no parallelisation.  (See \code{\link[BiocParallel]{bpparam}})
 #'@param chimera.to.target Number of bases that may separate a chimeric read 
-#'set from the target for it to be assigned to the target. (Default: 100)
+#'set from the target for it to be assigned to the target. If primer.ranges 
+#'are available, these are used instead. (Default: 100)
 #'@rdname readsToTarget
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
@@ -222,6 +223,9 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               if (! (length(primer.ranges) == length(targets))){
                 stop("primer.ranges should contain one range per target")
               }
+            }
+            if (length(primer.ranges) > 0 & length(primer.ranges) != length(targets)){
+              stop("primer.ranges should be the entire amplified regions, one per target")
             }
             if (is.null(names)){
               names <- reads
@@ -242,7 +246,14 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               } 
          
               if (verbose) cat(sprintf("Assigning chimeric reads to targets \n"))
-              temp <- separateChimeras(bam, targets, chimera.to.target, 
+             
+              ch_tgts <- targets
+              if (! is.null(primer.ranges)){
+                chimera.to.target <- 0
+                ch_tgts <- primer.ranges
+              }
+              
+              temp <- separateChimeras(bam, ch_tgts, chimera.to.target, 
                           by.flag = collapse.pairs, verbose = verbose)
               bam <- temp$bam
               chimerasByPCR <- temp$chimeras
@@ -345,30 +356,32 @@ separateChimeras <- function(bam, targets, tolerance = 100,
   names(chimerasByPCR) <- as.character(seq_along(targets))
   
   # If the target is completely contained within one member of the
-  # chimeric set (two if paired), do not count it as a chimera
+  # chimeric set (two members if paired), do not count it as a chimera
   guide_within <- subjectHits(findOverlaps(targets, chimeras, 
                               ignore.strand = TRUE, type = "within"))
   ordered <- unique(guide_within[order(guide_within)])
   
-  if (length(ordered) == 0){
-    return(list(bam = bam, chimerasByPCR = chimerasByPCR))
+  # If any targets contained within a chimeric read, remove all members of set 
+  if (length(ordered) > 0){
+    lns_rle <- rle(names(chimeras)[ordered])$lengths
+    grps <- rep(1:length(lns_rle), lns_rle)
+    is_first <- paste(grps, bitwAnd(mcols(chimeras)$flag[ordered], 64),
+                      sep = ".")
+    not_dup <- !(duplicated(is_first) | duplicated(is_first, fromLast = TRUE))
+  
+    # Remove all chimeras with guides included from the chimeric sets
+    non_ch <- names(chimeras) %in% names(chimeras)[ordered][not_dup]
+    ch_idxs <- ch_idxs[!non_ch] 
+    chimeras <- bam[ch_idxs]
   }
-  
-  lns_rle <- rle(names(chimeras)[ordered])$lengths
-  grps <- rep(1:length(lns_rle), lns_rle)
-  is_first <- paste(grps, bitwAnd(mcols(chimeras)$flag[ordered], 64),
-                    sep = ".")
-  not_dup <- !(duplicated(is_first) | duplicated(is_first, fromLast = TRUE))
-  
-  # Remove all chimeras with guides included from the chimeric sets
-  non_ch <- names(chimeras) %in% names(chimeras)[ordered][not_dup]
-  ch_idxs <- ch_idxs[!non_ch] 
-  chimeras <- bam[ch_idxs]
   
   # Assign chimeras to targets
   tgt_plus_tol <- targets + tolerance
   hits <- findOverlaps(chimeras, tgt_plus_tol, ignore.strand = TRUE)
-  splits <- split(queryHits(hits), subjectHits(hits))
+  # Exclude members that match multiple targets
+  is_dup <- duplicated(queryHits(hits)) | duplicated(queryHits(hits), fromLast = TRUE)
+  hits <- hits[!is_dup]
+  splits <- split(queryHits(hits), subjectHits(hits))  
   
   #For each hit, collect all alignments with the same name
   idx_by_primer <- lapply(splits, function(idxs){
