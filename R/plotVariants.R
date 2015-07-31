@@ -7,7 +7,7 @@ setGeneric("plotVariants", function(obj, ...) {
   standardGeneric("plotVariants")})
 
 #'@rdname plotVariants
-#'@param txdb GenomicFeatures:TxDb object
+#'@param txdb GenomicFeatures:TxDb object (default: NULL)
 #'@param plotAlignments.args Extra arguments for plotAlignments
 #'@param plotFreqHeatmap.args Extra arguments for plotFreqHeatmap
 #'@param add.chr If target chromosome does not start with "chr", e.g. 
@@ -40,12 +40,17 @@ setGeneric("plotVariants", function(obj, ...) {
 #'                  left.plot.margin = grid::unit(c(0.1,0,0.5,1), "lines"))
 #'
 setMethod("plotVariants", signature("CrisprSet"),  
-          function(obj, ..., txdb, add.chr = TRUE, 
+          function(obj, ..., txdb = NULL, add.chr = TRUE, 
                    plotAlignments.args = list(),
                    plotFreqHeatmap.args = list()){
    
+  include_txs <- TRUE
   if(!(class(txdb) == "TxDb" | class(txdb) == "TranscriptDb") ){
-    stop("txdb should be a (GenomicFeatures) transcript database object")
+    if (is.null(txdb)){
+      include_txs <- FALSE
+    } else{
+      stop("txdb should be a (GenomicFeatures) transcript database object")
+    }
   }
   
   dots <- list(...)
@@ -57,7 +62,7 @@ setMethod("plotVariants", signature("CrisprSet"),
   arrange_args <- dots[names(dots) %in% arrange_nms]
   
   target <- obj$target
-  if (add.chr == TRUE){
+  if (add.chr == TRUE & include_txs == TRUE){
     # If adding "chr" to target chromosomes matches txdb chromosomes, do so
     target_levels <- seqlevels(target)
     txdb_levels <- seqlevels(txdb)
@@ -66,13 +71,25 @@ setMethod("plotVariants", signature("CrisprSet"),
     target_levels[idxs] <- wchr[idxs]  
     target <- renameSeqlevels(target, target_levels)
   }
-  annotate_args <- modifyList(list(txdb = txdb, target = target), annotate_args)
-  gene_p <- do.call(annotateGenePlot, annotate_args)
+  
+  if (include_txs == TRUE){
+    annotate_args <- modifyList(list(txdb = txdb, target = target), annotate_args)
+    gene_p <- do.call(annotateGenePlot, annotate_args)
+  } else {
+    arrange_args["row.ht.ratio"] <- c(0,1)
+    gene_p <- grid::grid.rect(gp=grid::gpar(col="white"), draw = FALSE)
+  }
   
   plotAlignments.args$obj = obj
   aln_p <- do.call(plotAlignments, plotAlignments.args)
+  aln_p <- aln_p + theme(legend.margin=unit(-0.5,"cm"))
+  
   plotFreqHeatmap.args$obj = obj
   heat_p <- do.call(plotFreqHeatmap, plotFreqHeatmap.args) 
+  heat_p <- heat_p + theme(plot.background=element_rect(fill = "transparent",
+                                                        colour = NA),
+                           plot.margin = unit(c(1, 1, 0.5, 0), "lines"))
+  
   arrange_args = modifyList(list(top.plot = gene_p, left.plot = aln_p, 
                                  right.plot = heat_p), arrange_args)
   result <- do.call(arrangePlots, arrange_args)

@@ -8,8 +8,9 @@
 \usage{
 variantCounts(obj, ...)
 
-\S4method{variantCounts}{CrisprSet}(obj, ..., top.n = NULL, freq.cutoff = 1,
-  include.chimeras = TRUE)
+\S4method{variantCounts}{CrisprSet}(obj, ..., top.n = NULL, min.freq = 0,
+  min.count = 1, include.chimeras = TRUE, include.nonvariant = TRUE,
+  result = "counts")
 }
 \arguments{
 \item{obj}{An object containing variant counts}
@@ -19,11 +20,20 @@ variantCounts(obj, ...)
 \item{top.n}{(Integer n) If specified, return variants ranked at least n according
 to frequency across all samples (Default: 0, i.e. no cutoff)}
 
-\item{freq.cutoff}{(Integer n) Return variants with total count greater than or
-equal to n}
+\item{min.freq}{(Float n%) Return variants with frequency at least n% in at
+least one sample (Default: 0)}
+
+\item{min.count}{(Integer n) Return variants with count greater than n
+in at least one sample (Default: 0)}
 
 \item{include.chimeras}{Should chimeric reads be included in the counts table?
 (Default: TRUE)}
+
+\item{include.nonvariant}{Should sequences without indels be returned?
+(Default:TRUE)}
+
+\item{result}{Return variants as either counts ("counts", default) or
+proportions ("proportions")}
 }
 \value{
 A matrix of counts where rows are variants and columns are samples

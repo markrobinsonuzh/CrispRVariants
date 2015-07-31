@@ -23,7 +23,7 @@
 #'@param target.loc The location of the Cas9 cut site with respect to the supplied target.
 #'(Or some other central location).  Can be displayed on plots and used as the zero point 
 #'for renumbering variants. For a target region with the PAM location from bases 21-23, 
-#'the target.loc is base 18 (default: NA)
+#'the target.loc is base 17 (default: NA)
 #'@param match.label Label for sequences with no variants (default: "no variant")
 #'@param mismatch.label Label for sequences with only single nucleotide variants 
 #'  (default: "SNV")
@@ -166,6 +166,8 @@ CrisprSet$methods(
     }
     
     unique_cigars <- unique(unlist(cig_by_run))  
+    
+    chimera_combs <- lapply(.self$crispr_runs, function(crun) crun$chimera_combs)
     
     m <- matrix(unlist(lapply(cig_by_run, function(x) table(x)[unique_cigars])), 
                 nrow = length(unique_cigars), 
@@ -548,17 +550,18 @@ Return value:
     return(data.frame(Allele = alleles, Sample = names(alleles)))
   },
   
-  heatmapCigarFreqs = function(as.percent = FALSE, x.size = 8, y.size = 8, 
+  heatmapCigarFreqs = function(as.percent = TRUE, x.size = 8, y.size = 8, 
                                x.axis.title = NULL, x.angle = 90,  
                                min.freq = 0, min.count = 0, 
                                top.n = nrow(.self$cigar_freqs), 
-                               type = "counts", ...){
+                               type = c("counts", "proportions"), ...){
     
     # Doesn't currently allow option to exclude non-variant
     
     cig_freqs <- .self$.getFilteredCigarTable(top.n, min.count, min.freq, 
                                               type = type)
     header <- NULL
+    type <- match.arg(type)
     if (type == "counts"){ header <- colSums(.self$.getFilteredCigarTable())
     } else if (type == "proportions"){
       header <- round(colSums(cig_freqs), 2)

@@ -30,11 +30,11 @@ setGeneric("variantCounts", function(obj, ...) {
 setMethod("variantCounts", signature("CrisprSet"),
           function(obj, ..., top.n = NULL, min.freq = 0, min.count = 1, 
               include.chimeras = TRUE, include.nonvariant=TRUE,
-              result= "counts"){
+              result = "counts"){
     
     if (is.null(top.n) & min.freq == 0){
         return(obj$.getFilteredCigarTable(include.chimeras = include.chimeras,
-                                          include.nonvariant=include.nonvariant))
+                                          include.nonvariant = include.nonvariant))
     }
     
     top.n <- ifelse(is.null(top.n), nrow(obj$cigar_freqs), top.n)

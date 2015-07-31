@@ -95,10 +95,17 @@ mergeChimeras <- function(bam){
   # add insertions for read gaps
   rgaps <- sprintf("%sI", read_gaps)
   rgaps[change_pts] <- ""
-  rgaps[rgaps == "0I"] <- ""
+  # have already chopped negative gaps, do not create insertions for these 
+  rgaps[read_gaps < 1] <- ""
   
   new_cigars <- paste0(rgaps, new_cigars)
   new_cigars <- paste0(new_cigars, ggaps)
+
+  ### OR:
+  # for chimeras with max 2 pieces
+  # genomic target loc - left end: paste(rgaps, ggaps)
+  
+  
 
   # Paste all cigars from a chimeric set together
   new_cigars <- aggregate(new_cigars, list(names(chimeras)), FUN = paste0, collapse = "")$x

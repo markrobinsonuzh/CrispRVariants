@@ -131,7 +131,12 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   
   # No colour bar legend if the max count is 1
   if (max(counts$Count) > 1){
-    g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "legend") 
+    if (as.percent == TRUE){
+      g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", 
+                                    guide = "legend", limits = c(0, 100))
+    } else {
+      g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "legend") 
+    }
   } else {
     g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "none")
   }

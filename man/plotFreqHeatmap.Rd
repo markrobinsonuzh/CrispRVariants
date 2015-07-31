@@ -9,15 +9,14 @@
 \usage{
 plotFreqHeatmap(obj, ...)
 
-\S4method{plotFreqHeatmap}{matrix}(obj, ..., col.sums = TRUE,
-  row.sums = FALSE, group = NULL, group.colours = NULL,
-  as.percent = TRUE, x.axis.title = NULL, x.size = 6, y.size = 8,
-  x.angle = 90, legend.text.size = 6, plot.text.size = 2,
-  line.width = 1, legend.position = "right",
-  legend.key.height = grid::unit(3, "lines"))
+\S4method{plotFreqHeatmap}{matrix}(obj, ..., col.sums = TRUE, header = NULL,
+  group = NULL, group.colours = NULL, as.percent = TRUE,
+  x.axis.title = NULL, x.size = 6, y.size = 8, x.angle = 90,
+  legend.text.size = 6, plot.text.size = 2, line.width = 1,
+  legend.position = "right", legend.key.height = grid::unit(2, "lines"))
 
-\S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = nrow(obj$cigar_freqs),
-  freq.cutoff = 0)
+\S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = 50, min.freq = 0,
+  min.count = 1, type = c("counts", "proportions"))
 }
 \arguments{
 \item{obj}{A matrix of counts with rows = feature, columns = sample}
@@ -27,7 +26,9 @@ plotFreqHeatmap(obj, ...)
 \item{col.sums}{Include a row of column totals at the top of the
 plot (Default: TRUE)}
 
-\item{row.sums}{Include a column of row totals (Default: FALSE)}
+\item{header}{Alternative column titles, e.g. column sums
+for the unfiltered data set (Default: NULL).  If as.percent is true,
+header is assumed to be column sums for the full data set.}
 
 \item{group}{Grouping factor for columns.  If supplied, columns are
 ordered to match the levels  (Default: NULL)}
@@ -58,10 +59,15 @@ per sample (TRUE) or the actual counts (FALSE)?  (Default: TRUE)}
 (See \code{\link[grid]{unit}}).}
 
 \item{top.n}{Show the n top ranked variants.  Note that if the nth and n+1th
-variants have equal rank, they will not be shown.   (Default: show all)}
+variants have equal rank, they will not be shown.   (Default: 50)}
 
-\item{freq.cutoff}{Show variants with frequency >= freq.cutoff
-(Default: 0, i.e. no cutoff)}
+\item{min.freq}{i (%) only plot variants with frequency >= i% in at least
+one sample (default: 0, i.e no frequency cutoff)}
+
+\item{min.count}{i (integer) only plot variants with count >= i in at least
+one sample (default: 0, i.e no count cutoff)}
+
+\item{type}{Plot either "counts" or "proportions"}
 }
 \value{
 The ggplot2 plot of the variant frequencies

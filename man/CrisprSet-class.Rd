@@ -33,7 +33,7 @@ target.loc.  A 3bp deletion starting 5bp 5' of the cut site would be labelled
 \item{target.loc}{The location of the Cas9 cut site with respect to the supplied target.
 (Or some other central location).  Can be displayed on plots and used as the zero point
 for renumbering variants. For a target region with the PAM location from bases 21-23,
-the target.loc is base 18 (default: NA)}
+the target.loc is base 17 (default: NA)}
 
 \item{match.label}{Label for sequences with no variants (default: "no variant")}
 
@@ -123,15 +123,17 @@ Input parameters:
 Return value:
   A vector of efficiency statistics per sample and overall}
 
-\item{\code{plotVariants(freq.cutoff = 1, top.n = nrow(.self$cigar_freqs),
-  renumbered = .self$pars["renumbered"], add.other = TRUE, ...)}}{Description:
+\item{\code{plotVariants(min.freq = 0, min.count = 0, top.n = nrow(.self$cigar_freqs),
+  renumbered = .self$pars["renumbered"], add.other = add.other, ...)}}{Description:
   Wrapper for crispRvariants:plotAlignments, optionally filters the table 
   of variants, then plots variants with respect to the reference sequence, 
   collapsing insertions and displaying insertion sequences below the plot.
 
 Input parameters:
-  freq.cutoff:      i (integer) only plot variants that occur >= i times
-                    (default: 0, i.e no frequency cutoff)
+  min.freq:         i(%) include variants that occur in at least i% of reads
+                    in at least one sample
+  min.count         i (integer) include variants that occur at leas i times in
+                    at least one sample
   top.n:            n (integer) Plot only the n most frequent variants 
                     (default: plot all)
                     Note that if there are ties in variant ranks, 

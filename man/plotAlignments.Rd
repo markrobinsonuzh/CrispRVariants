@@ -9,9 +9,8 @@
 \usage{
 plotAlignments(obj, ...)
 
-\S4method{plotAlignments}{CrisprSet}(obj, ..., freq.cutoff = 0,
-  top.n = nrow(obj$cigar_freqs), renumbered = obj$pars["renumbered"],
-  add.other = TRUE)
+\S4method{plotAlignments}{CrisprSet}(obj, ..., min.freq = 0, min.count = 1,
+  top.n = 50, renumbered = obj$pars["renumbered"], add.other = TRUE)
 
 \S4method{plotAlignments}{DNAString}(obj, ..., alns, ins.sites,
   highlight.pam = TRUE, show.plot = FALSE, target.loc = 17,
@@ -19,19 +18,22 @@ plotAlignments(obj, ...)
   xlab = NULL, xtick.labs = NULL, xtick.breaks = NULL,
   plot.text.size = 2, axis.text.size = 8, legend.text.size = 6,
   highlight.guide = TRUE, guide.loc = NULL, tile.height = 0.55,
-  max.insertion.size = 50, line.weight = 1, legend.symbol.size = ins.size,
-  add.other = FALSE)
+  max.insertion.size = 50, min.insertion.freq = 5, line.weight = 1,
+  legend.symbol.size = ins.size, add.other = FALSE)
 }
 \arguments{
 \item{obj}{The object to be plot}
 
 \item{...}{Additional arguments}
 
-\item{freq.cutoff}{i (integer) only plot variants that occur >= i times
-(default: 0, i.e no frequency cutoff)}
+\item{min.freq}{i (%) only plot variants with frequency >= i% in at least
+one sample (default: 0, i.e no frequency cutoff)}
+
+\item{min.count}{i (integer) only plot variants with count >= i in at least
+one sample (default: 0, i.e no count cutoff)}
 
 \item{top.n}{(integer) Plot only the n most frequent variants
-(default: plot all)}
+(default: 50)}
 
 \item{renumbered}{If TRUE, the x-axis is numbered with respect to the target
 (default: TRUE)}
@@ -89,6 +91,9 @@ plus PAM is 23bp (Default: NULL)}
 legend.  If max.insertion.size = n, an insertion of length m > n will
 be annotated as "mI" in the figure.  (Default: 50)}
 
+\item{min.insertion.freq}{Display inserted sequences with frequency at least x
+amongst the sequences with an insertion of this size and length (Default: 5)}
+
 \item{line.weight}{The line thickness for the vertical line indicating the
 zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)}
 
@@ -99,19 +104,19 @@ in the legend.  (Default: ins.size)}
 with plotFreqHeatmap (default: FALSE)}
 }
 \value{
-A ggplot figure
+A ggplot2 figure
 }
 \description{
 Plot alignments with respect to a reference sequence
 
-(signature("CrisprSet")) Wrapper for CrisprSet$plotVariants
+(signature("CrisprSet")) Wrapper for CrisprSet$plotVariants.
 Optionally filters a CrisprSet frequency table, then plots variants.
 More information in \code{\link[crispRvariants]{CrisprSet}}
 
 (signature("DNAString"))  Plots a set of pairwise alignments to a reference sequence.
 Alignments should all be the same length as the reference sequences.
 This is achieved by removing insertions with respect to the reference,
-see \code{\link[crispRvariants]{seqsToAln}} for these alignments.
+see \code{\link[crispRvariants]{seqsToAln}}.
 Insertions are indicated by symbols in the plot and a table showing the
 inserted sequences below the plot.  The default options are intended for a
 figure 6-8 inches wide, with figure height best chosen according to the number

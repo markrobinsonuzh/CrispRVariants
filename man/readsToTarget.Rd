@@ -4,6 +4,7 @@
 \name{readsToTarget}
 \alias{readsToTarget}
 \alias{readsToTarget,GAlignments,GRanges-method}
+\alias{readsToTarget,GAlignmentsList,GRanges-method}
 \alias{readsToTarget,character,GRanges-method}
 \alias{readsToTargets}
 \alias{readsToTargets,character,GRanges-method}
@@ -16,19 +17,24 @@ readsToTarget(reads, target, ...)
   use.consensus = FALSE, store.chimeras = FALSE, verbose = FALSE,
   name = NULL)
 
+\S4method{readsToTarget}{GAlignmentsList,GRanges}(reads, target, ...,
+  reference = reference, names = NULL, reverse.complement = TRUE,
+  target.loc = 17, chimeras = NULL, collapse.pairs = FALSE,
+  use.consensus = FALSE, verbose = FALSE)
+
 \S4method{readsToTarget}{character,GRanges}(reads, target, ..., reference,
-  reverse.complement = TRUE, exclude.ranges = GRanges(),
-  exclude.names = NA, chimeras = c("ignore", "exclude", "count", "merge"),
-  collapse.pairs = FALSE, use.consensus = TRUE, names = NULL,
+  reverse.complement = TRUE, target.loc = 17, exclude.ranges = GRanges(),
+  exclude.names = NA, chimeras = c("count", "exclude", "ignore", "merge"),
+  collapse.pairs = FALSE, use.consensus = FALSE, names = NULL,
   verbose = FALSE)
 
 readsToTargets(reads, targets, ...)
 
 \S4method{readsToTargets}{character,GRanges}(reads, targets, ..., references,
-  primer.ranges = NULL, reverse.complement = TRUE, collapse.pairs = FALSE,
-  use.consensus = TRUE, ignore.strand = TRUE, names = NULL,
-  bpparam = BiocParallel::SerialParam(), chimera.to.target = 100,
-  verbose = FALSE)
+  primer.ranges = NULL, target.loc = 17, reverse.complement = TRUE,
+  collapse.pairs = FALSE, use.consensus = FALSE, ignore.strand = TRUE,
+  names = NULL, bpparam = BiocParallel::SerialParam(),
+  chimera.to.target = 100, verbose = FALSE)
 }
 \arguments{
 \item{reads}{A GAlignments object, or a character vector of the filenames}
@@ -41,7 +47,7 @@ readsToTargets(reads, targets, ...)
 the strand of the target? (Default: TRUE)}
 
 \item{chimeras}{Flag to determine how chimeric reads are treated.  One of
-"ignore", "exclude", and "merge".  Default "ignore", "merge" not implemented yet}
+"ignore", "exclude", and "merge".  Default "count", "merge" not implemented yet}
 
 \item{collapse.pairs}{If reads are paired, should pairs be collapsed?  (Default: FALSE)
 Note: only collapses primary alignments, and assumes that there is only one primary
@@ -58,11 +64,13 @@ the sequence of the first read is used.  Can be very slow. (Default: FALSE)}
 
 \item{reference}{The reference sequence}
 
+\item{names}{Experiment names for each bam file.  If not supplied, filenames are used.}
+
+\item{target.loc}{The zero point for renumbering (Default: 17)}
+
 \item{exclude.ranges}{Ranges to exclude from consideration, e.g. homologous to a pcr primer.}
 
 \item{exclude.names}{Alignment names to exclude}
-
-\item{names}{Experiment names for each bam file.  If not supplied, filenames are used.}
 
 \item{targets}{A set of targets to narrow reads to}
 
@@ -80,7 +88,10 @@ they can be used to assign such reads to the correct target.}
 Default: no parallelisation.  (See \code{\link[BiocParallel]{bpparam}})}
 
 \item{chimera.to.target}{Number of bases that may separate a chimeric read
-set from the target for it to be assigned to the target. (Default: 100)}
+set from the target for it to be assigned to the target. If primer.ranges
+are available, these are used instead. (Default: 100)}
+
+\item{target.loc}{The zero point for renumbering (Default: 17)}
 }
 \value{
 (signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object

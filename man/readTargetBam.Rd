@@ -5,7 +5,7 @@
 \title{Internal crispRvariants function for reading and filtering a bam file}
 \usage{
 readTargetBam(file, target, exclude.ranges = GRanges(), exclude.names = NA,
-  chimeras = c("ignore", "exclude", "count", "merge"), by.flag = TRUE,
+  chimeras = c("count", "ignore", "exclude", "merge"), by.flag = TRUE,
   verbose = FALSE)
 }
 \arguments{

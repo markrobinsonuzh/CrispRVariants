@@ -37,7 +37,8 @@ CrisprRun = setRefClass(
              insertions = "data.frame",
              ins_key = "integer", 
              cigar_labels = "character",
-             chimeras = "GAlignments")
+             chimeras = "GAlignments",
+             chimera_combs = "data.frame")
 )
 
 CrisprRun$methods(
@@ -51,6 +52,8 @@ CrisprRun$methods(
     
     alns <<- bam
     chimeras <<- chimeras 
+    chimera_combs <<- .self$splitChimeras()
+    
     if (length(bam) == 0) { return() } 
     
     genome_ranges <<- genome.ranges
@@ -220,6 +223,15 @@ Description:
     return(TRUE)
   },
   
+  splitChimeras = function(){
+    splits <- split(cigar(.self$chimeras), names(.self$chimeras))
+    if (length(splits) == 0) return(data.frame())
+    combination <-sapply(splits, paste, collapse=";")
+    tt <- as.data.frame(table(combination))
+    tt <- tt[order(tt$Freq, decreasing = TRUE),]
+    return(tt)
+  },  
+
   getVariants = function(ref_genome, chrom = NULL, ensembl = FALSE, strand = "+"){
 '
 Description:

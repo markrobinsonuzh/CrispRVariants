@@ -41,6 +41,7 @@
 #'# The plot shows the alignment annot_alns a small duplication and 
 #'# a long gap.
 #'plotChimeras(chimeras)
+
 plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20, 
                          text.size = 10,  title.size = 16, gap.pad = 20,
                          legend.title = "Chromosome", xangle = 90, 
@@ -50,6 +51,8 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   # - extend y-axis to annotate regions that are close but not spanned
   # - label the chromosomal regions
   # Count soft-clipped bases at ends?
+  # Function for paired alignments? 
+  # (recall that crispRvariants does not currently use galignmentpairs)
   
   # Sort chromosomes by minimum read start of any segment on each chr
   temp_cigs <- cigarRangesAlongQuerySpace(cigar(chimeric.alns))
