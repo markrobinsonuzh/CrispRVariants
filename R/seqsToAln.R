@@ -17,20 +17,17 @@
 #'@param target_end Genomic end of the region to be returned.
 #'@return The sequences with insertions collapsed and deletions padded
 #'
-seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_start = NULL, 
-                      target_end = NULL){
+seqsToAln <- function(cigar, dnaseq, target, del_char = "-", aln_start = NULL){
   # TO DO - CHECK THAT THIS IS VECTORISED
+  # HOW DOES SEQUENCELAYER DEAL WITH INSERTIONS?
   
-  # Remove insertion sequences
-  wrt_ref <- cigarRangesAlongReferenceSpace(cigar)[[1]]
-  wrt_read <- cigarRangesAlongQuerySpace(cigar)[[1]]
-  ops <- explodeCigarOps(cigar)[[1]]
-  segs <- as.character(Views(dnaseq, wrt_read))
-  segs[which(ops == "I")] <- ""
-  for (j in which(ops == "D")){
-    segs[j] <- paste0(rep(del_char, width(wrt_ref[j])), collapse = "")
-  }
-  result <- paste0(segs, collapse = "")
+  target_start <- start(target)
+  target_end <- end(target)
+  strand <- as.character(strand(target))
+  if (strand == "*") strand <- "+"
+
+  sqs <- sequenceLayer(dnaseq, cigar)
+  sq_len <- width(sqs)
   
   if (! is.null(aln_start) & ! is.null(target_start) & ! is.null(target_end) ){
     trim_start <- target_start - (aln_start - 1)
@@ -40,10 +37,14 @@ seqsToAln <- function(cigar, dnaseq, del_char = "-", aln_start = NULL, target_st
     }
     
     trim_end <- trim_start + (target_end - target_start)
-    if (trim_end < length(result)){
+    if any(trim_end > sq_len){
       stop("dnaseq is not long enough to trim to the target region")
     }
-    result <- subseq(result, trim_start,trim_end)
+    result <- subseq(sqs, trim_start,trim_end)
   }
+  if (strand == "-"){
+    result <- reverseComplement(result)
+  }
+  result <- as.character(result)
   result
 }

@@ -369,108 +369,52 @@ Result:
     vars
   },
   
-  getCigarLabels = function(short = TRUE, match_label = "no variant", 
-                            genome_to_target = NULL, rc = FALSE, target_start = NULL,
-                            target_end = NULL, ref = NULL, split_non_indel = TRUE, 
-                            mismatch_label = "SNV", cut.site = 18, upstream = 8, 
-                            downstream = 5){
+  getCigarLabels = function(target.loc, genome_to_target, ref,
+                             separate.snv = TRUE, match.label = "no variant",
+                             mismatch.label = "SNV",
+                             rc = FALSE, keep.ops = c("I","D","N"), upstream = 8, 
+                            downstream = min(5, width(ref) - cut_site)){
     
-    # Sets / returns cigar labels                        
-    # If short = only consider insertions and deletions (except for wildtype?)
-    
-    # genome_to_target, if provided, is a vector with names being genomic start coords
-    # and values being coords with respect to the target site  
-    
-    # Shorten? -> Renumber?  If not renumbered, record starting location when different from 
-    # target start
-    if (length(.self$alns) == 0) return(vector())
-    
-    if (! length(.self$cigar_labels) == 0){
-      return(.self$cigar_labels)
-    }
-    
-    # for default cigar (short = FALSE) and short cigar without renumbering:  
-    # indicate the starting location with respect to the target start if it is not the target
-    start_offset <- rep("", length(.self$alns))
-    
-    if (short == FALSE | is.null(genome_to_target)){
-      if (rc == TRUE){
-        # Note: genome_ranges for rc are written rightmost to leftmost
-        
-        start_offset <- target_end - unlist(lapply(.self$genome_ranges, function(x) max(end(x))),
-                                            use.names = FALSE)
-        start_offset_new <- target_end - max(end(.self$genome_ranges))
-        
-      } else {
-        start_offset <- unlist(lapply(.self$genome_ranges, function(x) min(start(x))), 
-                               use.names = FALSE) - target_start
-        start_offset_new <-  min(start(.self$genome_ranges)) - target_start 
-      }
-      is.nonzero <- start_offset != 0
-      start_offset[is.nonzero] <- sprintf("(%s)", start_offset[is.nonzero])
-      start_offset[! is.nonzero] <- ""       
-      
-      if ( short == FALSE ){
-        cigar_labels <<- paste0(start_offset, cigar(.self$alns))
-        return(.self$cigar_labels)
-      }
-    }
-    
-    #idxs <- .self$cigar_ops != "M"
-    #ops <- .self$cigar_ops[idxs]
-    #rranges <- .self$ref_ranges[idxs]
-    #qranges <- .self$query_ranges[idxs]
-    #cig_idxs <- rep(1:length(idxs), lapply(idxs, length))
-    
-    idxs <- lapply(.self$cigar_ops, function(x) which(x != "M"))
-    ops <- lapply(seq_along(idxs), function(i) .self$cigar_ops[[i]][idxs[[i]]])
-    rranges <- .self$ref_ranges[idxs]
-    qranges <- .self$query_ranges[idxs]
-    cig_idxs <- rep(1:length(idxs), lapply(idxs, length))   
-    
-    
-    if (is.null(genome_to_target)){
-      start <- unlist(start(rranges))
-      end <- unlist(end(rranges))
-    } else {
-      gen_ranges <- .self$genome_ranges[idxs]     
-      if (rc == FALSE){
-        start <- genome_to_target[as.character(unlist(start(gen_ranges)))]
-        end <- genome_to_target[as.character(unlist(end(gen_ranges)))]
-        
-      }else {
-        start <- genome_to_target[as.character(unlist(end(gen_ranges)))]
-        end <- genome_to_target[as.character(unlist(start(gen_ranges)))]
-      }
-    }
-    
-    info <- data.frame(op = unlist(ops), qwidth = unlist(width(qranges)), 
-                       start = start, end = end, rwidth = unlist(width(rranges)))
-    
-    getShortOp <- function(mutn){
-      if (mutn["op"] %in% c("N", "D")){ 
-        sprintf('%s:%sD', as.numeric(mutn["start"]), as.numeric(mutn["rwidth"]))
-      }else if (mutn["op"] == "I"){
-        sprintf('%s:%sI', as.numeric(mutn["start"]), as.numeric(mutn["qwidth"]))
-      } 
-    }
-    
-    result <- rep(match_label, length(idxs))
-    if (nrow(info) > 0) {
-      short_ops <- apply(info, 1, getShortOp)
-      short_ops <- split(short_ops, cig_idxs)
-      short_ops <- sapply(short_ops, function(x) do.call(paste, c(as.list(x),sep = ",")))
-      result[as.numeric(names(short_ops))] <- short_ops
-    }
-    if (split_non_indel){
-      result <- .splitNonIndel(ref, result, match_label, mismatch_label, cut.site, 
-                               upstream, downstream)
-    }
-    cigar_labels <<- result
-    result
-  },
+    # does this also work on alns list?
+    # character list faster than unlist/relist?
+    # get the ops of interest and the renumbering coordinates (genomic start for forward, end for rc)
   
-  .splitNonIndel = function(ref, cig_labels, match_label = "no variant", 
+    cigs <- cigar(.self$alns)
+    wdths <- explodeCigarOpLengths(cigs)
+    ops <- explodeCigarOps(cigs)
+    temp <- CharacterList(relist(paste0(unlist(wdths), unlist(ops)), wdths))
+    ops <- CharacterList(ops)  
+    keep <- ops %in% keep.ops
+  
+    rranges <- cigarRangesAlongReferenceSpace(cigs, pos = start(.self$alns))[keep]
+    # here get snvs, add snv ops
+  
+    if (rc == TRUE){
+      glocs <- end(rranges)
+    } else {
+      glocs <- start(rranges)
+    }  
+    temp <- paste(genome_to_target[as.character(unlist(glocs))],
+                  unlist(temp[keep]), sep = ":")
+    temp <- as.list(relist(temp, PartitioningByEnd(cumsum(sum(keep)))))
+    complex <- sum(keep) > 1
+    # Only reverse if rc == TRUE?
+    if (rc == TRUE){
+      temp[complex] <- sapply(temp[complex], function(x) paste(rev(x), collapse = ","))
+    } else {
+      temp[complex] <- sapply(temp[complex], paste, collapse = ",")
+    }
+    temp[sum(keep) == 0] <- match.label
+    renamed <- as.character(temp)
+    renamed <- .self$.splitNonIndel(ref, renamed, rc, match_label = match.label, 
+                                    mismatch_label = mismatch.label, cut_site = target.loc,
+                                    upstream = upstream, downstream = downstream)
+    
+    .self$field("cigar_labels", renamed)
+    return(renamed)
+  },
+
+  .splitNonIndel = function(ref, cig_labels, rc, match_label = "no variant", 
                           mismatch_label = "SNV", cut_site = 17, upstream = 8, 
                           downstream = min(5, width(ref) - cut_site)){
   
@@ -488,7 +432,10 @@ Result:
   }
   
   snv_range <- c((cut_site-upstream + 1):(cut_site + downstream))
-  no_var_seqs <- as.matrix(mcols(.self$alns)$seq[no_var])
+  sqs <- mcols(.self$alns)$seq[no_var]
+  if (rc == TRUE) sqs <- reverseComplement(sqs)
+
+  no_var_seqs <- as.matrix(sqs)
   no_var_seqs <- no_var_seqs[,snv_range, drop = FALSE]    
   
   rr <- strsplit(as.character(ref[snv_range]), "")[[1]]

@@ -610,89 +610,97 @@ setGeneric("narrowAlignments", function(alns, target, ...) {
 #'@rdname narrowAlignments 
 setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
           function(alns, target, ..., reverse.complement, verbose = FALSE){  
-            # Narrowing example:
-            # 3-4-5-6-7-8-9-10 Read
-            #     5-6-7-8      Target sequence
-            # target_start 5 - (read_start 3 - 1) = index 3
-            # target_end 8 - target_start 5 + cigstart 3 = index 
             
-            target_start <- start(target)
-            target_end <- end(target)
-            ref.ranges <- GenomicAlignments::cigarRangesAlongReferenceSpace(cigar(alns))
-            query.ranges <- GenomicAlignments::cigarRangesAlongQuerySpace(cigar(alns))
-            cig.ops <- GenomicAlignments::explodeCigarOps(cigar(alns))
-            cig.ops <- IRanges::CharacterList(cig.ops)
+    
+    ## CIGAR OF M ONLY WRONG??
             
-            if (verbose == TRUE) cat("finding deletions \n")
-            locs <- findDeletions(start(target), end(target), alns, ref.ranges, cig.ops)
-            if (verbose == TRUE) cat("narrowing alignments\n")
+    # alns must span target 
+    alns <- alns[start(alns) <= start(target) & end(alns) >= end(target)]
             
-            # Record how many bases before first aligned read    
-            clip_starts <- rep(0, length(alns))
-            is_clipped <- grepl("^[0-9]+[HS]", cigar(alns))
-            clip_starts[is_clipped] <- unlist(lapply(width(query.ranges[is_clipped]), '[[', 1))
+    # Narrowing example:
+    # 3-4-5-6-7-8-9-10 Read
+    #     5-6-7-8      Target sequence
+    # target_start 5 - (read_start 3 - 1) = index 3
+    # target_end 8 - target_start 5 + cigstart 3 = index 
             
-            temp <- GenomicAlignments::cigarNarrow(cigar(alns), locs$starts, locs$ends)  
-            new_starts <-  attr(temp, "rshift") + 1 + clip_starts 
-            # + 1 as rshift is number removed not starting point
-            # new_starts are read offsets wrt current genomic starts.
+    # Notes:
+    # Cannot directly narrow the alignments as the seqs aren't narrowed
             
-            # Account for insertions and deletions prior to the target site
-            # Need to adjust for deletions as new_starts derived wrt reference
-            prior <- start(ref.ranges) <= locs$start
-            prior_ins <- prior & cig.ops == "I"
-            prior_del <- prior & cig.ops == "D" 
-            new_starts <- new_starts + sum(width(query.ranges)[prior_ins])
-            new_starts <- new_starts - sum(width(ref.ranges)[prior_del])
+    if (verbose == TRUE) cat("narrowing alignments\n")
+            
+    ref_ranges <- GenomicAlignments::cigarRangesAlongReferenceSpace(cigar(alns))
+    genomic <- shift(ref_ranges, start(alns)-1) ### WHAT ABOUT CLIPPING??
+            
+    # is unlist/relist needed
+    # Find the on target operations
+    clipped <- unlist(explodeCigarOps(cigar(alns))) %in% c("S","H")
+    on_target <- unlist(start(genomic) <= end(target) & end(genomic) >= start(target))
+    on_target <- on_target & ! clipped
+    on_target <- relist(on_target, ref_ranges)
+            
+    # Make masks to pull out first and last on-target ranges
+    first_on_tg <- ! duplicated(on_target) & on_target
+    last_on_tg <- ! duplicated(on_target, fromLast = TRUE) & on_target
+            
+    # Find cases where the first or last on target operation is a match ("M")
+    ops <- unlist(explodeCigarOps(cigar(alns)))
+    first_op_m <- ops[unlist(first_on_tg)] == "M"
+    last_op_m <- ops[unlist(last_on_tg)] == "M"
+            
+    # Narrow border "M" operations to match target
+    # need to know where the target start (genomic) is wrt sequence (query) coordinates
+    q_ranges <- cigarRangesAlongQuerySpace(cigar(alns))
+    sq_starts <- start(q_ranges)[first_on_tg] 
+            
+    genomic_offset_fom <- start(target) - start(genomic)[first_on_tg][first_op_m] 
+    sq_starts[first_op_m] <- sq_starts[first_op_m] + genomic_offset_fom 
+    genomic_starts <- start(genomic)[first_on_tg]  
+    genomic_starts[first_op_m] <- start(target)
+            
+    sq_ends <- end(q_ranges)[last_on_tg]
+    genomic_offset_lom <- end(target) - start(genomic)[last_on_tg][last_op_m] 
+    sq_ends[last_op_m] <- start(q_ranges)[last_on_tg][last_op_m] + genomic_offset_lom
+             
+    # Adjust reference ranges to match
+    ref_ranges <- unlist(ref_ranges)  
+    is_first_m <- which(unlist(first_on_tg))[first_op_m]
+    start(ref_ranges[is_first_m]) <- as.integer(start(ref_ranges[is_first_m]) +
+                                                        genomic_offset_fom)
+            
+    is_last_m <- which(unlist(last_on_tg))[last_op_m]
+    end(ref_ranges[is_last_m]) <- as.integer(start(ref_ranges[is_last_m]) +
+                                                  genomic_offset_lom)
+            
+    # Get the width of on target reference ranges, recreate cigars
+    # The width is the reference range unless an insertion, in which case the query range
+    ref_ranges <- relist(ref_ranges, genomic)
+    ref_ranges <- ref_ranges[on_target]
+    qwdths <- unlist(width(q_ranges)[on_target])
+    wdths <- width(ref_ranges)
+    wdthl <- unlist(wdths)
+    opsl <- ops[unlist(on_target)]
+    wdthl[opsl == "I"] <- qwdths[opsl == "I"]
+    new_cigs <- sapply(relist(paste0(wdthl, opsl), wdths), paste0, collapse = "") 
+            
+    sqs <- subseq(mcols(alns)$seq, start = as.numeric(sq_starts), end = as.numeric(sq_ends))
+    ga_params <- list(seqnames = seqnames(alns), pos = as.integer(genomic_starts), 
+                      cigar = new_cigs, names = names(alns), strand = strand(alns), 
+                      seqlengths = seqlengths(alns), seq = sqs)
           
-            cigs <- as.character(temp)
-            query.ranges <- GenomicAlignments::cigarRangesAlongQuerySpace(cigs)
-            shift_starts <- start(alns) + attr(temp, "rshift") -1
-            gr <- GenomicAlignments::cigarRangesAlongReferenceSpace(cigs)
-            genome_ranges <- shift(gr, shift_starts)
+    mcols <- as.list(mcols(alns))
+    mcols$seq <- NULL
+    ga_params <- c(ga_params, mcols) 
             
-            seq_lens <- sum(width(query.ranges))  
-            seqs <- subseq(mcols(alns)$seq, start = new_starts, width = seq_lens)
-            genome_start <- start(alns) + attr(temp, "rshift")
+    ### if "quals" in mcols
+    # shorten using the same endpoints
             
-            reverse_ranges <- function(gr){
-              # Quicker version of IRanges::IRangesList(lapply(list, rev))
-              all_r <- rev(unlist(gr))
-              sp <- rev(rep(1:length(gr), lapply(gr, length)))
-              # Note: splitting works in numeric/factor order
-              result <- as(split(all_r, sp), "IRangesList")
-              names(result) <- NULL
-              return(result)
-            }
+    new_alns <- do.call(GAlignments, ga_params) 
+    genome_ranges <- cigarRangesAlongReferenceSpace(cigar(new_alns), pos = start(new_alns))
             
-            if (reverse.complement == TRUE){
-              if (verbose == TRUE) cat("reversing narrowed alignments\n")
-              cigs <- unname(sapply(cigs, reverseCigar))
-              query.ranges <- GenomicAlignments::cigarRangesAlongQuerySpace(cigs)
-              
-              # Note: even if strand is -ve, it is displayed wrt reference strand in bam
-              seqs <- Biostrings::reverseComplement(seqs)
-              genome_ranges <- reverse_ranges(genome_ranges)
-                            
-              # Add difference between target start and actual start, subtract difference at end
-              lshift <- target_start - (start(alns) - 1) - locs$starts
-              rshift <- target_end - target_start - (locs$ends - locs$starts - lshift)           
-              genome_start <- as.integer(genome_start + lshift + rshift)
-              if (verbose == TRUE) cat("alignments reversed\n")
-            }
-            
-            ga_params <- list(seqnames = seqnames(alns), pos = genome_start, cigar = cigs, 
-                              names = names(alns), strand = strand(alns), 
-                              seqlengths = seqlengths(alns), seq = seqs)
-            
-            mcols <- as.list(mcols(alns))
-            mcols$seq <- NULL
-            ga_params <- c(ga_params, mcols)
-            alns <- do.call(GAlignments, ga_params) 
-            
-            return(list(alignments = alns, "genome.ranges" = genome_ranges))
-          })
-
+    # TO DO: Get rid of genome ranges 
+    return(list(alignments = new_alns, "genome.ranges" = genome_ranges))
+})
+          
 
 #'@title Find location of deletions that overlap a target region.  
 #'@description   For reads with a deletion spanning one or both

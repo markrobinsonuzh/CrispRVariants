@@ -4,8 +4,7 @@
 \alias{seqsToAln}
 \title{Creates a text alignment from a set of cigar strings}
 \usage{
-seqsToAln(cigar, dnaseq, del_char = "-", aln_start = NULL,
-  target_start = NULL, target_end = NULL)
+seqsToAln(cigar, dnaseq, target, del_char = "-", aln_start = NULL)
 }
 \arguments{
 \item{cigar}{A list of cigar strings to align}

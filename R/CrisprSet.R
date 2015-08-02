@@ -142,17 +142,27 @@ CrisprSet$methods(
     cut.site <- ifelse(is.na(target.loc), 17, target.loc)
     
     # This part should be sped up
-    cig_by_run <- lapply(.self$crispr_runs,
-                         function(crun) crun$getCigarLabels(short = short,
-                                            match_label = match_label, 
-                                            target_start = target_start,
-                                            target_end = target_end,
-                                            mismatch_label = mismatch_label,
-                                            rc = rc, genome_to_target = g_to_t,
-                                            ref = ref, cut.site = cut.site,
-                                            split_non_indel = split.snv,
-                                            upstream = upstream.snv, 
-                                            downstream = downstream.snv))   
+    cig_by_run <- lapply(.self$crispr_runs, 
+                             function(crun)  crun$getCigarLabels( 
+                              target.loc = cut.site, genome_to_target = g_to_t,
+                              ref = .self$ref,
+                              separate.snv = split.snv, 
+                              match.label = .self$pars$match_label,
+                              mismatch.label = .self$pars$mismatch_label,
+                              rc = rc, upstream = upstream.snv,
+                              downstream = downstream.snv))    
+    
+    #cig_by_run <- lapply(.self$crispr_runs,
+    #                     function(crun) crun$getCigarLabels(short = short,
+    #                                        match_label = match_label, 
+    #                                        target_start = target_start,
+    #                                        target_end = target_end,
+    #                                        mismatch_label = mismatch_label,
+    #                                        rc = rc, genome_to_target = g_to_t,
+    #                                        ref = ref, cut.site = cut.site,
+    #                                        split_non_indel = split.snv,
+    #                                        upstream = upstream.snv, 
+    #                                        downstream = downstream.snv))   
     
     return(cig_by_run)
   }, 
@@ -162,7 +172,7 @@ CrisprSet$methods(
     # different locations but sharing a cigar string are considered equal
     
     if (is.null(cig_by_run)){
-      cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$getCigarLabels())
+      cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$cigar_label)
     }
     
     unique_cigars <- unique(unlist(cig_by_run))  
@@ -292,7 +302,7 @@ Input parameters:
     # if "add_chr" == TRUE, chromosome names start with "chr"
     # if add_to_ins == TRUE, adds one to end of insertions, as required for VariantAnnotation
     
-    cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$getCigarLabels())
+    cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$cigar_labels)
     all_cigars <- unlist(cig_by_run)
     unique_cigars <- !duplicated(unlist(cig_by_run))  
     
@@ -664,7 +674,7 @@ Return value:
     } else {
       all_ins <- do.call(rbind, lapply(.self$crispr_runs, function(x) {
         ik <- x$ins_key
-        v <- data.frame(ik, x$getCigarLabels()[as.integer(names(ik))])
+        v <- data.frame(ik, x$cigar_labels[as.integer(names(ik))])
         v <- v[!duplicated(v),]
         v <- v[order(v$ik),]
         cbind(x$insertions[v[,1],], cigar = v[,2])
@@ -681,9 +691,10 @@ Return value:
     # Get alignments by cigar string, make the alignment for the consensus
     # The short cigars (not renumbered) do not have enough information, 
     # use the full cigars for sorting
+    # Do this just for the alns to be displayed?
     
     cigs <- unlist(lapply(.self$crispr_runs, function(x) cigar(x$alns)), use.names = FALSE)
-    cig_labels <- unlist(lapply(.self$crispr_runs, function(x) x$getCigarLabels()), use.names = FALSE)
+    cig_labels <- unlist(lapply(.self$crispr_runs, function(x) x$cigar_labels), use.names = FALSE)
     
     names(cigs) <- cig_labels # calling by name with duplicates returns the first match
     
@@ -692,6 +703,7 @@ Return value:
     
     splits_labels <- names(splits)
     names(splits) <- cigs[names(splits)]
+    all_d <- grep("M", names(splits), invert = TRUE)
     
     x <- lapply(.self$crispr_runs, function(x) x$alns)
     all_alns <- do.call(c, unlist(x, use.names = FALSE))
@@ -702,8 +714,13 @@ Return value:
     # SOMEWHERE HERE - CONSENSUS SEQ ONLY TAKING ONE SAMPLE?
     
     for (i in seq_along(splits)){
-      idxs <- splits[[i]]
-      seqs[i] <- consensusString(mcols(all_alns[idxs])$seq)
+      if (i %in% all_d){
+        seqs[i] <- ""
+      } else {
+        idxs <- splits[[i]]
+        cig <- names(splits[[i]])
+        seqs[i] <- consensusString(mcols(all_alns[idxs])$seq)
+      }
       start <- unique(start(all_alns[idxs]))
       if (length(start) > 1)
         stop("Sequences with the same cigar string have different starting locations.
@@ -711,8 +728,9 @@ Return value:
       starts[i] <- start[1]
     }  
     
-    alns <- mapply(seqsToAln, names(splits), seqs, aln_start = starts, 
-                   target_start = start(.self$target), target_end = end(.self$target), ...)
+    seqs <- DNAStringSet(seqs)
+    alns <- seqsToAln(names(splits), seqs, target = .self$target, 
+                 aln_start = starts, ...)
     
     names(alns) <- splits_labels
     alns
@@ -752,7 +770,7 @@ Return value:
       new_numbering <- c(seq(-1*(tg - (gs-1)),-1), c(1:(ge - tg)))
       names(new_numbering) <- c(gs:ge)
     }
-    genome_to_target <<- new_numbering
+    .self$field("genome_to_target", new_numbering)
     new_numbering
   }
 )
