@@ -610,10 +610,7 @@ setGeneric("narrowAlignments", function(alns, target, ...) {
 #'@rdname narrowAlignments 
 setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
           function(alns, target, ..., reverse.complement, verbose = FALSE){  
-            
-    
-    ## CIGAR OF M ONLY WRONG??
-            
+                        
     # alns must span target 
     alns <- alns[start(alns) <= start(target) & end(alns) >= end(target)]
             
@@ -664,13 +661,16 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
     # Adjust reference ranges to match
     ref_ranges <- unlist(ref_ranges)  
     is_first_m <- which(unlist(first_on_tg))[first_op_m]
+    
+    # Calculate new ends before changing starts
+    is_last_m <- which(unlist(last_on_tg))[last_op_m]
+    lom_ends <- as.integer(start(ref_ranges[is_last_m]) + genomic_offset_lom)
+    
+    # Now adjust starts and ends
     start(ref_ranges[is_first_m]) <- as.integer(start(ref_ranges[is_first_m]) +
                                                         genomic_offset_fom)
-            
-    is_last_m <- which(unlist(last_on_tg))[last_op_m]
-    end(ref_ranges[is_last_m]) <- as.integer(start(ref_ranges[is_last_m]) +
-                                                  genomic_offset_lom)
-            
+    end(ref_ranges[is_last_m]) <- lom_ends
+                                                  
     # Get the width of on target reference ranges, recreate cigars
     # The width is the reference range unless an insertion, in which case the query range
     ref_ranges <- relist(ref_ranges, genomic)
