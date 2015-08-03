@@ -701,41 +701,6 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
     return(list(alignments = new_alns, "genome.ranges" = genome_ranges))
 })
           
-
-#'@title Find location of deletions that overlap a target region.  
-#'@description   For reads with a deletion spanning one or both
-#' ends of the target location, narrow the alignment to encompass the deletion 
-#'Deletions may be coded as either "D" or "N" (splice junction), 
-# depending upon the mapping software. 
-#'@param target.start The target start location
-#'@param target.end The target end location
-#'@param alns GAlignments, only containing alignments spanning the target region
-#'@param ref.ranges IRangesList created with GenomicAlignments::cigarRangesAlongReferenceSpace
-#'@param cig.ops Cigar operations, created with GenomicAlignments::explodeCigarOps
-#'@param del.chars Characters that may represent deletions.  Default: c("D", "N") 
-#'@return A list of the start and end locations w.r.t. the reads for passing to 
-#'GenomicAlignments::CigarNarrow
-findDeletions <- function(target.start, target.end, alns, ref.ranges, 
-                          cig.ops, del.chars = c("D", "N")){
-  
-  idxs <- rep(1:length(cig.ops), lapply(cig.ops, length))
-  genomic <- shift(ref.ranges, start(alns)-1) 
-  on_target <- unlist(start(genomic) <= target.end & end(genomic) >= target.start)
-  codes <- paste0(idxs, on_target)
-  # find reads with a deletion spanning the target start or end
-  s_del <- !duplicated(codes) & on_target & unlist(cig.ops) %in% del.chars
-  e_del <- rev(!duplicated(rev(codes))) & on_target & unlist(cig.ops) %in% del.chars
-  
-  # Get the ranges for narrowing in read coordinates
-  result_s <- target.start - (start(alns) - 1)
-  result_e <- target.end - target.start  + result_s  
-  result_s[idxs[s_del]] <- unlist(start(ref.ranges))[s_del] - 1
-  result_e[idxs[e_del]] <- unlist(end(ref.ranges))[e_del] + 1
-  
-  return(list(starts = result_s, ends = result_e)) 
-}
-
-  
 #'@title Internal crispRvariants function for collapsing pairs with concordant indels
 #'@description Given a set of alignments to a target region, finds read pairs.
 #'Compares insertion/deletion locations within pairs using the cigar string.  

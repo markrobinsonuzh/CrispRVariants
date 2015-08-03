@@ -74,7 +74,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   # Entirely negative strand chimeras may be displayed as aligned to reference
   # (wrt.forward = TRUE).  Default is wrt start of read
   if (two_strands == FALSE & wrt.forward == FALSE & ! any(is_plus)){
-    cigars <- reverseCigarv(cigars)
+    cigars <- reverseCigar(cigars)
     ref_ranges <- relist(rev(unlist(rev(ref_ranges))), ref_ranges)
   }
   

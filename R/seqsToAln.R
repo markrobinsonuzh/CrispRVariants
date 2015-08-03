@@ -17,10 +17,7 @@
 #'@param target_end Genomic end of the region to be returned.
 #'@return The sequences with insertions collapsed and deletions padded
 #'
-seqsToAln <- function(cigar, dnaseq, target, del_char = "-", aln_start = NULL){
-  # TO DO - CHECK THAT THIS IS VECTORISED
-  # HOW DOES SEQUENCELAYER DEAL WITH INSERTIONS?
-  
+seqsToAln <- function(cigar, dnaseq, target, del_char = "-", aln_start = NULL){  
   target_start <- start(target)
   target_end <- end(target)
   strand <- as.character(strand(target))
@@ -32,12 +29,12 @@ seqsToAln <- function(cigar, dnaseq, target, del_char = "-", aln_start = NULL){
   if (! is.null(aln_start) & ! is.null(target_start) & ! is.null(target_end) ){
     trim_start <- target_start - (aln_start - 1)
     
-    if ( trim_start < 0){
+    if (any(trim_start < 0)){
       stop("dnaseq to be trimmed must start before the target location")
     }
     
     trim_end <- trim_start + (target_end - target_start)
-    if any(trim_end > sq_len){
+    if (any(trim_end > sq_len)){
       stop("dnaseq is not long enough to trim to the target region")
     }
     result <- subseq(sqs, trim_start,trim_end)

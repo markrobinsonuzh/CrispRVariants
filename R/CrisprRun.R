@@ -30,7 +30,6 @@ CrisprRun = setRefClass(
   Class = "CrisprRun",
   fields = c(alns = "GAlignments",
              name = "character",
-             query_ranges = "CompressedIRangesList",
              ref_ranges = "CompressedIRangesList",
              genome_ranges = "CompressedIRangesList",
              cigar_ops = "CompressedCharacterList",   
@@ -58,10 +57,8 @@ CrisprRun$methods(
     
     genome_ranges <<- genome.ranges
     ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(bam))
-    query_ranges <<- cigarRangesAlongQuerySpace(cigar(bam))
-    
     cigar_ops <<- CharacterList(explodeCigarOps(cigar(bam)))
-    .self$getInsertionSeqs()
+    .self$getInsertionSeqs(genome_ranges = genome.ranges)
   },
   
   show = function(){
@@ -103,7 +100,6 @@ Input parameters:
 
     .self$field("alns", .self$alns[-idxs])
     .self$field("cigar_labels", .self$cigar_labels[-idxs])
-    .self$field("query_ranges", .self$query_ranges[-idxs])
     .self$field("genome_ranges", .self$genome_ranges[-idxs])
     .self$field("ref_ranges", .self$ref_ranges[-idxs])
     .self$field("cigar_ops", .self$cigar_ops[-idxs])
@@ -175,8 +171,9 @@ Description:
     return((.self$countIndels() / length(.self$cigar_ops))*100)
   },
   
-  getInsertionSeqs = function(){ 
-    # Note that the start of a ref_ranges insertion is its genomic end (rightmost base)
+  getInsertionSeqs = function(genome_ranges){ 
+    # Note that the start of a ref_ranges insertion is its genomic end (rightmost base)    
+    
     
     ins <- .self$cigar_ops == "I"  
     idxs <- rep(1:length(.self$cigar_ops), sum(ins))
@@ -188,10 +185,11 @@ Description:
       return()
     }    
     
-    qranges <- unlist(.self$query_ranges[ins]) 
+    query_ranges <- cigarRangesAlongQuerySpace(cigar(.self$alns))
+    qranges <- unlist(query_ranges[ins]) 
     ins_seqs <- as.character(subseq(tseqs, start(qranges), end(qranges)))
     ins_starts <- start(unlist(.self$ref_ranges[ins]))
-    genomic_starts <- unlist(start(.self$genome_ranges[ins])) -1 # -1 for leftmost base
+    genomic_starts <- unlist(start(genome_ranges[ins])) -1 # -1 for leftmost base
     
     df <- data.frame(start = ins_starts, seq = ins_seqs, genomic_start = genomic_starts)
     df$seq <- as.character(df$seq)
@@ -261,6 +259,11 @@ Result:
       chrom <- paste0("chr", chrom)
     }
     
+    genome_ranges <- cigarRangesAlongReferenceSpace(cigar(.self$alns), 
+                                                    pos = start(.self$alns))
+    
+    query_ranges <- cigarRangesAlongQuerySpace(cigar(.self$alns))
+    
     get_start <- min(start(.self$alns))
     get_end <- max(end(.self$alns))
     ref_seq <- getSeq(ref_genome, chrom, get_start, get_end)
@@ -280,7 +283,7 @@ Result:
     }else{
       del_ranges <- unlist(.self$ref_ranges[dels]) 
       del_seqs <- as.character(Views(ref_seq, shift(del_ranges, ref_offset[del_idxs])))
-      del_gen <- unlist(.self$genome_ranges[dels])
+      del_gen <- unlist(genome_ranges[dels])
       dels <- data.frame(read = del_idxs, chromosome = chrom, start = start(del_gen), 
                          end = end(del_gen), deleted = del_seqs, stringsAsFactors = FALSE)
     }
@@ -298,7 +301,7 @@ Result:
     
     # Get mismatches - check for mismatches and the read ranges with "M" (match/mismatch)
     matches <- lapply(.self$cigar_ops, function(x) which(x == "M"))
-    match_ranges <- .self$query_ranges[matches]
+    match_ranges <- query_ranges[matches]
     key <- rep(1:length(match_ranges), lapply(match_ranges, length))
     match_ranges <- unlist(match_ranges)
     match_seqs <- subseq(mcols(.self$alns)$seq[key], start(match_ranges), end(match_ranges))
@@ -313,7 +316,7 @@ Result:
       ref_seqs <- DNAStringSet(lapply(ref_seqs, rev))
     }
     
-    gen_starts <- start(unlist(.self$genome_ranges[matches]))
+    gen_starts <- start(unlist(genome_ranges[matches]))
     
     mm <- do.call(rbind, lapply(idxs, function(i){
       r1 <- as.matrix(ref_seqs[i])
@@ -398,7 +401,7 @@ Result:
                   unlist(temp[keep]), sep = ":")
     temp <- as.list(relist(temp, PartitioningByEnd(cumsum(sum(keep)))))
     complex <- sum(keep) > 1
-    # Only reverse if rc == TRUE?
+
     if (rc == TRUE){
       temp[complex] <- sapply(temp[complex], function(x) paste(rev(x), collapse = ","))
     } else {
@@ -421,9 +424,7 @@ Result:
   # Only consider mismatches up to (upstream) to the left of the cut and
   # (downstream) to the right of the cut
   # The cut site is between cut_site and cut_site + 1
-  
-  # TO DO - AMBIGUITY CHARACTERS SHOULD NOT BE SNVS!  
-    
+      
   no_var <- which(cig_labels == match_label & mcols(.self$alns)$seq != ref)
   if (length(no_var) == 0) return(cig_labels)
   

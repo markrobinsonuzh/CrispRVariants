@@ -152,18 +152,6 @@ CrisprSet$methods(
                               rc = rc, upstream = upstream.snv,
                               downstream = downstream.snv))    
     
-    #cig_by_run <- lapply(.self$crispr_runs,
-    #                     function(crun) crun$getCigarLabels(short = short,
-    #                                        match_label = match_label, 
-    #                                        target_start = target_start,
-    #                                        target_end = target_end,
-    #                                        mismatch_label = mismatch_label,
-    #                                        rc = rc, genome_to_target = g_to_t,
-    #                                        ref = ref, cut.site = cut.site,
-    #                                        split_non_indel = split.snv,
-    #                                        upstream = upstream.snv, 
-    #                                        downstream = downstream.snv))   
-    
     return(cig_by_run)
   }, 
   
@@ -625,6 +613,18 @@ Return value:
     dots <- list(...) 
 
     tloc <- ifelse(is.na(.self$pars$target.loc), 17, .self$pars$target.loc)
+    ins.sites <- .self$insertion_sites
+
+    # Consistency - is it still possible to print w.r.t the forward strand?
+    # If the strand is -ve, the region will be reverse complemented,
+    # "start" for the plot must be reversed
+    if (as.character(strand(.self$target) == "-")){
+      temp <- seq_along(1:width(.self$target))
+      starts <- rev(temp)
+      names(starts) <- temp
+      ins.sites$start <- starts[ins.sites$start]
+    }
+
     if (renumbered == TRUE){
       genomic_coords <- c(start(.self$target):end(.self$target))
       target_coords <- .self$genome_to_target[as.character(genomic_coords)]
@@ -634,11 +634,11 @@ Return value:
       xbreaks = which(target_coords %% 5 == 0 | abs(target_coords) == 1)
       target_coords <- target_coords[xbreaks]
       
-      args <- list(obj = .self$ref, alns = alns, ins.sites = .self$insertion_sites, 
+      args <- list(obj = .self$ref, alns = alns, ins.sites = ins.sites, 
                    xtick.labs = target_coords, xtick.breaks = xbreaks,
                    target.loc =  tloc, add.other = add.other)                     
     } else {
-      args <- list(obj = .self$ref, alns = alns, ins.sites = .self$insertion_sites, 
+      args <- list(obj = .self$ref, alns = alns, ins.sites = ins.sites, 
                    target.loc = tloc, add.other = add.other)   
     }
 
@@ -749,17 +749,10 @@ Return value:
     # After: -5 -4 -3 -2 -1  1  2  3
     # Left =  original - target.loc - 1
     # Right = original - target.loc
-    
-    gs <- min(unlist(lapply(.self$crispr_runs, function(x) start(unlist(x$genome_ranges)))))
-    
-    all_gen_ranges <- lapply(.self$crispr_runs, function(x) x$genome_ranges)
-    
-    # Nope - here gives a vector
-    #gs_test <- min(start(do.call(c, unlist(all_gen_ranges, use.names = FALSE))))
-    #cat(sprintf("testing gs: %s = %s: %s", gs_test, gs, gs_test == unlist(gs, use.names=FALSE)))
-    
-    ge <- max(unlist(lapply(.self$crispr_runs, function(x) end(unlist(x$genome_ranges)))))
-    
+  
+    gs <- min(sapply(.self$crispr_runs, function(x) min(start(x$alns))))
+    ge <- max(sapply(.self$crispr_runs, function(x) max(end(x$alns))))
+  
     if (rc == TRUE){
       tg <- target_end - (target.loc - 1)
       new_numbering <- rev(c(seq(-1*(ge - (tg -1)),-1), c(1:(tg - gs))))

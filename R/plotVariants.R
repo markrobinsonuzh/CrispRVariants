@@ -54,7 +54,7 @@ setMethod("plotVariants", signature("CrisprSet"),
   }
   
   dots <- list(...)
-  annotate_nms <- c("target.colour","target.size","gene.text.size", "panel.margin")
+  annotate_nms <- c("target.colour", "target.size", "gene.text.size", "panel.margin")
   annotate_args <- dots[names(dots) %in% annotate_nms]
   dots[annotate_nms] <- NULL
   
@@ -76,8 +76,13 @@ setMethod("plotVariants", signature("CrisprSet"),
     annotate_args <- modifyList(list(txdb = txdb, target = target), annotate_args)
     gene_p <- do.call(annotateGenePlot, annotate_args)
   } else {
-    arrange_args["row.ht.ratio"] <- c(0,1)
+    arrange_args[["row.ht.ratio"]] <- c(0,1)
     gene_p <- grid::grid.rect(gp=grid::gpar(col="white"), draw = FALSE)
+    no_ins <- nrow(obj$insertion_sites) == 0 
+    if (no_ins & ! "left.plot.margin" %in% names(arrange_args)){
+      # Sample names tend to clip if there are no insertions, so increase default
+      args[["left.plot.margin"]] <- grid::unit(c(0.1,0,3,0.5), "lines")
+    }
   }
   
   plotAlignments.args$obj = obj
