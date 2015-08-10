@@ -1,0 +1,25 @@
+"bam.filename"	"experiment.name"	"clutch"
+"1"	"gol_F1_clutch_1_embryo_1_s.bam"	"gol F1 crispant 1"	1
+"2"	"gol_F1_clutch_1_embryo_2_s.bam"	"gol F1 crispant 2"	1
+"3"	"gol_F1_clutch_1_embryo_3_s.bam"	"gol F1 crispant 3"	1
+"4"	"gol_F1_clutch_1_embryo_4_s.bam"	"gol F1 crispant 4"	1
+"5"	"gol_F1_clutch_1_embryo_5_s.bam"	"gol F1 crispant 5"	1
+"6"	"gol_F1_clutch_1_embryo_6_s.bam"	"gol F1 crispant 6"	1
+"7"	"gol_F1_clutch_1_embryo_7_s.bam"	"gol F1 crispant 7"	1
+"8"	"gol_F1_clutch_1_embryo_8_s.bam"	"gol F1 crispant 8"	1
+"9"	"gol_F1_clutch_2_embryo_1_s.bam"	"gol F1 crispant 9"	2
+"10"	"gol_F1_clutch_2_embryo_2_s.bam"	"gol F1 crispant 10"	2
+"11"	"gol_F1_clutch_2_embryo_3_s.bam"	"gol F1 crispant 11"	2
+"12"	"gol_F1_clutch_2_embryo_4_s.bam"	"gol F1 crispant 12"	2
+"13"	"gol_F1_clutch_2_embryo_5_s.bam"	"gol F1 crispant 13"	2
+"14"	"gol_F1_clutch_2_embryo_6_s.bam"	"gol F1 crispant 14"	2
+"15"	"gol_F1_clutch_2_embryo_7_s.bam"	"gol F1 crispant 15"	2
+"16"	"gol_F1_clutch_2_embryo_8_s.bam"	"gol F1 crispant 16"	2
+"17"	"gol_F1_clutch_3_embryo_1_s.bam"	"gol F1 crispant 17"	3
+"18"	"gol_F1_clutch_3_embryo_2_s.bam"	"gol F1 crispant 18"	3
+"19"	"gol_F1_clutch_3_embryo_3_s.bam"	"gol F1 crispant 19"	3
+"20"	"gol_F1_clutch_3_embryo_4_s.bam"	"gol F1 crispant 20"	3
+"21"	"gol_F1_clutch_3_embryo_5_s.bam"	"gol F1 crispant 21"	3
+"22"	"gol_F1_clutch_3_embryo_6_s.bam"	"gol F1 crispant 22"	3
+"23"	"gol_F1_clutch_3_embryo_7_s.bam"	"gol F1 crispant 23"	3
+"24"	"gol_F1_clutch_3_embryo_8_s.bam"	"gol F1 crispant 24"	3

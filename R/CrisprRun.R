@@ -30,8 +30,6 @@ CrisprRun = setRefClass(
   Class = "CrisprRun",
   fields = c(alns = "GAlignments",
              name = "character",
-             ref_ranges = "CompressedIRangesList",
-             genome_ranges = "CompressedIRangesList",
              cigar_ops = "CompressedCharacterList",   
              insertions = "data.frame",
              ins_key = "integer", 
@@ -55,10 +53,9 @@ CrisprRun$methods(
     
     if (length(bam) == 0) { return() } 
     
-    genome_ranges <<- genome.ranges
-    ref_ranges <<- cigarRangesAlongReferenceSpace(cigar(bam))
+    ref_ranges <- cigarRangesAlongReferenceSpace(cigar(bam))
     cigar_ops <<- CharacterList(explodeCigarOps(cigar(bam)))
-    .self$getInsertionSeqs(genome_ranges = genome.ranges)
+    .self$getInsertionSeqs(ref_ranges = ref_ranges, genome_ragnes = genome.ranges)
   },
   
   show = function(){
@@ -100,80 +97,11 @@ Input parameters:
 
     .self$field("alns", .self$alns[-idxs])
     .self$field("cigar_labels", .self$cigar_labels[-idxs])
-    .self$field("genome_ranges", .self$genome_ranges[-idxs])
-    .self$field("ref_ranges", .self$ref_ranges[-idxs])
     .self$field("cigar_ops", .self$cigar_ops[-idxs])
   },
 
-  countDeletions = function(count_multi_del = FALSE, count_del_w_ins = FALSE){
-  '
-Description:
-Counts the number of reads containing a deletion
-
-Input parameters:
-  count_multi_del:   If TRUE, returns the exact number of deletions,
-                     i.e., if one read contains 2 deletions, it contributes 2 to the
-                     total count (default: FALSE)
-  count_del_w_ins:   If TRUE, counts deletions regardless of whether reads also
-                     contain insertions.  If FALSE, counts reads that contain 
-                     deletions but not insertions (default: FALSE)
-  ' 
-    if (count_del_w_ins){
-      if (count_multi_del)  return(sum(.self$cigar_ops %in% c("D", "N")))
-      return(sum(any(.self$cigar_ops %in% c("D", "N"))))
-    }
-    if (count_multi_del){
-      return(sum(.self$cigar_ops %in% c("D", "N")[! any.self$cigar_ops == "I"]))
-    }
-    return(sum(any(.self$cigar_ops %in% c("D", "N")) & ! any(.self$cigar_ops == "I")))
-  },
-
-  countInsertions = function(count_ins_w_del = FALSE, count_multi_ins = FALSE){
-  '
-Description:
-Counts the number of reads containing an insertion
-
-Input parameters:
-  count_multi_ins:   If TRUE, returns the exact number of insertions,
-                     i.e., if one read contains 2 insertions, it contributes 2 to the
-                     total count (default: FALSE)
-  count_ins_w_del:   If TRUE, counts insertions regardless of whether reads also
-                     contain deletions  If FALSE, counts reads that contain 
-                     insertions but not deletions (default: FALSE)
-  '
-    if (count_ins_w_del){
-      if (count_multi_ins)  return(sum(.self$cigar_ops == "I"))
-      return(sum(any(.self$cigar_ops == "I")))
-    }
-  
-    if (count_multi_ins){
-      return(sum(.self$cigar_ops == "I" & ! any(.self$cigar_ops %in% c("D","N"))))
-    }
-    return(sum(any(.self$cigar_ops == "I" & ! any(.self$cigar_ops %in% c("D","N")))))
-  },
-  
-  countIndels = function(){
-'
-Description:
-    Prints the number of target reads that include at least one 
-    insertion or deletion, by counting cigar operations "I" (insertion),
-    "D" (deletion) and "N" (junction operation used by some aligners)
-'
-    return(sum(any(.self$cigar_ops %in% c("I", "D", "N"))))
-  },
-  
-  indelPercent = function(){
-'
-Description:
-    Prints the percentage of target reads that include at least one 
-    insertion or deletion
-'
-    return((.self$countIndels() / length(.self$cigar_ops))*100)
-  },
-  
-  getInsertionSeqs = function(genome_ranges){ 
+  getInsertionSeqs = function(ref_ranges, genome_ranges){ 
     # Note that the start of a ref_ranges insertion is its genomic end (rightmost base)    
-    
     
     ins <- .self$cigar_ops == "I"  
     idxs <- rep(1:length(.self$cigar_ops), sum(ins))
@@ -188,7 +116,7 @@ Description:
     query_ranges <- cigarRangesAlongQuerySpace(cigar(.self$alns))
     qranges <- unlist(query_ranges[ins]) 
     ins_seqs <- as.character(subseq(tseqs, start(qranges), end(qranges)))
-    ins_starts <- start(unlist(.self$ref_ranges[ins]))
+    ins_starts <- start(unlist(ref_ranges[ins]))
     genomic_starts <- unlist(start(genome_ranges[ins])) -1 # -1 for leftmost base
     
     df <- data.frame(start = ins_starts, seq = ins_seqs, genomic_start = genomic_starts)
@@ -198,19 +126,6 @@ Description:
     # Store a key to match the sequences to their insertion
     ins_key <<- match(interaction(df), interaction(insertions[,c(1:3)]))
     names(ins_key) <<- idxs
-  },
-  
-  getInsertionsTable = function(){
-    ins_starts <- .self$insertions$genomic_start[.self$ins_key]
-    
-    if (length(ins_starts) == 0){
-      ins <- data.frame()
-    } else {
-      ins <- data.frame(read = as.integer(names(.self$ins_key)), chromosome = chrom, 
-                        start = ins_starts, end = ins_starts, 
-                        inserted = .self$insertions$seq[.self$ins_key], stringsAsFactors = FALSE)
-    }
-    return(ins)
   },
   
   .checkNonempty = function(){
@@ -230,147 +145,7 @@ Description:
     return(tt)
   },  
 
-  getVariants = function(ref_genome, chrom = NULL, ensembl = FALSE, strand = "+"){
-'
-Description:
-  Returns a data frame of unique variants and their coordinates
-    
-Input parameters:
-    ref_genome:   a BSGenome obj 
-    chrom:        chromosomes to consider 
-    ensembl:      should variants be returned in Ensembl default format, 
-                  e.g. for use with the Ensembl Variant Effect Predictor 
-                  (default: FALSE)
-    strand:       The strand of the target alignments.  If "-", the 
-                  reference sequence is reverse complemented and variants are 
-                  returned w.r.t the negative strand (default: "+")
-Result:
-    Value "read" is the index of the alignment with the variant in .self$alns 
-    '    
-    if (! .self$.checkNonempty()){
-      return(list())
-    }
-    
-    # Get the reference sequence
-    if (is.null(chrom)){
-      chrom <- as.character(seqnames(.self$alns)[1])
-    }
-    if (! grepl("chr", chrom)){       
-      chrom <- paste0("chr", chrom)
-    }
-    
-    genome_ranges <- cigarRangesAlongReferenceSpace(cigar(.self$alns), 
-                                                    pos = start(.self$alns))
-    
-    query_ranges <- cigarRangesAlongQuerySpace(cigar(.self$alns))
-    
-    get_start <- min(start(.self$alns))
-    get_end <- max(end(.self$alns))
-    ref_seq <- getSeq(ref_genome, chrom, get_start, get_end)
-    ref_offset <- start(.self$alns) - get_start
-    
-    if (strand == "-"){  # alignments and ranges have already been reverse complemented
-      ref_seq <- reverseComplement(ref_seq)
-      ref_offset <- get_end - end(.self$alns) 
-    }
-    
-    # Get deletions:
-    dels <- crun$cigar_ops %in% c("D", "N")
-    del_idxs <- rep(seq_along(dels), sum(dels))
-    
-    if (length(del_idxs) == 0){
-      dels <- data.frame()
-    }else{
-      del_ranges <- unlist(.self$ref_ranges[dels]) 
-      del_seqs <- as.character(Views(ref_seq, shift(del_ranges, ref_offset[del_idxs])))
-      del_gen <- unlist(genome_ranges[dels])
-      dels <- data.frame(read = del_idxs, chromosome = chrom, start = start(del_gen), 
-                         end = end(del_gen), deleted = del_seqs, stringsAsFactors = FALSE)
-    }
-    
-    # Get insertions: already computed at initialisation
-    ins_starts <- .self$insertions$genomic_start[.self$ins_key]
-    
-    if (length(ins_starts) == 0){
-      ins <- data.frame()
-    } else {
-      ins <- data.frame(read = as.integer(names(.self$ins_key)), chromosome = chrom, 
-                        start = ins_starts, end = ins_starts, 
-                        inserted = .self$insertions$seq[.self$ins_key], stringsAsFactors = FALSE)
-    }
-    
-    # Get mismatches - check for mismatches and the read ranges with "M" (match/mismatch)
-    matches <- lapply(.self$cigar_ops, function(x) which(x == "M"))
-    match_ranges <- query_ranges[matches]
-    key <- rep(1:length(match_ranges), lapply(match_ranges, length))
-    match_ranges <- unlist(match_ranges)
-    match_seqs <- subseq(mcols(.self$alns)$seq[key], start(match_ranges), end(match_ranges))
-    
-    ref_ranges_ <- unlist(shift(.self$ref_ranges[matches], ref_offset))
-    ref_seqs <- as(Views(ref_seq, ref_ranges_), "DNAStringSet")    
-    idxs <- which(ref_seqs != match_seqs)  
-    
-    if (strand == "-"){
-      # Make sequences read from genomic left to right for ease of getting genomic coords  
-      match_seqs <- DNAStringSet(lapply(match_seqs, rev))
-      ref_seqs <- DNAStringSet(lapply(ref_seqs, rev))
-    }
-    
-    gen_starts <- start(unlist(genome_ranges[matches]))
-    
-    mm <- do.call(rbind, lapply(idxs, function(i){
-      r1 <- as.matrix(ref_seqs[i])
-      m1 <- as.matrix(match_seqs[i])
-      r1[m1 == "N"] <- "N"
-      neq <- m1 != r1 
-      if (length(which(neq)) == 0){ # Mismatches are only due to "N"
-        return(data.frame())
-      }
-      gen_starts_i <- gen_starts[i] + (which(neq) -1 )
-      df <- data.frame(read = key[i], chromosome = chrom, 
-                       start =gen_starts_i, ref = r1[neq], query = m1[neq])
-      
-    }))
-    
-    vars <- list(insertions = ins, deletions = dels, mismatches = mm)  
-    
-    if (ensembl == TRUE){
-      return(getVarsEnsemblFormat(vars, strand))
-    } else{
-      return(vars)
-    }
-  },
-  
-  getVarsEnsemblFormat = function(vars, strand = "*"){
-    # Ensembl requires end = start - 1 for insertions
-    # End points are included
-    
-    if (! .self$.checkNonempty()){
-      return(list())
-    }
-    
-    vins <- vars$insertions
-    ins <- data.frame(chrom = vins$chromosome, start = vins$start, end = vins$end -1 , 
-                      allele = sprintf("-/%s", vins$inserted), id = vins$read)
-    
-    vdels <- vars$deletions
-    dels <- data.frame(chrom = vdels$chromosome, start = vdels$start, end = vdels$end,
-                       allele = sprintf("%s/-", vdels$deleted), id = vdels$read)
-    
-    vmm <- vars$mismatches
-    mm <- data.frame(chrom = vmm$chromosome, start = vmm$start, end = vmm$start,
-                     allele = sprintf("%s/%s", vmm$ref, vmm$query), id = vmm$read)
-    
-    vars <- rbind(ins,dels,mm)
-    if (nrow(vars) > 0){
-      vars$strand <- strand
-      vars <- vars[order(vars$id),]
-      vars$id <- names(.self$alns[vars$id])
-      vars <- vars[,c("chrom","start","end","allele","strand","id")]
-    }
-    vars$chrom <- gsub("chr", "", vars$chrom)
-    vars
-  },
+
   
   getCigarLabels = function(target.loc, genome_to_target, ref,
                              separate.snv = TRUE, match.label = "no variant",

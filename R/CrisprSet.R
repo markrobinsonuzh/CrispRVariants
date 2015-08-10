@@ -298,8 +298,13 @@ Input parameters:
                             use.names = FALSE))[unique_cigars]    
     idxs <- co != "M"
     
-    ir <- do.call(c, unlist(lapply(cset$crispr_runs, function(x) x$genome_ranges), 
+    get_gr <- function(alns){
+      cigarRangesAlongReferenceSpace(cigar(alns), pos = start(alns))
+    }
+    
+    ir <- do.call(c, unlist(lapply(cset$crispr_runs, function(x) get_gr(x$alns)), 
                             use.names = FALSE))
+    
     ir <- ir[unique_cigars][idxs]
     names(ir) <- all_cigars[unique_cigars]
     ir <- unlist(ir)

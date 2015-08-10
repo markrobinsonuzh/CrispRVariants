@@ -48,55 +48,6 @@ initialisation of a CrisprRun object.}
 \section{Methods}{
 
 \describe{
-\item{\code{countDeletions(count_multi_del = FALSE, count_del_w_ins = FALSE)}}{Description:
-Counts the number of reads containing a deletion
-
-Input parameters:
-  count_multi_del:   If TRUE, returns the exact number of deletions,
-                     i.e., if one read contains 2 deletions, it contributes 2 to the
-                     total count (default: FALSE)
-  count_del_w_ins:   If TRUE, counts deletions regardless of whether reads also
-                     contain insertions.  If FALSE, counts reads that contain 
-                     deletions but not insertions (default: FALSE)
-  }
-
-\item{\code{countIndels()}}{Description:
-    Prints the number of target reads that include at least one 
-    insertion or deletion, by counting cigar operations "I" (insertion),
-    "D" (deletion) and "N" (junction operation used by some aligners)}
-
-\item{\code{countInsertions(count_ins_w_del = FALSE, count_multi_ins = FALSE)}}{Description:
-Counts the number of reads containing an insertion
-
-Input parameters:
-  count_multi_ins:   If TRUE, returns the exact number of insertions,
-                     i.e., if one read contains 2 insertions, it contributes 2 to the
-                     total count (default: FALSE)
-  count_ins_w_del:   If TRUE, counts insertions regardless of whether reads also
-                     contain deletions  If FALSE, counts reads that contain 
-                     insertions but not deletions (default: FALSE)
-  }
-
-\item{\code{getVariants(ref_genome, chrom = NULL, ensembl = FALSE, strand = "+")}}{Description:
-  Returns a data frame of unique variants and their coordinates
-    
-Input parameters:
-    ref_genome:   a BSGenome obj 
-    chrom:        chromosomes to consider 
-    ensembl:      should variants be returned in Ensembl default format, 
-                  e.g. for use with the Ensembl Variant Effect Predictor 
-                  (default: FALSE)
-    strand:       The strand of the target alignments.  If "-", the 
-                  reference sequence is reverse complemented and variants are 
-                  returned w.r.t the negative strand (default: "+")
-Result:
-    Value "read" is the index of the alignment with the variant in .self$alns 
-    }
-
-\item{\code{indelPercent()}}{Description:
-    Prints the percentage of target reads that include at least one 
-    insertion or deletion}
-
 \item{\code{removeSeqs(idxs)}}{Description:
   Remove sequences from a CrisprRun object and from the internal CrisprRun 
   fields that store insertion locations for plotting.

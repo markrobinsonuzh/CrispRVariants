@@ -16,7 +16,6 @@ Depends:
     GenomicRanges,
     ggplot2
 License: GPL-2
-LazyData: true
 Imports:
     AnnotationDbi,
     BiocParallel,
