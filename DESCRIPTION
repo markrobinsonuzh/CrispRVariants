@@ -9,8 +9,9 @@ Maintainer: Helen Lindsay <helen.lindsay@uzh.ch>
 Description: crispRvariants provides tools for counting and displaying variant
     combinations within a target region.
 biocViews: GenomicVariation, VariantDetection, GeneticVariability, DataRepresentation, Visualization
+LazyData: true
 Depends:
-    R (>= 3.1.1),
+    R (>= 3.2),
     Biostrings,
     GenomicAlignments,
     GenomicRanges,
@@ -24,7 +25,9 @@ Imports:
     gridExtra,
     IRanges,
     reshape2,
-    Rsamtools
+    Rsamtools,
+    GenomeInfoDb,
+    S4Vectors
 Suggests:
     BiocStyle,
     knitr,

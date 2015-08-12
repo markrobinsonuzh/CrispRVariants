@@ -226,7 +226,7 @@ Input parameters:
   .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), 
                                     min.count = 1, min.freq = 0, 
                                     include.chimeras = TRUE, 
-                                    include.nonvariant = TRUE,
+                                    include.nonindel = TRUE,
                                     type = c("counts", "proportions")){
     
     result <- match.arg(type)
@@ -273,7 +273,7 @@ Input parameters:
       m <- m[keep_freq & keep_count,, drop = FALSE][topn,, drop = FALSE]
     }
     
-    if (include.nonvariant == FALSE){
+    if (include.nonindel == FALSE){
       nvr <- sprintf("%s|%s", .self$pars$match_label, .self$pars$mismatch_label)
       m <- m[!grepl(nvr, rownames(m)),,drop = FALSE]
     }

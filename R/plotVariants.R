@@ -64,12 +64,12 @@ setMethod("plotVariants", signature("CrisprSet"),
   target <- obj$target
   if (add.chr == TRUE & include_txs == TRUE){
     # If adding "chr" to target chromosomes matches txdb chromosomes, do so
-    target_levels <- seqlevels(target)
-    txdb_levels <- seqlevels(txdb)
+    target_levels <- GenomeInfoDb::seqlevels(target)
+    txdb_levels <- GenomeInfoDb::seqlevels(txdb)
     wchr <- paste0("chr", target_levels)
     idxs <- wchr %in% txdb_levels
     target_levels[idxs] <- wchr[idxs]  
-    target <- renameSeqlevels(target, target_levels)
+    target <- GenomeInfoDb::renameSeqlevels(target, target_levels)
   }
   
   if (include_txs == TRUE){
@@ -167,7 +167,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   genomicfeatures <- requireNamespace("GenomicFeatures")
   stopifnot(genomicfeatures == TRUE)
   
-  trns <- transcripts(txdb)
+  trns <- GenomicFeatures::transcripts(txdb)
   exs <- findOverlaps(target, trns, ignore.strand = TRUE)
   
   if (length(exs) == 0){

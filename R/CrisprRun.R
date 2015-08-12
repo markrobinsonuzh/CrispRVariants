@@ -55,7 +55,7 @@ CrisprRun$methods(
     
     ref_ranges <- cigarRangesAlongReferenceSpace(cigar(bam))
     cigar_ops <<- CharacterList(explodeCigarOps(cigar(bam)))
-    .self$getInsertionSeqs(ref_ranges = ref_ranges, genome_ragnes = genome.ranges)
+    .self$getInsertionSeqs(ref_ranges = ref_ranges, genome_ranges = genome.ranges)
   },
   
   show = function(){

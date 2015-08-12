@@ -21,7 +21,8 @@ setGeneric("plotAlignments", function(obj, ...) {
 #' (default: 50)
 #'@param renumbered If TRUE, the x-axis is numbered with respect to the target
 #' (default: TRUE)
-#'@param add.other Add a blank row for "Other" alignments (Default:TRUE)
+#'@param add.other Add a blank row labelled "Other" to the plot, for combining
+#'with plotFreqHeatmap (default: TRUE (signature "CrisprSet") FALSE (signature "matrix"))
 #'@examples
 #'#Load a CrisprSet object and plot
 #'data("gol_clutch1") 
@@ -89,8 +90,6 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)
 #'@param legend.symbol.size The size of the symbols indicating insertions
 #'in the legend.  (Default: ins.size)
-#'@param add.other Add a blank row labelled "Other" to the plot, for combining
-#'with plotFreqHeatmap (default: FALSE)
 #'@rdname plotAlignments
 setMethod("plotAlignments", signature("DNAString"),  
   function(obj, ..., alns, ins.sites, highlight.pam = TRUE, show.plot = FALSE, 

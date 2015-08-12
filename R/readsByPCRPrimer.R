@@ -79,7 +79,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                     length(unique(queryHits(rhits[is_dup])))))
               }
               rhits <- rhits[!is_dup]
-              rhits_to_primer <- remapHits(rhits, query.map = factor(remaining, 
+              rhits_to_primer <- S4Vectors::remapHits(rhits, query.map = factor(remaining, 
                                            levels = c(1:length(bam))),
                                            subject.map = factor(subjectHits(dj_to_primer), 
                                            levels = c(1:length(primers))))
