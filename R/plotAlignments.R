@@ -193,9 +193,7 @@ setMethod("plotAlignments", signature("DNAString"),
     seqs <- ins.sites[!is.na(ins_ord),"seq"]
     splits <- split(ins_points$seq, xy_locs)
     x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
-    
-    #key_sep <- max(max(sapply(splits, length))) + 0.5
-    
+        
     # Collapse sequences longer than max.insertion.size
     x <- lapply(splits, function(y){
       result <- as.character(y) 
@@ -212,11 +210,9 @@ setMethod("plotAlignments", signature("DNAString"),
       result 
     })
     
-    #######
     new_seqs <- unlist(x)[unique(xy_locs)]
     max_seq_ln <- max(sapply(new_seqs, nchar)) + 3 
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
-    #########
     
     ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
     ins_points$seq <- new_seqs

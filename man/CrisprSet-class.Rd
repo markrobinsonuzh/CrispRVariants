@@ -52,10 +52,13 @@ should SNVs be shown? (default: 5)}
 \item{verbose}{If true, prints information about initialisation progress (default: TRUE)}
 }
 \description{
-A container for holding a set of narrowed alignments,
+A ReferenceClass container for holding a set of narrowed alignments,
 each corresponding to the same target region.  Individual samples are
 represented as CrisprRun objects.  CrisprRun objects with no on-target
 reads are excluded.
+CrisprSet objects are constructed with \code{\link{readsToTarget}} or
+\code{\link{readsToTargets}}.  For most use cases, a CrisprSet object should not
+be accessed directly.
 }
 \section{Fields}{
 
@@ -115,7 +118,7 @@ Input parameters:
           "exclude" (do not include reads with snvs in efficiency calculations),
           and "non_variant" (consider reads with mismatches to be non-mutated).
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
-  exclude.cols:   A list of column indices to exclude from calculation, e.g. if one
+  exclude.cols:   A list of column names to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
   filter.vars:    Variants that should not be counted as mutations.
   filter.cols:    Column names to be considered controls.  Variants occuring in
@@ -148,11 +151,26 @@ Input parameters:
 Return value:
   A ggplot2 plot object.  Call "print(obj)" to display  }
 }}
+\examples{
+# Load the metadata table
+md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+md <- read.table(md_fname, sep = "\\t", stringsAsFactors = FALSE)
+
+# Get bam filenames and their full paths
+bam_fnames <- sapply(md$bam.filename, function(fn){
+ system.file("extdata", fn, package = "crispRvariants")})
+
+reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+
+crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
+                           names = md$experiment.name, target.loc = 17)
+}
 \author{
 Helen Lindsay
 }
 \seealso{
-\code{\link{readsToTarget}} for initialising a CrisprSet,
-\code{\link[crispRvariants]{CrisprRun}}
+\code{\link{readsToTarget}} and \code{\link{readsToTargets}}
+for initialising a CrisprSet, \code{\link[crispRvariants]{CrisprRun}}
 }
 

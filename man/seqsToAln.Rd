@@ -11,14 +11,13 @@ seqsToAln(cigar, dnaseq, target, del_char = "-", aln_start = NULL)
 
 \item{dnaseq}{The set of sequences corresponding to the cigars, as DNAStrings}
 
+\item{target}{The target region to return, as GRanges.  Sequences overlapping
+the target region are trimmed to exactly match it.}
+
 \item{del_char}{The character to represent deleted bases. Default "-"}
 
 \item{aln_start}{Genomic start locations of aligned sequences. Should be
 used in conjunction with target_start and target_end.}
-
-\item{target_start}{Genomic start of the region to be returned.}
-
-\item{target_end}{Genomic end of the region to be returned.}
 }
 \value{
 The sequences with insertions collapsed and deletions padded
@@ -27,8 +26,7 @@ The sequences with insertions collapsed and deletions padded
 Creates a one-to-one text alignment of a set of cigar strings with respect
 to the reference sequence by collapsing insertions and introducing gaps
 across deletions.
-}
-\details{
+
 When genomic coordinates for the alignment start and the target region
 are provided, aligned sequences are cropped to the target region
 }

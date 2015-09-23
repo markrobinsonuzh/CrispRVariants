@@ -7,6 +7,7 @@
 \alias{readsToTarget,GAlignmentsList,GRanges-method}
 \alias{readsToTarget,character,GRanges-method}
 \alias{readsToTargets}
+\alias{readsToTargets,GAlignmentsList,GRanges-method}
 \alias{readsToTargets,character,GRanges-method}
 \title{Trims reads to a target region.}
 \usage{
@@ -14,19 +15,19 @@ readsToTarget(reads, target, ...)
 
 \S4method{readsToTarget}{GAlignments,GRanges}(reads, target, ...,
   reverse.complement = TRUE, chimeras = NULL, collapse.pairs = FALSE,
-  use.consensus = FALSE, store.chimeras = FALSE, verbose = FALSE,
+  use.consensus = FALSE, store.chimeras = FALSE, verbose = TRUE,
   name = NULL)
 
 \S4method{readsToTarget}{GAlignmentsList,GRanges}(reads, target, ...,
   reference = reference, names = NULL, reverse.complement = TRUE,
   target.loc = 17, chimeras = NULL, collapse.pairs = FALSE,
-  use.consensus = FALSE, verbose = FALSE)
+  use.consensus = FALSE, verbose = TRUE)
 
 \S4method{readsToTarget}{character,GRanges}(reads, target, ..., reference,
   reverse.complement = TRUE, target.loc = 17, exclude.ranges = GRanges(),
   exclude.names = NA, chimeras = c("count", "exclude", "ignore", "merge"),
   collapse.pairs = FALSE, use.consensus = FALSE, names = NULL,
-  verbose = FALSE)
+  verbose = TRUE)
 
 readsToTargets(reads, targets, ...)
 
@@ -34,7 +35,14 @@ readsToTargets(reads, targets, ...)
   primer.ranges = NULL, target.loc = 17, reverse.complement = TRUE,
   collapse.pairs = FALSE, use.consensus = FALSE, ignore.strand = TRUE,
   names = NULL, bpparam = BiocParallel::SerialParam(),
-  chimera.to.target = 100, verbose = FALSE)
+  chimera.to.target = 5, verbose = TRUE)
+
+\S4method{readsToTargets}{GAlignmentsList,GRanges}(reads, targets, ...,
+  references, primer.ranges = NULL, target.loc = 17,
+  reverse.complement = TRUE, collapse.pairs = FALSE,
+  use.consensus = FALSE, ignore.strand = TRUE, names = NULL,
+  bpparam = BiocParallel::SerialParam(), chimera.to.target = 5,
+  verbose = TRUE)
 }
 \arguments{
 \item{reads}{A GAlignments object, or a character vector of the filenames}
@@ -58,7 +66,7 @@ the sequence of the first read is used.  Can be very slow. (Default: FALSE)}
 
 \item{store.chimeras}{Should chimeric reads be stored?  (Default: FALSE)}
 
-\item{verbose}{Print progress and statistics (Default: FALSE)}
+\item{verbose}{Print progress and statistics (Default: TRUE)}
 
 \item{name}{An experiment name for the reads.  (Default: NULL)}
 
@@ -74,7 +82,8 @@ the sequence of the first read is used.  Can be very slow. (Default: FALSE)}
 
 \item{targets}{A set of targets to narrow reads to}
 
-\item{references}{A set of reference sequences matching the targets}
+\item{references}{A set of reference sequences matching the targets.
+References for negative strand targets should be on the negative strand.}
 
 \item{primer.ranges}{A set of GRanges, corresponding to the targets.
 Read lengths are typically greater than target regions, and it can
@@ -88,10 +97,7 @@ they can be used to assign such reads to the correct target.}
 Default: no parallelisation.  (See \code{\link[BiocParallel]{bpparam}})}
 
 \item{chimera.to.target}{Number of bases that may separate a chimeric read
-set from the target for it to be assigned to the target. If primer.ranges
-are available, these are used instead. (Default: 100)}
-
-\item{target.loc}{The zero point for renumbering (Default: 17)}
+set from the target.loc for it to be assigned to the target. (Default: 5)}
 }
 \value{
 (signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object

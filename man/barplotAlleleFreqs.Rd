@@ -14,7 +14,7 @@ barplotAlleleFreqs(obj, ...)
 \S4method{barplotAlleleFreqs}{matrix}(obj, group = NULL, bar.colours = NULL,
   group.colours = NULL, legend.text.size = 10, axis.text.size = 10,
   legend.symbol.size = 1, snv.label = "SNV", novar.label = "no variant",
-  include.table = TRUE)
+  chimera.label = "Other", include.table = TRUE)
 }
 \arguments{
 \item{obj}{The object to be plotted}
@@ -42,6 +42,9 @@ A set of 15 different colours is provided.}
 
 \item{novar.label}{The row label for non-variant sequences}
 
+\item{chimera.label}{The row label for chimeric (non-linearly aligned)
+variant alleles}
+
 \item{include.table}{Should a table of allele (variant combination)
 counts and total sequences be plotted? (Default: TRUE)}
 }
@@ -58,6 +61,10 @@ three.  Intron boundaries are *NOT* considered, use with caution!
 and produces a barplot showing the variant spectrum for each sample.
 Accepts all arguments accepted by barplotAlleleFreqs for signature("matrix").
 Requires package "VariantAnnotation"
+
+signature("matrix") Accepts a matrix of allele counts,
+with rownames being alleles and column names samples. Indel variants
+are classified using VariantAnnotation.
 }
 \examples{
 data("gol_clutch1")

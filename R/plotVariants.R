@@ -187,7 +187,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
               columns = c("GENEID", "TXID", "TXNAME","EXONSTART",
               "EXONEND", "TXSTRAND")))
   } 
-  gene_gr <- GRanges(seqnames(target), IRanges(genes$EXONSTART, genes$EXONEND),
+  gene_gr <- GRanges(seqnames(target)[1], IRanges(genes$EXONSTART, genes$EXONEND),
                      strand = genes$TXSTRAND, txid = genes$TXID)
   
   utr5 <- GenomicFeatures::fiveUTRsByTranscript(txdb)

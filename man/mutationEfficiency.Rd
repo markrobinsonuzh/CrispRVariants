@@ -24,14 +24,15 @@ non-mutations, e.g. sequencing errors or pre-existing SNVs ("non_variant", defau
 \item{include.chimeras}{Should chimeric alignments be counted as variants
 when calculating mutation efficiency (Default: TRUE}
 
-\item{exclude.cols}{A vector of names or indices of columns in the variant counts table
+\item{exclude.cols}{A vector of names of columns in the variant counts table
 that will not be considered when counting mutation efficiency}
 
 \item{filter.vars}{Variants to remove before calculating efficiency.  May be either
 a variant size, e.g. "1D", or a particular variant/variant combination, e.g. -5:3D}
 
 \item{filter.cols}{A vector of control sample names.  Any variants present in the control
-samples will not be counted towards the efficiency.}
+samples will be counted as non-variant, unless they also contain another indel.  Note that
+this is not compatible with counting snvs as variants.}
 }
 \value{
 A vector of efficiency statistics per sample and overall

@@ -30,8 +30,9 @@ Imports:
     S4Vectors
 Suggests:
     BiocStyle,
-    knitr,
+    gdata,
     GenomicFeatures,
+    knitr,
     rmarkdown,
     sangerseqR,
     testthat

@@ -9,7 +9,7 @@
 variantCounts(obj, ...)
 
 \S4method{variantCounts}{CrisprSet}(obj, ..., top.n = NULL, min.freq = 0,
-  min.count = 1, include.chimeras = TRUE, include.nonvariant = TRUE,
+  min.count = 1, include.chimeras = TRUE, include.nonindel = TRUE,
   result = "counts")
 }
 \arguments{
@@ -29,7 +29,7 @@ in at least one sample (Default: 0)}
 \item{include.chimeras}{Should chimeric reads be included in the counts table?
 (Default: TRUE)}
 
-\item{include.nonvariant}{Should sequences without indels be returned?
+\item{include.nonindel}{Should sequences without indels be returned?
 (Default:TRUE)}
 
 \item{result}{Return variants as either counts ("counts", default) or

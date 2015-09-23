@@ -5,8 +5,8 @@
 \title{Internal crispRvariants function for reading and filtering a bam file}
 \usage{
 readTargetBam(file, target, exclude.ranges = GRanges(), exclude.names = NA,
-  chimeras = c("count", "ignore", "exclude", "merge"), by.flag = TRUE,
-  verbose = FALSE)
+  chimera.to.target = 5, chimeras = c("count", "ignore", "exclude",
+  "merge"), by.flag = TRUE, verbose = TRUE)
 }
 \arguments{
 \item{file}{The name of a bam file to read in}
@@ -18,10 +18,17 @@ e.g. primer or cloning vector sequences that have a match in the genome}
 
 \item{exclude.names}{A vector of read names to exclude.}
 
+\item{chimera.to.target}{Maximum distance between endpoints of chimeras and
+target.loc for assigning chimeras to targets (default: 5)}
+
 \item{chimeras}{Flag to determine how chimeric reads are treated.  One of
 "ignore", "exclude", "count" and "merge".  Default "ignore".}
 
-\item{verbose}{Print stats about number of alignments read and filtered.  (Default: FALSE)}
+\item{by.flag}{Is the supplementary alignment flag set?  Used for identifying chimeric
+alignments, function is much faster if TRUE.  Not all aligners set this flag.  If FALSE,
+chimeric alignments are identified using read names (Default: TRUE)}
+
+\item{verbose}{Print stats about number of alignments read and filtered.  (Default: TRUE)}
 }
 \value{
 A GenomicAlignments::GAlignment obj

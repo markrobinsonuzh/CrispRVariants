@@ -34,7 +34,7 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 #'@param use.consensus Take the consensus sequence for non-matching pairs? If FALSE,
 #'the sequence of the first read is used.  Can be very slow. (Default: FALSE)
 #'@param store.chimeras Should chimeric reads be stored?  (Default: FALSE)
-#'@param verbose Print progress and statistics (Default: FALSE)
+#'@param verbose Print progress and statistics (Default: TRUE)
 #'@return (signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object 
 #'@examples
 #'# Load the metadata table
@@ -55,8 +55,7 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 setMethod("readsToTarget", signature("GAlignments", "GRanges"),
           function(reads, target, ..., reverse.complement = TRUE, 
                    chimeras = NULL, collapse.pairs = FALSE, use.consensus = FALSE, 
-                   store.chimeras = FALSE, verbose = FALSE, name = NULL){
-
+                   store.chimeras = FALSE, verbose = TRUE, name = NULL){
             
             if (length(target) > 1){
               stop("readsToTarget accepts a single target range")
@@ -113,7 +112,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             
             # If bam is non-empty, orient and narrow the reads to the target
             if (reverse.complement & as.character(strand(target)) == "*"){
-             message(paste0("Target does not have a strand, but reverse.complement is TRUE.",
+             message(paste0("Target does not have a strand, but reverse.complement is TRUE. ",
                             "Orienting reads to reference strand."))
               rc = FALSE
             }else{
@@ -128,21 +127,22 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             # Collapse pairs of narrowed reads
             
             if (collapse.pairs == TRUE){
-              result <- collapsePairs(bam, genome.ranges = gen_ranges, 
+              result <- collapsePairs(result, genome.ranges = gen_ranges, 
                                       use.consensus = use.consensus, 
                                       keep.unpaired = keep.unpaired, verbose = verbose)
+              
+              result <- result$alignments
             }
             
             if (length(result) == 0){
               if (length(chimeras) == 0){ 
                 return(NULL) 
               }
-              
               crun <- CrisprRun(result, target, IRanges::IRangesList(), rc = rc, 
                                 name = name, chimeras = chimeras, verbose = verbose)  
               return(crun)
             }            
-                        
+                 
             crun <- CrisprRun(result, target, gen_ranges, rc = rc, name = name, 
                               chimeras = chimeras, verbose = verbose)      
             return(crun)
@@ -155,7 +155,7 @@ setMethod("readsToTarget", signature("GAlignmentsList", "GRanges"),
           function(reads, target, ..., reference = reference, 
                    names = NULL, reverse.complement = TRUE, target.loc = 17,
                    chimeras = NULL, collapse.pairs = FALSE, use.consensus = FALSE,
-                   verbose = FALSE){
+                   verbose = TRUE){
      
     # Deal with potentially empty chimeras
     # check that lengths of reads and chimeras are either 0 or the same 
@@ -189,7 +189,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
                    target.loc = 17, exclude.ranges = GRanges(), exclude.names = NA,
                    chimeras = c("count","exclude","ignore", "merge"),
                    collapse.pairs = FALSE, use.consensus = FALSE, 
-                   names = NULL, verbose = FALSE){  
+                   names = NULL, verbose = TRUE){  
             
             # Make sure the reference sequence consists of one sequence
             # Coerce to "DNA string if necessary"
@@ -199,12 +199,21 @@ setMethod("readsToTarget", signature("character", "GRanges"),
               }
               reference <- as(reference[[1]], "DNAString")
             }
+            args <- list(...)
+            c_to_t <- 5
+            if ("chimera.to.target" %in% names(args)){
+              c_to_t <- args[["chimera.to.target"]]
+            }
             
             chimeras <- match.arg(chimeras)
             
             temp <- lapply(reads, readTargetBam, target = target, 
-                           exclude.ranges = exclude.ranges, exclude.names = exclude.names, 
-                           chimeras = chimeras, by.flag = collapse.pairs, verbose = verbose)
+                           exclude.ranges = exclude.ranges, 
+                           exclude.names = exclude.names, 
+                           chimeras = chimeras, by.flag = collapse.pairs, 
+                           chimera.to.target = c_to_t,
+                           verbose = verbose)
+            
             alns <- lapply(temp, "[[", "bam")
             chimeras <- lapply(temp, "[[", "chimeras")
             
@@ -213,6 +222,7 @@ setMethod("readsToTarget", signature("character", "GRanges"),
               names <- reads
             }
             names <- as.character(names)
+            
             cset <- alnsToCrisprSet(alns, reference, target, reverse.complement, 
                                     collapse.pairs, names, use.consensus, target.loc,
                                     verbose = verbose, chimeras = chimeras, ...)
@@ -239,15 +249,14 @@ setGeneric("readsToTargets", function(reads, targets, ...) {
 #'@param bpparam A BiocParallel parameter for parallelising across reads.  
 #'Default: no parallelisation.  (See \code{\link[BiocParallel]{bpparam}})
 #'@param chimera.to.target Number of bases that may separate a chimeric read 
-#'set from the target for it to be assigned to the target. If primer.ranges 
-#'are available, these are used instead. (Default: 100)
+#'set from the target.loc for it to be assigned to the target. (Default: 5)
 #'@rdname readsToTarget
 setMethod("readsToTargets", signature("character", "GRanges"),
           function(reads, targets, ..., references, primer.ranges = NULL, 
                    target.loc = 17, reverse.complement = TRUE, collapse.pairs = FALSE, 
                    use.consensus = FALSE, ignore.strand = TRUE, 
                    names = NULL, bpparam = BiocParallel::SerialParam(), 
-                   chimera.to.target = 100, verbose = FALSE){
+                   chimera.to.target = 5, verbose = TRUE){
                       
             dummy <- .checkReadsToTargets(targets, primer.ranges, references)
             
@@ -271,9 +280,9 @@ setMethod("readsToTargets", signature("character", "GRanges"),
               return(bam)
            }, BPPARAM = bpparam)
            
+           bams <- GAlignmentsList(bams)
            if (collapse.pairs == FALSE) dummy <- .checkForPaired(bams)
            
-           bams <- GAlignmentsList(bams)
            result <- readsToTargets(bams, targets, references = references,
                        target.loc = target.loc, verbose = verbose, 
                        reverse.complement = reverse.complement,
@@ -292,7 +301,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
                    target.loc = 17, reverse.complement = TRUE, collapse.pairs = FALSE, 
                    use.consensus = FALSE, ignore.strand = TRUE, 
                    names = NULL, bpparam = BiocParallel::SerialParam(), 
-                   chimera.to.target = 100, verbose = FALSE){
+                   chimera.to.target = 5, verbose = TRUE){
   
     dummy <- .checkReadsToTargets(targets, primer.ranges, references)
     if (collapse.pairs == FALSE) dummy <- .checkForPaired(reads)
@@ -310,7 +319,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
       if (verbose) cat(sprintf("Assigning chimeric reads to targets \n"))
     
       # Change to default: just supply the cut site (target.loc)
-      ch_tgts <- resize(resize(targets, target.loc, fix="start"), 1, fix = "end")
+      ch_tgts <- resize(resize(targets, target.loc + 1, fix="start"), 2, fix = "end")
     
       temp <- separateChimeras(bam, ch_tgts, chimera.to.target, 
                               by.flag = collapse.pairs, verbose = verbose)
@@ -332,7 +341,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
                         "  %s (%.2f%%) reads mapped to a single target\n\n")
           rhits <- length(unique(subjectHits(hits)))
           bl <- length(bam)
-          ndups <- sum(duplicates)
+          ndups <- sum(duplicated(subjectHits(hits)))
           nndups <- sum(!duplicates)
           cat(sprintf(msg, rhits, rhits/bl*100, bl, ndups, ndups/rhits*100, 
                       nndups, nndups/bl*100))
@@ -408,14 +417,12 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
 }
 
 .checkForPaired <- function(bams){
-  is_first <- function(bm){ bitwAnd(mcols(bm)$flag, 64) }
-  for (bm in bams){
-    if ("flag" %in% names(mcols(bm))){
-      if (any(is_first(bm))){
-        warning("collapse.pairs set to FALSE but flags indicate paired reads",
-                immediate. = TRUE)
-        return(FALSE)
-      }  
+  is_first <- function(bams){ bitwAnd(mcols(bams)$flag, 64) }
+  if ("flag" %in% names(mcols(bams))){
+    if (any(is_first(bams))){
+      warning("collapse.pairs set to FALSE but flags indicate paired reads",
+              immediate. = TRUE)
+      return(FALSE)
     }
   }
   return(TRUE)
@@ -462,6 +469,7 @@ separateChimeras <- function(bam, targets, tolerance = 5,
   # Assign chimeras to targets
   tgt_plus_tol <- targets + tolerance
   hits <- findOverlaps(chimeras, tgt_plus_tol, ignore.strand = TRUE)
+
   # Exclude members that match multiple targets
   is_dup <- duplicated(queryHits(hits)) | duplicated(queryHits(hits), fromLast = TRUE)
   hits <- hits[!is_dup]
@@ -564,17 +572,19 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
 #'@param exclude.ranges A GRanges object of regions that should not be counted,
 #'e.g. primer or cloning vector sequences that have a match in the genome 
 #'@param exclude.names A vector of read names to exclude.  
+#'@param chimera.to.target Maximum distance between endpoints of chimeras and 
+#'target.loc for assigning chimeras to targets (default: 5)
 #'@param chimeras Flag to determine how chimeric reads are treated.  One of 
 #'"ignore", "exclude", "count" and "merge".  Default "ignore".  
-#'@param verbose Print stats about number of alignments read and filtered.  (Default: FALSE)
+#'@param verbose Print stats about number of alignments read and filtered.  (Default: TRUE)
 #'@param by.flag Is the supplementary alignment flag set?  Used for identifying chimeric 
 #'alignments, function is much faster if TRUE.  Not all aligners set this flag.  If FALSE,
 #'chimeric alignments are identified using read names (Default: TRUE)
 #'@return A GenomicAlignments::GAlignment obj
 readTargetBam <- function(file, target, exclude.ranges = GRanges(), 
-                          exclude.names = NA,
+                          exclude.names = NA, chimera.to.target = 5,
                           chimeras = c("count", "ignore","exclude","merge"),
-                          by.flag = TRUE, verbose = FALSE){
+                          by.flag = TRUE, verbose = TRUE){
   
   ch.action <- match.arg(chimeras)
   if (ch.action == "ignore"){
@@ -586,6 +596,17 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
     param <- ScanBamParam(what = c("seq", "flag"))
   }
   bam <- GenomicAlignments::readGAlignments(file, param = param, use.names = TRUE)
+  if (length(bam) == 0){
+    return(list(bam = GenomicAlignments::GAlignments(), 
+                chimeras = GenomicAlignments::GAlignments()))
+  }
+  
+  # Check that "seq" is not empty
+  unq_wdths <- unique(width(mcols(bam)$seq))
+  if (length(unq_wdths) == 0){
+    if (unq_wdths == 0) stop("No sequence found in bam file")
+  }
+  
   #Exclude reads by name or range
   temp <- excludeFromBam(bam, exclude.ranges, exclude.names)    
   
@@ -608,10 +629,10 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
     if (verbose == TRUE){
       cat(sprintf("%s reads after filtering chimeras\n", length(bam)))
     }
-    return(list(bam = bam, chimeras = GenomicRanges::GRanges()))
+    return(list(bam = bam, chimeras = GenomicAlignments::GAlignments()))
   } 
   if (chimeras == "count"){
-    temp <- separateChimeras(bam, target, 
+    temp <- separateChimeras(bam, target, tolerance = chimera.to.target,
                              by.flag = by.flag, verbose = verbose)
     return(list(bam = temp$bam, chimeras = temp$chimeras[[1]]))    
   }
@@ -826,9 +847,9 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
   if (keep.unpaired){
     # Keep non-pairs, including non-primary and singletons
     keep <- c(keep, setdiff(c(1:length(alns)),is_pair))
-    keep_alns <- alns[keep]
     if (verbose) cat(sprintf("Keeping %s unpaired reads\n", nunpaired))
   }
+  keep_alns <- alns[keep]
   
   if (use.consensus){  
     seq_runs <- rle(paste0(nms_codes, mcols(alns[pairs])$seq))$lengths

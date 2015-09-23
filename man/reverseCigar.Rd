@@ -4,10 +4,10 @@
 \alias{reverseCigar}
 \title{Reverses the order of operations in a cigar string}
 \usage{
-reverseCigar(cigar)
+reverseCigar(cigars)
 }
 \arguments{
-\item{cigar}{the cigar string.}
+\item{cigars}{the cigar strings.}
 }
 \value{
 The reversed cigar string

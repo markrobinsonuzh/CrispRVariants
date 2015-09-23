@@ -1,8 +1,11 @@
 #'@title CrisprSet class
-#'@description A container for holding a set of narrowed alignments, 
+#'@description A ReferenceClass container for holding a set of narrowed alignments, 
 #'each corresponding to the same target region.  Individual samples are 
 #'represented as CrisprRun objects.  CrisprRun objects with no on-target
 #'reads are excluded.
+#'CrisprSet objects are constructed with \code{\link{readsToTarget}} or 
+#'\code{\link{readsToTargets}}.  For most use cases, a CrisprSet object should not 
+#'be accessed directly.
 #'@param crispr.runs A list of CrisprRun objects, typically representing individual samples
 #'within an experiment
 #'@param reference The reference sequence, must be the same length as the target region
@@ -40,8 +43,22 @@
 #'@field cigar_freqs A matrix of counts for each variant
 #'@field target The target location, as a GRanges object
 #'@author Helen Lindsay
-#'@seealso \code{\link{readsToTarget}} for initialising a CrisprSet,
-#'\code{\link[crispRvariants]{CrisprRun}}
+#'@seealso \code{\link{readsToTarget}} and \code{\link{readsToTargets}}
+#'for initialising a CrisprSet, \code{\link[crispRvariants]{CrisprRun}}
+#'@examples 
+#'# Load the metadata table
+#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+#'md <- read.table(md_fname, sep = "\t", stringsAsFactors = FALSE)
+#'
+#'# Get bam filenames and their full paths
+#'bam_fnames <- sapply(md$bam.filename, function(fn){
+#'  system.file("extdata", fn, package = "crispRvariants")})
+#'
+#'reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'
+#'crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
+#'                            names = md$experiment.name, target.loc = 17)
 #'@export CrisprSet
 #'@exportClass CrisprSet 
 CrisprSet = setRefClass(
@@ -141,7 +158,7 @@ CrisprSet$methods(
       }
     cut.site <- ifelse(is.na(target.loc), 17, target.loc)
     
-    # This part should be sped up
+    # This section is slow
     cig_by_run <- lapply(.self$crispr_runs, 
                              function(crun)  crun$getCigarLabels( 
                               target.loc = cut.site, genome_to_target = g_to_t,
@@ -229,6 +246,8 @@ Input parameters:
                                     include.nonindel = TRUE,
                                     type = c("counts", "proportions")){
     
+    # Consider reordering by proportion instead of count at initialisation? 
+    
     result <- match.arg(type)
      
     # Add the chimeric alignments to the bottom
@@ -279,9 +298,6 @@ Input parameters:
     }
    
     return(m) 
-    
-    # TO DO (ORIGNALLY?) - REORDER BY PROPORTION!!
-    # m match + order m mismatch + order m variant
   },
   
   .getUniqueIndelRanges = function(add_chr = TRUE, add_to_ins = TRUE){
@@ -324,19 +340,22 @@ Input parameters:
 
   filterVariants = function(cig_freqs = NULL, names = NULL, columns = NULL,
                             include.chimeras = TRUE){
-    # Relies on having short cigars, remove other options?
-    # Column must include only column names from .self$cigar_freqs
-    # Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D"
-    # Accepts a mutation combination with location
     
-    #warning("This function will not correctly count SNVs as variants after filtering")
+    # Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D"
+    
+    # Potential improvements:
+    # This relies on having short cigars, remove other options?
+    # Column must include only column names from .self$cigar_freqs
+    
+    
+    warning("This function will not correctly count SNVs as variants after filtering")
     if (is.null(cig_freqs)){
       cig_freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
     vars <- strsplit(rownames(cig_freqs), ",")
     if (length(columns) > 0){
       # Select the rownames that occur in columns
-      cols <- rownames(cig_freqs)[rowsums(cig_freqs[,columns]) > 0]
+      cols <- rownames(cig_freqs)[rowSums(cig_freqs[,columns, drop=FALSE]) > 0]
     } else {
       cols <- NULL
     }
@@ -403,7 +422,7 @@ Input parameters:
           "exclude" (do not include reads with snvs in efficiency calculations),
           and "non_variant" (consider reads with mismatches to be non-mutated).
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
-  exclude.cols:   A list of column indices to exclude from calculation, e.g. if one
+  exclude.cols:   A list of column names to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
   filter.vars:    Variants that should not be counted as mutations.
   filter.cols:    Column names to be considered controls.  Variants occuring in
@@ -412,19 +431,28 @@ Return value:
   A vector of efficiency statistics per sample and overall
 
 '    
+    
+  
     snv <- match.arg(snv)
     freqs <- .self$cigar_freqs
     if (include.chimeras == TRUE){
       freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
     
+exclude.idxs <- match(exclude.cols, colnames(freqs))     
+    if (any(is.na(exclude.idxs))){
+      nf <- exclude.cols[is.na(exclude.idxs)]
+      stop(sprintf("Column(s) %s not found in variant counts table", 
+                   paste(nf, collapse = " ")))
+    }
+
     if (length(filter.vars) > 0 | length(filter.cols) > 0){
       freqs <- .self$filterVariants(cig_freqs = freqs, names = filter.vars,
                                     columns = filter.cols)
     }
 
-    if (length(exclude.cols) > 0){
-      freqs <- freqs[,-exclude.cols, drop = FALSE]
+    if (length(exclude.idxs) > 0){
+      freqs <- freqs[,-exclude.idxs, drop = FALSE]
     }
     
     is_snv <- grep(.self$pars$mismatch_label, rownames(freqs))
@@ -715,9 +743,7 @@ Return value:
     
     seqs <- c()
     starts <- c()
-    
-    # SOMEWHERE HERE - CONSENSUS SEQ ONLY TAKING ONE SAMPLE?
-    
+        
     for (i in seq_along(splits)){
       if (i %in% all_d){
         seqs[i] <- ""

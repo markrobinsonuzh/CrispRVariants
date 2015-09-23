@@ -24,19 +24,19 @@ containing the sequence}
 \item{verbose}{(Default: FALSE)}
 }
 \value{
-A list of "alignments", the narrowed alignments (GAlignments),
-and "genome.ranges", the genomic locations of the cigar operations with
-respect to the reference strand.
-If reverse.complement is true, "alignments" is not a proper GAlignments object.
-The start is displayed with respect to the reference strand, but the cigar
-and sequence are displayed with respect to the negative strand.
-Use with caution outside of crispRvariants!
+The narrowed alignments (GAlignments),
 }
 \description{
 Aligned reads are narrowed to the target region.  In
 the case of reads with deletions spanning the boundaries of the target,
-reads are narrowed to the next aligned base outside of the target
-Note that alignments and cigars are reversed if reverse.complement = TRUE
+reads are narrowed to the start of the deletion,
+}
+\examples{
+bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
+                         package = "crispRvariants")
+bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
+target <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
+narrowAlignments(bam, target, reverse.complement = FALSE)
 }
 \author{
 Helen Lindsay

@@ -47,12 +47,13 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
                          legend.title = "Chromosome", xangle = 90, 
                          wrt.forward = FALSE, annotate.within = 20,
                          annotations = GenomicRanges::GRanges()){
-  # TO DO?
+  # Potential improvements:
   # - extend y-axis to annotate regions that are close but not spanned
   # - label the chromosomal regions
   # Count soft-clipped bases at ends?
   # Function for paired alignments? 
   # (recall that crispRvariants does not currently use galignmentpairs)
+  # simplify offsets by calculating wrt block?
   
   # Sort chromosomes by minimum read start of any segment on each chr
   temp_cigs <- cigarRangesAlongQuerySpace(cigar(chimeric.alns))
@@ -138,8 +139,6 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   m_granges <- GRanges(chr_to_ranges, unlist(m_ref))
   y_blocks <- reduce(m_granges, min.gapwidth = max.gap)
   # Blocks that are not merged should have a gap added
-  
-  # SIMPLIFY OFFSETS BY CALCULATING WRT BLOCK
   
   offsets <- rep(0, length(m_granges))
   ys_to_block <- subjectHits(findOverlaps(m_granges, y_blocks))

@@ -38,7 +38,8 @@ one sample (default: 0, i.e no count cutoff)}
 \item{renumbered}{If TRUE, the x-axis is numbered with respect to the target
 (default: TRUE)}
 
-\item{add.other}{Add a blank row for "Other" alignments (Default:TRUE)}
+\item{add.other}{Add a blank row labelled "Other" to the plot, for combining
+with plotFreqHeatmap (default: TRUE (signature "CrisprSet") FALSE (signature "matrix"))}
 
 \item{alns}{A named character vector of aligned sequences, with insertions removed}
 
@@ -99,9 +100,6 @@ zero point (cleavage site) and the boxes for the guide and PAM.  (Default: 1)}
 
 \item{legend.symbol.size}{The size of the symbols indicating insertions
 in the legend.  (Default: ins.size)}
-
-\item{add.other}{Add a blank row labelled "Other" to the plot, for combining
-with plotFreqHeatmap (default: FALSE)}
 }
 \value{
 A ggplot2 figure

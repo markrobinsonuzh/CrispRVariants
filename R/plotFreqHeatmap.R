@@ -38,9 +38,10 @@ setMethod("plotFreqHeatmap", signature("matrix"),
                    legend.position = "right",
                    legend.key.height = grid::unit(2, "lines")) {            
   
-  # To do: Allow a separate object for colours          
-  #'param colour.vals A matrix of the same dimensions as obj containing 
-  #'numbers that will be used to colour the heatmap.               
+  # Potential improvements:
+  # Allow a separate object for colours          
+  # param colour.vals A matrix of the same dimensions as obj containing 
+  # numbers that will be used to colour the heatmap.               
             
   # Make space for totals to be added (either header or col.sums)
   if (length(header) == ncol(obj)){

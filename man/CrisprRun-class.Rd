@@ -25,7 +25,7 @@ i.e. displayed with respect to the negative strand?  (Default: FALSE)}
 \item{verbose}{Print information about initialisation progress (Default: TRUE)}
 }
 \description{
-A container for a single sample of alignments narrowed
+A ReferenceClass container for a single sample of alignments narrowed
 to a target region
 }
 \section{Fields}{

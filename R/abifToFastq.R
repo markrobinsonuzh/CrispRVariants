@@ -19,9 +19,7 @@
 #'abifToFastq("IM2033", ab1_fname, "IM2033.fastq")
 #'@export
 abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05, 
-                        min_seq_len = 20, offset = 33){
-  # TO DO? check min_seq_len after trimming also?
-  
+                        min_seq_len = 20, offset = 33){  
   sangerseqr <- requireNamespace("sangerseqR")
   stopifnot(sangerseqr == TRUE)
   
@@ -71,7 +69,8 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
     return()
   }
   
-  writeFastq(outfname, list("seqname" = seqname, "seq" = substring(nucseq, trim_start, trim_finish),
+  writeFastq(outfname, list("seqname" = seqname, 
+                            "seq" = substring(nucseq, trim_start, trim_finish),
                             "quals" = rawToChar(as.raw(num_quals[trim_start:trim_finish]+offset))))
   return()
 }

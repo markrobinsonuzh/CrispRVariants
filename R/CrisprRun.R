@@ -1,5 +1,5 @@
 #'@title CrisprRun class
-#'@description A container for a single sample of alignments narrowed 
+#'@description A ReferenceClass container for a single sample of alignments narrowed 
 #'to a target region
 #'@param bam a GAlignments object containing (narrowed) alignments to the target region.
 #' Filtering of the bam should generally be done before initialising a CrisprRun object
@@ -41,8 +41,6 @@ CrisprRun = setRefClass(
 CrisprRun$methods(
   initialize = function(bam, target, genome.ranges, rc = FALSE, name = NULL, 
                         chimeras = GenomicAlignments::GAlignments(), verbose = TRUE){
-    #Attributes:
-    # cigar_labels are labels for variant combinations, e.g. used in plotting
     
     name <<- ifelse(is.null(name), NA, name)
     if (verbose == TRUE) cat(sprintf("\nInitialising CrisprRun %s\n", .self$name))
@@ -55,6 +53,9 @@ CrisprRun$methods(
     
     ref_ranges <- cigarRangesAlongReferenceSpace(cigar(bam))
     cigar_ops <<- CharacterList(explodeCigarOps(cigar(bam)))
+    
+    # recalculate this in case of keep_unpaired = FALSE, not tested
+    genome.ranges <- cigarRangesAlongReferenceSpace(cigar(bam), pos = start(bam))
     .self$getInsertionSeqs(ref_ranges = ref_ranges, genome_ranges = genome.ranges)
   },
   
@@ -118,7 +119,6 @@ Input parameters:
     ins_seqs <- as.character(subseq(tseqs, start(qranges), end(qranges)))
     ins_starts <- start(unlist(ref_ranges[ins]))
     genomic_starts <- unlist(start(genome_ranges[ins])) -1 # -1 for leftmost base
-    
     df <- data.frame(start = ins_starts, seq = ins_seqs, genomic_start = genomic_starts)
     df$seq <- as.character(df$seq)
     insertions <<- aggregate(rep(1, nrow(df)), by = as.list(df), FUN = table)
@@ -139,7 +139,7 @@ Input parameters:
   splitChimeras = function(){
     splits <- split(cigar(.self$chimeras), names(.self$chimeras))
     if (length(splits) == 0) return(data.frame())
-    combination <-sapply(splits, paste, collapse=";")
+    combination <- sapply(splits, paste, collapse=";")
     tt <- as.data.frame(table(combination))
     tt <- tt[order(tt$Freq, decreasing = TRUE),]
     return(tt)
@@ -153,10 +153,6 @@ Input parameters:
                              rc = FALSE, keep.ops = c("I","D","N"), upstream = 8, 
                             downstream = min(5, width(ref) - cut_site)){
     
-    # does this also work on alns list?
-    # character list faster than unlist/relist?
-    # get the ops of interest and the renumbering coordinates (genomic start for forward, end for rc)
-  
     cigs <- cigar(.self$alns)
     wdths <- explodeCigarOpLengths(cigs)
     ops <- explodeCigarOps(cigs)
@@ -193,13 +189,14 @@ Input parameters:
   },
 
   .splitNonIndel = function(ref, cig_labels, rc, match_label = "no variant", 
-                          mismatch_label = "SNV", cut_site = 17, upstream = 8, 
-                          downstream = min(5, width(ref) - cut_site)){
+                          mismatch_label = "SNV", cut_site = 17, 
+                          upstream = 8, downstream = 5){
   
   # Only consider mismatches up to (upstream) to the left of the cut and
   # (downstream) to the right of the cut
   # The cut site is between cut_site and cut_site + 1
-      
+  upstream = min(cut_site, upstream)   
+  downstream = min(downstream, nchar(ref) - cut_site)
   no_var <- which(cig_labels == match_label & mcols(.self$alns)$seq != ref)
   if (length(no_var) == 0) return(cig_labels)
   
