@@ -1,10 +1,9 @@
 ---
 title: "Readme"
 author: "Helen Lindsay"
-date: "25 January 2015"
 ---
 
-crispRvariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment.  Starting from a set of bam files, crispRvariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of 
+CrispRVariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment.  Starting from a set of bam files, crispRvariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of 
 the protospacer adjacent motif (PAM).  The target region and zero point can be flexibly specified, 
 and the variants may be shown with respect to either DNA strand. 
 
@@ -14,7 +13,7 @@ identifying sequences that differ from the reference sequence.
 
 # Installation
 
-Assuming the devtools package is installed, crispRvariants can be installed using:
+Assuming the devtools package is installed, CrispRVariants can be installed using:
 ```{r eval=FALSE}
 devtools::install_github("markrobinsonuzh/crispRvariants")
 ```
@@ -63,8 +62,6 @@ Each of these functions can filter the variant alleles in various ways.  See the
 
 # Contact
 
-We are currently in the process of writing documentation and preparing to submit
-crispRvariants to Bioconductor.  Please contact helen (dot) lindsay (at) uzh (dot) ch
-for more information. 
+We are currently finialising the package for inclusion in the next Bioconductor release.  Please contact helen (dot) lindsay (at) uzh (dot) ch for more information. 
 
 

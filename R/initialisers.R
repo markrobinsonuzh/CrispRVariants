@@ -38,15 +38,15 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 #'@return (signature("GAlignments", "GRanges")) A \code{\link{CrisprRun}} object 
 #'@examples
 #'# Load the metadata table
-#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "CrispRVariants")
 #'md <- read.table(md_fname, sep = "\t", stringsAsFactors = FALSE)
 #'
 #'# Get bam filenames and their full paths
 #'bam_fnames <- sapply(md$bam.filename, function(fn){
-#'  system.file("extdata", fn, package = "crispRvariants")})
+#'  system.file("extdata", fn, package = "CrispRVariants")})
 #'
-#'reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+#'gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
 #'
 #'crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
 #'                            names = md$experiment.name, target.loc = 17)
@@ -122,7 +122,8 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             # narrow aligned reads
             result <- narrowAlignments(bam, target, reverse.complement = rc, 
                                        verbose = verbose)
-            gen_ranges <- cigarRangesAlongReferenceSpace(cigar(result), pos = start(result))
+            gen_ranges <- GenomicAlignments::cigarRangesAlongReferenceSpace(
+                             cigar(result), pos = start(result))
             
             # Collapse pairs of narrowed reads
             
@@ -556,7 +557,7 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
 }
 
 
-#'@title Internal crispRvariants function for reading and filtering a bam file
+#'@title Internal CrispRVariants function for reading and filtering a bam file
 #'@description Includes options for excluding reads either by name or range.
 #'The latter is useful if chimeras are excluded.  Reads are excluded before
 #'chimeras are detected, thus a chimeric read consisting of two sections, one of 
@@ -643,7 +644,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
 }
 
 
-#'@title Internal crispRvariants function for deciding whether to reverse 
+#'@title Internal CrispRVariants function for deciding whether to reverse 
 #'complement aligned reads
 #'@param target.strand Strand of the target region
 #'@param reverse.complement Should the alignment be oriented to match the strand
@@ -675,7 +676,7 @@ setGeneric("narrowAlignments", function(alns, target, ...) {
 #'@rdname narrowAlignments 
 #'@examples
 #'bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-#'                          package = "crispRvariants")
+#'                          package = "CrispRVariants")
 #'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 #'target <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
 #'narrowAlignments(bam, target, reverse.complement = FALSE)
@@ -702,11 +703,12 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
     if (verbose == TRUE) cat("narrowing alignments\n")
             
     ref_ranges <- GenomicAlignments::cigarRangesAlongReferenceSpace(cigar(alns))
-    genomic <- shift(ref_ranges, start(alns)-1) 
+    genomic <- GenomicRanges::shift(ref_ranges, start(alns)-1) 
             
     # is unlist/relist needed
     # Find the on target operations
-    clipped <- unlist(explodeCigarOps(cigar(alns))) %in% c("S","H")
+    clipped <- unlist(GenomicAlignments::explodeCigarOps(cigar(alns)))
+    clipped <- clipped %in% c("S","H")
     on_target <- unlist(start(genomic) <= end(target) & end(genomic) >= start(target))
     on_target <- on_target & ! clipped
     on_target <- relist(on_target, ref_ranges)
@@ -722,7 +724,8 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
             
     # Narrow border "M" operations to match target
     # need to know where the target start (genomic) is wrt sequence (query) coordinates
-    q_ranges <- cigarRangesAlongQuerySpace(cigar(alns))
+    cig <- GenomicAlignments::cigar(alns)
+    q_ranges <- GenomicAlignments::cigarRangesAlongQuerySpace(cig)
     sq_starts <- start(q_ranges)[first_on_tg] 
             
     genomic_offset_fom <- start(target) - start(genomic)[first_on_tg][first_op_m] 
@@ -777,7 +780,7 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
     return(new_alns)
 })
           
-#'@title Internal crispRvariants function for collapsing pairs with concordant indels
+#'@title Internal CrispRVariants function for collapsing pairs with concordant indels
 #'@description Given a set of alignments to a target region, finds read pairs.
 #'Compares insertion/deletion locations within pairs using the cigar string.  
 #'Pairs with non-identical indels are excluded.  Pairs with identical indels are

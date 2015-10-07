@@ -2,7 +2,7 @@
 % Please edit documentation in R/initialisers.R
 \name{readTargetBam}
 \alias{readTargetBam}
-\title{Internal crispRvariants function for reading and filtering a bam file}
+\title{Internal CrispRVariants function for reading and filtering a bam file}
 \usage{
 readTargetBam(file, target, exclude.ranges = GRanges(), exclude.names = NA,
   chimera.to.target = 5, chimeras = c("count", "ignore", "exclude",

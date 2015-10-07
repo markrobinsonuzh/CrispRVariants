@@ -25,7 +25,7 @@ setGeneric("plotVariants", function(obj, ...) {
 #'
 #'library(GenomicFeatures)
 #'fn <- system.file("extdata", "Danio_rerio.Zv9.73.gol.sqlite", 
-#'                  package = "crispRvariants")
+#'                  package = "CrispRVariants")
 #'txdb <- loadDb(fn)
 #'
 #'# Plot the variants
@@ -251,19 +251,22 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
   strands[strands == "-"] <- 60
   strands[strands == "+"] <- 62
   tcks$shp <- as.integer(strands)
-  
-  p <- ggplot2::ggplot(tcks, aes(x = tloc, y = ys, group = ys)) + 
-    geom_point(aes(shape = shp), size = 2) + geom_line(data = lns) + 
+
+  p <- ggplot2::ggplot(tcks) + 
+    geom_point(aes_q(x = quote(tloc), y = quote(ys), group = quote(ys), 
+                     shape = quote(shp)), size = 2) + 
+    geom_line(data = lns, aes_q(x = quote(tloc), y = quote(ys), 
+                                group = quote(ys))) + 
     scale_shape_identity()
   
   p <- p + geom_rect(data = all_exs, fill = "black", color = "black", 
-                     aes(x = NULL, y = NULL, group = NULL, 
-                     xmin = start, xmax = end, ymin = ymin, ymax = ymax)) 
+                     aes_q(xmin = quote(start), xmax = quote(end), 
+                           ymin = quote(ymin), ymax = quote(ymax))) 
 
   p <- p + geom_rect(data = target_df,
-                     aes(x = NULL, y = NULL, group = NULL,
-                         xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
-                         colour = target.colour, fill = NA, size = target.size)  
+                     aes_q(xmin = quote(xmin), xmax = quote(xmax), 
+                           ymin = quote(ymin), ymax = quote(ymax)), 
+                     colour = target.colour, fill = NA, size = target.size)  
   
   if (! plot.title == FALSE){
     p <- p + ggtitle(plot.title) 

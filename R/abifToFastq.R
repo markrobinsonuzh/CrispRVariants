@@ -15,7 +15,7 @@
 #'@author Helen Lindsay
 #'@return None.  Sequences are appended to the outfname.
 #'@examples
-#'ab1_fname <- system.file("extdata", "IM2033.ab1", package = "crispRvariants")
+#'ab1_fname <- system.file("extdata", "IM2033.ab1", package = "CrispRVariants")
 #'abifToFastq("IM2033", ab1_fname, "IM2033.fastq")
 #'@export
 abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05, 

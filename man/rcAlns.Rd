@@ -2,7 +2,7 @@
 % Please edit documentation in R/initialisers.R
 \name{rcAlns}
 \alias{rcAlns}
-\title{Internal crispRvariants function for deciding whether to reverse
+\title{Internal CrispRVariants function for deciding whether to reverse
 complement aligned reads}
 \usage{
 rcAlns(target.strand, reverse.complement)
@@ -16,7 +16,7 @@ rcAlns(target.strand, reverse.complement)
 A logical value indicating whether the narrowed alignment should be reverse complemented.
 }
 \description{
-Internal crispRvariants function for deciding whether to reverse
+Internal CrispRVariants function for deciding whether to reverse
 complement aligned reads
 }
 \author{

@@ -59,6 +59,6 @@ Input parameters:
 Helen Lindsay
 }
 \seealso{
-\code{\link[crispRvariants]{CrisprSet}}
+\code{\link[CrispRVariants]{CrisprSet}}
 }
 

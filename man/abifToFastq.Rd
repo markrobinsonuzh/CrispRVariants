@@ -34,7 +34,7 @@ See \url{https://github.com/bow/abifpy} for more details.
 Requires Bioconductor package SangerseqR
 }
 \examples{
-ab1_fname <- system.file("extdata", "IM2033.ab1", package = "crispRvariants")
+ab1_fname <- system.file("extdata", "IM2033.ab1", package = "CrispRVariants")
 abifToFastq("IM2033", ab1_fname, "IM2033.fastq")
 }
 \author{

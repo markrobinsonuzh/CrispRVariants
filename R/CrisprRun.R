@@ -22,7 +22,7 @@
 #'Set at initialisation of a CrisprSet object, but not at 
 #'initialisation of a CrisprRun object.
 #'@field chimeras Chimeric, off-target alignments corresponding to alignments in alns
-#'@seealso \code{\link[crispRvariants]{CrisprSet}}
+#'@seealso \code{\link[CrispRVariants]{CrisprSet}}
 #'@author Helen Lindsay
 #'@export CrisprRun
 #'@exportClass CrisprRun
@@ -170,7 +170,7 @@ Input parameters:
     }  
     temp <- paste(genome_to_target[as.character(unlist(glocs))],
                   unlist(temp[keep]), sep = ":")
-    temp <- as.list(relist(temp, PartitioningByEnd(cumsum(sum(keep)))))
+    temp <- as.list(relist(temp, IRanges::PartitioningByEnd(cumsum(sum(keep)))))
     complex <- sum(keep) > 1
 
     if (rc == TRUE){

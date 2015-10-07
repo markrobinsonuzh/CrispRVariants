@@ -71,7 +71,7 @@ whether they contain more than one indel of the same or different types.
 }
 \examples{
 bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-                         package = "crispRvariants")
+                         package = "CrispRVariants")
 bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 countDeletions(bam)
 countInsertions(bam)

@@ -40,7 +40,7 @@ data("gol_clutch1")
 
 library(GenomicFeatures)
 fn <- system.file("extdata", "Danio_rerio.Zv9.73.gol.sqlite",
-                 package = "crispRvariants")
+                 package = "CrispRVariants")
 txdb <- loadDb(fn)
 
 # Plot the variants

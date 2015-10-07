@@ -1,15 +1,16 @@
 # Setup data
 wdths <- c(10,10,5,3)
-gr <- GRanges("chr1", IRanges(start = c(5,7,4,13), width = wdths),
+gr <- GenomicRanges::GRanges("chr1", IRanges(start = c(5,7,4,13), width = wdths),
               cigar = sprintf("%sM", wdths), strand = "+", 
               flag=c(0,0,0,2048))
 names(gr) <- c("A", "B", "C","C")
-seqs <- DNAStringSet(subseq(rep("ACTGACTGAC", length(gr)),1, width(gr)))
+seqs <- Biostrings::DNAStringSet(subseq(rep("ACTGACTGAC", 
+                                            length(gr)),1, width(gr)))
 gr$seq <- seqs
-galnsl <- GAlignmentsList(list(as(gr, "GAlignments")))
-targets <- GRanges("chr1", IRanges(c(10, 12), width = 2))
-primer.ranges <- GRanges("chr1", IRanges(c(4, 7), width = c(11,10)))
-references <- DNAStringSet(c("AA","CC"))
+galnsl <- GenomicAlignments::GAlignmentsList(list(as(gr, "GAlignments")))
+targets <- GenomicRanges::GRanges("chr1", IRanges(c(10, 12), width = 2))
+primer.ranges <- GenomicRanges::GRanges("chr1", IRanges(c(4, 7), width = c(11,10)))
+references <- Biostrings::DNAStringSet(c("AA","CC"))
 
 test_that("readsToTargets correctly separates reads by PCR primer",{
   # test that reads can't be separated without primer ranges

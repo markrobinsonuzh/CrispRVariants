@@ -109,12 +109,12 @@ Plot alignments with respect to a reference sequence
 
 (signature("CrisprSet")) Wrapper for CrisprSet$plotVariants.
 Optionally filters a CrisprSet frequency table, then plots variants.
-More information in \code{\link[crispRvariants]{CrisprSet}}
+More information in \code{\link[CrispRVariants]{CrisprSet}}
 
 (signature("DNAString"))  Plots a set of pairwise alignments to a reference sequence.
 Alignments should all be the same length as the reference sequences.
 This is achieved by removing insertions with respect to the reference,
-see \code{\link[crispRvariants]{seqsToAln}}.
+see \code{\link[CrispRVariants]{seqsToAln}}.
 Insertions are indicated by symbols in the plot and a table showing the
 inserted sequences below the plot.  The default options are intended for a
 figure 6-8 inches wide, with figure height best chosen according to the number

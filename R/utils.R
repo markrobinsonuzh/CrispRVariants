@@ -15,15 +15,15 @@ setGeneric("mergeCrisprSets", function(x,y, ...) {
 #'@return A merged CrisprSet object
 #'@examples
 #'# Load the metadata table
-#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "CrispRVariants")
 #'md <- read.table(md_fname, sep = "\t", stringsAsFactors = FALSE)
 #'
 #'# Get bam filenames and their full paths
 #'bam_fnames <- sapply(md$bam.filename, function(fn){
-#'  system.file("extdata", fn, package = "crispRvariants")})
+#'  system.file("extdata", fn, package = "CrispRVariants")})
 #'
-#'reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+#'gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
 #'
 #'crispr_set1 <- readsToTarget(bam_fnames[c(1:4)], target = gd, 
 #'       reference = reference, names = md$experiment.name[1:4], target.loc = 17)
@@ -77,7 +77,7 @@ setMethod("mergeCrisprSets", signature(x = "CrisprSet", y = "CrisprSet"),
 #'@rdname indelCounts
 #'@examples
 #'bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-#'                          package = "crispRvariants")
+#'                          package = "CrispRVariants")
 #'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 #'countDeletions(bam)
 #'countInsertions(bam)

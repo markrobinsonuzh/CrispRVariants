@@ -52,7 +52,7 @@ is shown if all strands agree.  The chimeric alignments must be sorted!
 }
 \examples{
 bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-                         package = "crispRvariants")
+                         package = "CrispRVariants")
 bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 # Choose a single chimeric read set to plot:
 chimeras <- bam[names(bam) == "AB3092"]

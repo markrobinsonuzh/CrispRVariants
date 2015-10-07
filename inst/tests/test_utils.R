@@ -1,8 +1,9 @@
-alns <- GAlignments(seqnames=rep("1", 5), pos=as.integer(rep(1,5)), 
+alns <- GenomicAlignments::GAlignments(seqnames=rep("1", 5), 
+                                       pos=as.integer(rep(1,5)), 
                     cigar=c("10M", "5M1D5M", "4M1D6M4D2M",
                             "1M2D3M4I", "2M3I2M3I2M"), 
-                    strand = Rle(factor(rep("+", 5),
-                                        levels = c("+","-","*"))))
+                    strand = S4Vectors::Rle(factor(rep("+", 5),
+                                         levels = c("+","-","*"))))
 
 test_that("countDeletions returns the expected counts", {
   expect_equal(countDeletions(alns), 1)

@@ -32,7 +32,7 @@
 #'@export
 #'@examples
 #'bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-#'                          package = "crispRvariants")
+#'                          package = "CrispRVariants")
 #'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 #'# Choose a single chimeric read set to plot:
 #'chimeras <- bam[names(bam) == "AB3092"]
@@ -52,7 +52,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   # - label the chromosomal regions
   # Count soft-clipped bases at ends?
   # Function for paired alignments? 
-  # (recall that crispRvariants does not currently use galignmentpairs)
+  # (recall that CrispRVariants does not currently use galignmentpairs)
   # simplify offsets by calculating wrt block?
   
   # Sort chromosomes by minimum read start of any segment on each chr
@@ -69,8 +69,8 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   two_strands <- length(unique(is_plus)) > 1
  
   # For reference ranges, shift to actual genomic starting locations
-  ref_ranges <- cigarRangesAlongReferenceSpace(cigars)
-  ref_ranges <- shift(ref_ranges, start(genomic_locs) -1)
+  ref_ranges <- GenomicAlignments::cigarRangesAlongReferenceSpace(cigars)
+  ref_ranges <- GenomicRanges::shift(ref_ranges, start(genomic_locs) -1)
   
   # Entirely negative strand chimeras may be displayed as aligned to reference
   # (wrt.forward = TRUE).  Default is wrt start of read
@@ -80,8 +80,8 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   }
   
   # Extract match ranges, these will be plotted
-  ops <- CharacterList(explodeCigarOps(cigars))
-  query_ranges <- cigarRangesAlongQuerySpace(cigars)
+  ops <- IRanges::CharacterList(explodeCigarOps(cigars))
+  query_ranges <- GenomicAlignments::cigarRangesAlongQuerySpace(cigars)
   
   # Find all "M" operations (runs of aligned bases)
   mm <- ops == "M"
@@ -138,8 +138,8 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   chr_to_ranges <- as.character(seqnames(genomic_locs)[mm_idxs])
   m_granges <- GRanges(chr_to_ranges, unlist(m_ref))
   y_blocks <- reduce(m_granges, min.gapwidth = max.gap)
-  # Blocks that are not merged should have a gap added
   
+  # Blocks that are not merged should have a gap added
   offsets <- rep(0, length(m_granges))
   ys_to_block <- subjectHits(findOverlaps(m_granges, y_blocks))
   offsets[!duplicated(ys_to_block) & ys_to_block!= 1] <- gap.pad
@@ -218,10 +218,11 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   #____________________________
   # Plotting
   
-  p <- ggplot(pt_coords, aes(x=x,y=y)) + geom_point() +
-       geom_rect(data = box_coords, aes(xmin = xmin, xmax = xmax, 
-                  ymin = ymin, ymax = ymax, x = NULL, y = NULL, fill = chrs,
-                  colour = chrs), alpha = 0.25) + 
+  p <- ggplot(pt_coords) + geom_point(aes_q(x=quote(x),y=quote(y))) +
+       geom_rect(data = box_coords, aes_q(xmin = quote(xmin), 
+                  xmax = quote(xmax), ymin = quote(ymin), 
+                  ymax = quote(ymax), fill = quote(chrs), 
+                  colour = quote(chrs)), alpha = 0.25) + 
        xlab("Read location") + ylab("Chromosomal location") +
        guides(fill = guide_legend(title = legend.title), 
               colour = guide_legend(title = legend.title)) +
@@ -231,10 +232,11 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
                           axis.text.x=element_text(size=text.size, angle = xangle),
                           plot.margin = grid::unit(c(1, 1, 1, 1), "lines")) 
   if (nrow(chr_box_coords) > 0){                         
-    p <- p + geom_rect(data = chr_box_coords, aes(ymin = ymin, 
-                       ymax = ymax, y = NULL, x = NULL), 
+    p <- p + geom_rect(data = chr_box_coords, aes_q(ymin = quote(ymin), 
+                       ymax = quote(ymax), y = NULL, x = NULL), 
                        xmin = min(pt_coords$x), xmax = max(pt_coords$x), 
-                       fill = "gray", alpha = 0.2, colour = "gray", linetype = "dotted") +
+                       fill = "gray", alpha = 0.2, colour = "gray", 
+                       linetype = "dotted") +
          scale_x_continuous(expand = c(0,0), breaks = xbreaks) 
   }
   
@@ -285,8 +287,8 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
     annot <- data.frame(yint = c(ycoords[as.character(start(annot_aln))],
                                  others))
     
-    p <- p + geom_hline(data = annot, aes(yintercept = yint), linetype = "longdash", 
-                        color = "red", size = 0.75)
+    p <- p + geom_hline(data = annot, aes_q(yintercept = quote(yint)), 
+                        linetype = "longdash", color = "red", size = 0.75)
     if ("name" %in% names(mcols(annotations))){
       
       vjust <- ifelse(annot$yint >= max(ycoords), 1,0)
@@ -294,7 +296,8 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
                               vjust = vjust,
                               yint = annot$yint)
       p <- p + geom_text(data = annot_lab, x = min(pt_coords$x) + 1, 
-                         aes(label = label, y = yint, vjust = vjust),
+                         aes_q(label = quote(label), y = quote(yint), 
+                               vjust = quote(vjust)),
                          color = "red", hjust = 0)
     }
   }
@@ -303,7 +306,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   ylower <- min(0, c(ycoords[as.character(start(annot_aln))], left_locs-1))
   yupper <- max(max(ymax) + 1, right_locs)
   
-  p <- p + scale_y_continuous(expand = c(0,0), breaks = tick_pos, labels = tick_labs,
-                              limits = c(ylower, yupper))
+  p <- p + scale_y_continuous(expand = c(0,0), breaks = tick_pos, 
+                              labels = tick_labs, limits = c(ylower, yupper))
   p
 }

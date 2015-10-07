@@ -13,7 +13,7 @@ setDNATileColours(m)
 A matrix with additional columns specifying tile and text colours
 }
 \description{
-Sets tile colours for \code{\link[crispRvariants]{plotAlignments}} with a
+Sets tile colours for \code{\link[CrispRVariants]{plotAlignments}} with a
 DNA alphabet.  Colour names must be valid.
 }
 \author{

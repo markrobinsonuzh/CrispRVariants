@@ -28,15 +28,15 @@ Merge two CrisprSet objects sharing a reference and target location
 }
 \examples{
 # Load the metadata table
-md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "CrispRVariants")
 md <- read.table(md_fname, sep = "\\t", stringsAsFactors = FALSE)
 
 # Get bam filenames and their full paths
 bam_fnames <- sapply(md$bam.filename, function(fn){
- system.file("extdata", fn, package = "crispRvariants")})
+ system.file("extdata", fn, package = "CrispRVariants")})
 
-reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
 
 crispr_set1 <- readsToTarget(bam_fnames[c(1:4)], target = gd,
       reference = reference, names = md$experiment.name[1:4], target.loc = 17)

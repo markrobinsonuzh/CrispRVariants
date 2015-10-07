@@ -17,7 +17,7 @@
 #'@export
 #'@examples
 #'bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-#'                          package = "crispRvariants")
+#'                          package = "CrispRVariants")
 #'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 #'chimera_indices <- findChimeras(bam)
 #'chimeras <- bam[chimera_indices]

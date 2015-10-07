@@ -9,7 +9,7 @@ seqsToAln(cigar, dnaseq, target, del_char = "-", aln_start = NULL)
 \arguments{
 \item{cigar}{A list of cigar strings to align}
 
-\item{dnaseq}{The set of sequences corresponding to the cigars, as DNAStrings}
+\item{dnaseq}{The set of sequences corresponding to the cigars, as Biostrings::DNAStrings}
 
 \item{target}{The target region to return, as GRanges.  Sequences overlapping
 the target region are trimmed to exactly match it.}

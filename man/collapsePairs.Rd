@@ -2,7 +2,7 @@
 % Please edit documentation in R/initialisers.R
 \name{collapsePairs}
 \alias{collapsePairs}
-\title{Internal crispRvariants function for collapsing pairs with concordant indels}
+\title{Internal CrispRVariants function for collapsing pairs with concordant indels}
 \usage{
 collapsePairs(alns, use.consensus = TRUE, keep.unpaired = TRUE,
   verbose = TRUE, ...)

@@ -39,22 +39,22 @@
 #'@param verbose If true, prints information about initialisation progress (default: TRUE)
 #'@field crispr_runs A list of CrisprRun objects, typically corresponding to samples 
 #'of an experiment.  
-#'@field ref The reference sequence for the target region, as a DNAString object 
+#'@field ref The reference sequence for the target region, as a Biostrings::DNAString object 
 #'@field cigar_freqs A matrix of counts for each variant
 #'@field target The target location, as a GRanges object
 #'@author Helen Lindsay
 #'@seealso \code{\link{readsToTarget}} and \code{\link{readsToTargets}}
-#'for initialising a CrisprSet, \code{\link[crispRvariants]{CrisprRun}}
+#'for initialising a CrisprSet, \code{\link[CrispRVariants]{CrisprRun}}
 #'@examples 
 #'# Load the metadata table
-#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "crispRvariants")
+#'md_fname <- system.file("extdata", "gol_F1_metadata_small.txt", package = "CrispRVariants")
 #'md <- read.table(md_fname, sep = "\t", stringsAsFactors = FALSE)
 #'
 #'# Get bam filenames and their full paths
 #'bam_fnames <- sapply(md$bam.filename, function(fn){
-#'  system.file("extdata", fn, package = "crispRvariants")})
+#'  system.file("extdata", fn, package = "CrispRVariants")})
 #'
-#'reference <- DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+#'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
 #'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
 #'
 #'crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
@@ -610,7 +610,7 @@ Return value:
                    renumbered = .self$pars["renumbered"], add.other = add.other, ...){
 '
 Description:
-  Wrapper for crispRvariants:plotAlignments, optionally filters the table 
+  Wrapper for CrispRVariants:plotAlignments, optionally filters the table 
   of variants, then plots variants with respect to the reference sequence, 
   collapsing insertions and displaying insertion sequences below the plot.
 
@@ -759,7 +759,7 @@ Return value:
       starts[i] <- start[1]
     }  
     
-    seqs <- DNAStringSet(seqs)
+    seqs <- Biostrings::DNAStringSet(seqs)
     alns <- seqsToAln(names(splits), seqs, target = .self$target, 
                  aln_start = starts, ...)
     

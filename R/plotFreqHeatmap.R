@@ -91,10 +91,14 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     m <- reshape2::melt(m)
     colnames(m) <- c("Feature", "Sample","Percentage")  
     m$Feature <- factor(m$Feature, levels = rev(levels(m$Feature)))
-    g <- ggplot(m, aes(x = Sample, y = Feature, fill = Percentage)) + geom_tile()
+    g <- ggplot(m) + geom_tile(aes_q(x = quote(Sample), 
+                                     y = quote(Feature),
+                                     fill = quote(Percentage)))
   }
   else{    
-    g <- ggplot(counts, aes(x = Sample, y = Feature, fill = Count)) + geom_tile()
+    g <- ggplot(counts) + geom_tile(aes_q(x = quote(Sample),
+                                          y = quote(Feature), 
+                                          fill = quote(Count)))
   }
   
   # Add the count numbers to the boxes,
@@ -114,17 +118,19 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     counts$Count[idxs] <- header
     counts$ff[idxs] <- "bold"
     box_coords[box_row,] <- c(min(xranges), max(xranges), 
-                             nrow(obj) -0.5,max(yranges))  
+                              nrow(obj) -0.5, max(yranges))  
   }
   
   if (nrow(box_coords) > 0){
-    g <- g + geom_rect(data=box_coords, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
-                                            ymax = ymax, x = NULL, y = NULL),
-                       color = "black", size = line.width, fill = "transparent")   
+    g <- g + geom_rect(data = box_coords, 
+                       aes_q(xmin = quote(xmin), xmax = quote(xmax),
+                           ymin = quote(ymin), ymax = quote(ymax)),
+                    color = "black", size = line.width, fill = "transparent")   
   }
-  
   # Plot the counts
-  g <- g + geom_text(data = counts, aes(label = Count, fill = NULL, fontface = ff), 
+  g <- g + geom_text(data = counts, 
+                     aes_q(x = quote(Sample), y = quote(Feature), 
+                           label = quote(Count), fontface = quote(ff)), 
                      size = plot.text.size)
   
   # Colour the boxes - white for 0, darkred for highest
@@ -136,10 +142,12 @@ setMethod("plotFreqHeatmap", signature("matrix"),
       g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", 
                                     guide = "legend", limits = c(0, 100))
     } else {
-      g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "legend") 
+      g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", 
+                                    guide = "legend") 
     }
   } else {
-    g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", guide = "none")
+    g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", 
+                                  guide = "none")
   }
   
   # Set plot labels

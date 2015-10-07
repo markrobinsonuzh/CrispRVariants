@@ -19,7 +19,7 @@ A matrix of characters and plotting locations
 \description{
 Orders and transforms a reference sequence and a set of aligned sequences
 into long format, i.e. one observation (tile position) per row.  Used internally by
-\code{\link[crispRvariants]{plotAlignments}}.
+\code{\link[CrispRVariants]{plotAlignments}}.
 }
 \author{
 Helen Lindsay

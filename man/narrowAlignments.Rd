@@ -33,7 +33,7 @@ reads are narrowed to the start of the deletion,
 }
 \examples{
 bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
-                         package = "crispRvariants")
+                         package = "CrispRVariants")
 bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
 target <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
 narrowAlignments(bam, target, reverse.complement = FALSE)

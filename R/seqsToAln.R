@@ -7,7 +7,7 @@
 #'are provided, aligned sequences are cropped to the target region 
 #'@author Helen Lindsay
 #'@param cigar A list of cigar strings to align
-#'@param dnaseq The set of sequences corresponding to the cigars, as DNAStrings
+#'@param dnaseq The set of sequences corresponding to the cigars, as Biostrings::DNAStrings
 #'@param target The target region to return, as GRanges.  Sequences overlapping
 #'the target region are trimmed to exactly match it.
 #'@param del_char The character to represent deleted bases. Default "-" 

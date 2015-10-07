@@ -1,3 +1,3 @@
 library(testthat)
-library("crispRvariants")
-test_package("crispRvariants")
+library("CrispRVariants")
+test_package("CrispRVariants")

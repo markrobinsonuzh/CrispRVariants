@@ -12,7 +12,7 @@ setGeneric("plotAlignments", function(obj, ...) {
 #'@rdname plotAlignments
 #'@description (signature("CrisprSet")) Wrapper for CrisprSet$plotVariants.    
 #'Optionally filters a CrisprSet frequency table, then plots variants.  
-#'More information in \code{\link[crispRvariants]{CrisprSet}} 
+#'More information in \code{\link[CrispRVariants]{CrisprSet}} 
 #'@param min.freq i (%) only plot variants with frequency >= i% in at least
 #' one sample (default: 0, i.e no frequency cutoff)
 #'@param min.count i (integer) only plot variants with count >= i in at least
@@ -46,7 +46,7 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@description (signature("DNAString"))  Plots a set of pairwise alignments to a reference sequence.
 #'Alignments should all be the same length as the reference sequences.  
 #'This is achieved by removing insertions with respect to the reference, 
-#'see \code{\link[crispRvariants]{seqsToAln}}.
+#'see \code{\link[CrispRVariants]{seqsToAln}}.
 #'Insertions are indicated by symbols in the plot and a table showing the
 #'inserted sequences below the plot.  The default options are intended for a 
 #'figure 6-8 inches wide, with figure height best chosen according to the number 
@@ -106,18 +106,20 @@ setMethod("plotAlignments", signature("DNAString"),
   m <- setDNATileColours(m)
   nms <- m$Var1[1:(length(alns) + 1)]
 
-  p <- makeAlignmentTilePlot(m, ref = ref, xlab = xlab, plot.text.size = plot.text.size, 
-          axis.text.size = axis.text.size, xtick.labs = xtick.labs,
-          xtick.breaks = xtick.breaks, tile.height = tile.height)
+  p <- makeAlignmentTilePlot(m, ref = ref, xlab = xlab, 
+          plot.text.size = plot.text.size, axis.text.size = axis.text.size, 
+          xtick.labs = xtick.labs, xtick.breaks = xtick.breaks,
+          tile.height = tile.height)
   
   # Colours and shapes for the insertion markers and tiles
   shps <- c(21,23,25) 
-  clrs <- c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7",
-            "#332288","#88CCEE","#44AA99","#117733","#999933","#DDCC77","#661100",
-            "#CC6677","#882255", "#AA4499")
+  clrs <- c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00",
+            "#CC79A7","#332288","#88CCEE","#44AA99","#117733","#999933",
+            "#DDCC77","#661100","#CC6677","#882255", "#AA4499")
     
   # Add line for the cut site
-  p <- p + geom_vline(xintercept= target.loc + 0.5, colour = "black", size = line.weight)# linetype = "dashed",
+  p <- p + geom_vline(xintercept = target.loc + 0.5, 
+                      colour = "black", size = line.weight)
   
   top_row <- ifelse(add.other, length(nms) + 1, length(nms))
   
@@ -134,8 +136,10 @@ setMethod("plotAlignments", signature("DNAString"),
     }
     
     guide_df <- data.frame(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
-    p <- p + geom_rect(data = guide_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, 
-                                            ymax = ymax, color = "black", x = NULL, y = NULL),
+    p <- p + geom_rect(data = guide_df, 
+                       aes_q(xmin = quote(xmin), xmax = quote(xmax), 
+                             ymin = quote(ymin), ymax = quote(ymax),
+                             color = "black"),
                        size = line.weight, fill = "transparent") 
   }
   
@@ -155,8 +159,9 @@ setMethod("plotAlignments", signature("DNAString"),
     pam_df <- data.frame(xmin = pam.start - 0.5, xmax = pam.end + 0.5,
                          ymin = top_row - (tile.height / 2 + 0.2),
                          ymax = top_row + (tile.height / 2 + 0.2))
-    p <- p + geom_rect(data=pam_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax,
-                                        ymax = ymax, x = NULL, y = NULL),
+    p <- p + geom_rect(data=pam_df, 
+                       aes_q(xmin = quote(xmin), xmax = quote(xmax),
+                             ymin = quote(ymin), ymax = quote(ymax)),
                        color = "black", size = line.weight, fill = "transparent") 
     #p <- p + annotation_custom(grob = textGrob("PAM", gp = gpar(cex = 3)), 
     #                           xmin = pam_df$xmin, xmax = pam_df$xmax, 
@@ -226,13 +231,16 @@ setMethod("plotAlignments", signature("DNAString"),
     legend_nrow <- ceiling(nrow(ins_points)/ legend.cols)
     
     # Indicate insertions   
-    p <- p + geom_point(data = ins_points, aes(x = x, y = y, shape = shapes, fill = colours),
+    p <- p + geom_point(data = ins_points, 
+                        aes_q(x = quote(x), y = quote(y),
+                              shape = quote(shapes), fill = quote(colours)),
                         colour = "#000000", size = ins.size)  +
       scale_fill_identity() + 
       scale_shape_manual(name = "", values = fill_shps, breaks = ins_points$shapes,
                          labels = ins_points$seq) +
       guides(shape = guide_legend(nrow = legend_nrow, 
-                            override.aes = list(fill = fill_clrs, size = legend.symbol.size)))
+                            override.aes = list(fill = fill_clrs,
+                                                size = legend.symbol.size)))
     p <- p + theme(legend.key = element_blank(), 
                    legend.text = element_text(size = legend.text.size),
                    legend.margin = grid::unit(2, "lines"))
@@ -251,7 +259,7 @@ setMethod("plotAlignments", signature("DNAString"),
 #'@title Transform data for plotting
 #'@description Orders and transforms a reference sequence and a set of aligned sequences 
 #'into long format, i.e. one observation (tile position) per row.  Used internally by 
-#'\code{\link[crispRvariants]{plotAlignments}}.
+#'\code{\link[CrispRVariants]{plotAlignments}}.
 #'@param ref The reference sequence
 #'@param alns Character vector of aligned sequences
 #'@param add.other Add a blank row labelled "Other" (Default: FALSE)
@@ -281,7 +289,7 @@ transformAlnsToLong <- function(ref, alns, add.other = FALSE){
 
 
 #'@title Sets colours for plotting aligned DNA sequences.
-#'@description Sets tile colours for \code{\link[crispRvariants]{plotAlignments}} with a 
+#'@description Sets tile colours for \code{\link[CrispRVariants]{plotAlignments}} with a 
 #'DNA alphabet.  Colour names must be valid.  
 #'@param m A matrix with a column named "value" of the characters at each tile position. 
 #'@return A matrix with additional columns specifying tile and text colours
@@ -307,9 +315,13 @@ makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
                                   xtick.labs, xtick.breaks, tile.height){
 
   # Plot aligned sequences  
-  p <- ggplot(m, aes(x = Var2, y = Var1, fill = cols)) +
-    geom_tile(aes(alpha = isref), height = tile.height) + 
-    geom_text(aes(label = value, colour = text_cols), size = plot.text.size) + 
+  p <- ggplot(m) +
+    geom_tile(aes_q(x = quote(Var2), y = quote(Var1), 
+                    fill = quote(cols), alpha = quote(isref)),
+                    height = tile.height) + 
+    geom_text(aes_q(x = quote(Var2), y = quote(Var1), 
+                    fill = quote(cols), label = quote(value), 
+                    colour = quote(text_cols)), size = plot.text.size) + 
     scale_alpha_manual(values = c(0.5,1), guide = "none") + 
     ylab(NULL) + xlab(xlab) + scale_colour_identity() + 
     theme_bw() + theme(axis.text.y = element_text(size = axis.text.size), 
