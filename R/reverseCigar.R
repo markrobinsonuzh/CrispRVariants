@@ -1,6 +1,6 @@
 #'@title Reverses the order of operations in a cigar string
 #'@description For example, the string "20M5D15M" would become "15M5D20M"
-#'@param cigars the cigar strings.  
+#'@param cigars the cigar strings.
 #'@return The reversed cigar string
 reverseCigar <- function(cigars){
   wdths <- explodeCigarOpLengths(cigars)

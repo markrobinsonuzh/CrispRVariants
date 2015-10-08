@@ -1,40 +1,24 @@
 Package: CrispRVariants
 Type: Package
-Title: Tools for counting and visualising mutations in a target location
-Version: 0.99.0
+Title: Tools for counting and visualising mutations in a target
+        location
+Version: 0.99.1
 Authors@R: c(person(given = "Helen", family = "Lindsay", role = c("aut", "cre"),
     email = "helen.lindsay@uzh.ch"))
 Author: Helen Lindsay [aut, cre]
 Maintainer: Helen Lindsay <helen.lindsay@uzh.ch>
 Description: CrispRVariants provides tools for counting and displaying variant
     combinations within a target region.
-biocViews: GenomicVariation, VariantDetection, GeneticVariability, DataRepresentation, Visualization
+biocViews: GenomicVariation, VariantDetection, GeneticVariability,
+        DataRepresentation, Visualization
 LazyData: true
-Depends:
-    R (>= 3.2),
-    GenomicAlignments,
-    ggplot2
+Depends: R (>= 3.2), GenomicAlignments, ggplot2
 License: GPL-2
-Imports:
-    AnnotationDbi,
-    BiocParallel,
-    Biostrings,
-    methods,
-    GenomeInfoDb,
-    GenomicRanges,
-    grid,
-    gridExtra,
-    IRanges,
-    reshape2,
-    Rsamtools,
-    S4Vectors
-Suggests:
-    BiocStyle,
-    gdata,
-    GenomicFeatures,
-    knitr,
-    rmarkdown,
-    sangerseqR,
-    testthat
-VignetteBuilder:
-    knitr
+Imports: AnnotationDbi, BiocParallel, Biostrings, methods,
+        GenomeInfoDb, GenomicRanges, grid, gridExtra, IRanges,
+        reshape2, Rsamtools, S4Vectors
+Suggests: BiocStyle, gdata, GenomicFeatures, knitr, rmarkdown,
+        sangerseqR, testthat
+VignetteBuilder: knitr
+NeedsCompilation: no
+Packaged: 2015-10-08 12:11:43 UTC; helen

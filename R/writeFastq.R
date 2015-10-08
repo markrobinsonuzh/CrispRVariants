@@ -3,9 +3,9 @@
 #'Used by abifToFastq
 #'
 #'@param outf Name of fastq file to append sequence
-#'@param vals A list containing entries named "seq" (sequence) and 
-#'"quals" (quality scores, in ASCII format)  
-#'@param allow_spaces Should spaces in the sequence name be 
+#'@param vals A list containing entries named "seq" (sequence) and
+#'"quals" (quality scores, in ASCII format)
+#'@param allow_spaces Should spaces in the sequence name be
 #'substituted with underscores?  TRUE or FALSE
 #'@return None.  The sequences in "vals" are written to outf
 #'@author Helen Lindsay

@@ -1,4 +1,4 @@
-#'@title Removes reads from a bam file 
+#'@title Removes reads from a bam file
 #'@description Returns a GAlignments excluding reads based on either name and/or location
 #'@param bam a GAlignments object
 #'@param exclude.ranges Regions to exclude, as \code{\link[GenomicRanges]{GRanges}}.
@@ -9,15 +9,15 @@
 excludeFromBam <- function(bam, exclude.ranges = GRanges(), exclude.names = NA){
   if (length(exclude.ranges) > 0) bam <- excludeFromBamByRange(bam, exclude.ranges)
   if (! is.na(exclude.names)) bam <- excludeFromBamByName(bam, exclude.names)
-  return(bam)
+  bam
 }
 
 excludeFromBamByName <- function(bam, exclude.names){
-  excluden <- which(names(bam) %in% exclude.names)     
+  excluden <- which(names(bam) %in% exclude.names)
   bam <- bam[setdiff(seq_along(bam), excluden)]
 }
 
 excludeFromBamByRange <- function(bam, exclude.ranges){
   fo <- queryHits(findOverlaps(bam, exclude.ranges))
-  return(bam[setdiff(seq_along(bam), fo)])
+  bam[setdiff(seq_along(bam), fo)]
 }

@@ -1,6 +1,6 @@
 #' Variant sequences from golden clutch 1 (Burger et al)
 #'
-#' This dataset is a subset of the crispant data for the golden gene used by Burger et al (submitted). 
+#' This dataset is a subset of the crispant data for the golden gene used by Burger et al (submitted).
 #'
 #' \itemize{
 #' \item gol The variants as a CrisprSet object

@@ -1,7 +1,9 @@
+# Setup data
 context("Initialization of CrisprSet objects")
 
+
+
 test_that("readsToTargets correctly separates reads by PCR primer",{
-  # Setup data
   wdths <- c(10,10,5,3)
   gr <- GenomicRanges::GRanges("chr1", IRanges(start = c(5,7,4,13), width = wdths),
                                cigar = sprintf("%sM", wdths), strand = "+", 

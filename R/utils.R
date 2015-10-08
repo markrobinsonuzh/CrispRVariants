@@ -25,16 +25,16 @@ setGeneric("mergeCrisprSets", function(x,y, ...) {
 #'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
 #'gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
 #'
-#'crispr_set1 <- readsToTarget(bam_fnames[c(1:4)], target = gd, 
+#'crispr_set1 <- readsToTarget(bam_fnames[c(1:4)], target = gd,
 #'       reference = reference, names = md$experiment.name[1:4], target.loc = 17)
-#'crispr_set2 <- readsToTarget(bam_fnames[c(5:8)], target = gd, 
+#'crispr_set2 <- readsToTarget(bam_fnames[c(5:8)], target = gd,
 #'       reference = reference, names = md$experiment.name[5:8], target.loc = 17)
 #'mergeCrisprSets(crispr_set1,crispr_set2)
 #'@export
 setMethod("mergeCrisprSets", signature(x = "CrisprSet", y = "CrisprSet"),
           function(x,y, ..., order = NULL){
             # To do: add order vector
-            
+
             warn_msg <- "CrisprSets must have the same %s for merging"
             ref = x$ref
             if (ref != y$ref){
@@ -47,30 +47,30 @@ setMethod("mergeCrisprSets", signature(x = "CrisprSet", y = "CrisprSet"),
             t.loc = x$pars$target.loc
             if (t.loc != y$pars$target.loc){
               stop(sprintf(warn_msg, "target location (zero point)"))
-            }                       
+            }
             names <- c(names(x), names(y))
-            
+
             cruns <- c(x$crispr_runs, y$crispr_runs)
-            cset <- CrisprSet(cruns, reference = ref, target = target, 
+            cset <- CrisprSet(cruns, reference = ref, target = target,
                       names = names, target.loc = t.loc)
-            return(cset)
+            cset
           })
 
 
 
 
 #'@title Count the number of reads containing an insertion or deletion
-#'@description Counts the number of reads containing a deletion or insertion 
-#'(indel) of any size in a set of aligned reads.  
-#'For countDeletions and countInsertions Reads may be filtered according to 
+#'@description Counts the number of reads containing a deletion or insertion
+#'(indel) of any size in a set of aligned reads.
+#'For countDeletions and countInsertions Reads may be filtered according to
 #'whether they contain more than one indel of the same or different types.
 #'@author Helen Lindsay
 #'@param alns The aligned reads
 #'@param multi.del  If TRUE, returns the exact number of deletions,
 #'i.e., if one read contains 2 deletions, it contributes 2 to the
 #'total count (default: FALSE)
-#'@param del.and.ins If TRUE, counts deletions regardless of whether 
-#'reads also contain insertions.  If FALSE, counts reads that contain 
+#'@param del.and.ins If TRUE, counts deletions regardless of whether
+#'reads also contain insertions.  If FALSE, counts reads that contain
 #'deletions but not insertions (default: FALSE)
 #'@param del.ops Cigar operations counted as deletions.  Default: c("D")
 #'@param ... extra arguments
@@ -93,27 +93,27 @@ setGeneric("countDeletions", function(alns, ...) {
 setMethod("countDeletions", signature("GAlignments"),
           function(alns, ..., multi.del = FALSE, del.and.ins = FALSE,
                    del.ops=c("D")){
- 
+
   cigar_ops <- CharacterList(explodeCigarOps(cigar(alns)))
-  
+
   if (isTRUE(multi.del)){
     has_del <- any(cigar_ops %in% del.ops)
   } else{
     has_single_del <- sum(cigar_ops %in% del.ops) == 1
   }
-  
+
   if (del.and.ins){
     if (multi.del)  return(sum(has_del))
-    return(sum(has_single_del))      
+    return(sum(has_single_del))
   }
-  
+
   has_ins <- any(cigar_ops == "I")
-  
+
   if (multi.del){
     return(sum(has_del & ! has_ins))
   }
-  
-  return(sum(has_single_del & ! has_ins))
+
+  sum(has_single_del & ! has_ins)
 })
 
 
@@ -127,31 +127,32 @@ setGeneric("countInsertions", function(alns, ...) {
 #'@param multi.ins  If TRUE, returns the exact number of insertions,
 #'i.e., if one read contains 2 insertions, it contributes 2 to the
 #'total count (default: FALSE)
-#'@param ins.and.del If TRUE, counts insertions regardless of whether 
-#'reads also contain deletions  If FALSE, counts reads that contain 
-#'insertions but not deletions (default: FALSE) 
+#'@param ins.and.del If TRUE, counts insertions regardless of whether
+#'reads also contain deletions  If FALSE, counts reads that contain
+#'insertions but not deletions (default: FALSE)
 #'@return countInsertions: The number of reads containing an insertion (integer)
 #'@rdname indelCounts
 setMethod("countInsertions", signature("GAlignments"),
           function(alns, ..., ins.and.del = FALSE, multi.ins = FALSE, del.ops = c("D")){
-  
+
   cigar_ops <- CharacterList(explodeCigarOps(cigar(alns)))
-  
+
   if (isTRUE(multi.ins)){
     has_ins <- any(cigar_ops == "I")
   } else{
     has_single_ins <- sum(cigar_ops == "I") == 1
   }
-  
+
   if (ins.and.del){
     if (multi.ins)  return(sum(has_ins))
     return(sum(has_single_ins))
   }
-  
+
   has_del <- any(cigar_ops %in% del.ops)
-  
+
   if (multi.ins) return(sum(has_ins &! has_del))
-  return(sum(has_single_ins &! has_del))
+  result <- sum(has_single_ins &! has_del)
+  result
 })
 
 
@@ -160,7 +161,7 @@ setMethod("countInsertions", signature("GAlignments"),
 setGeneric("countIndels", function(alns) {
   standardGeneric("countIndels")})
 
-#'@return countIndels: The number of reads containing at least one insertion 
+#'@return countIndels: The number of reads containing at least one insertion
 #'@rdname indelCounts
 setMethod("countIndels", signature("GAlignments"),
           function(alns){
@@ -174,7 +175,7 @@ setGeneric("indelPercent", function(alns) {
 
 
 #'@rdname indelCounts
-#'@return indelPercent: The percentage of reads containing an insertion or 
+#'@return indelPercent: The percentage of reads containing an insertion or
 #'deletion (numeric)
 #'@export
 setMethod("indelPercent", signature("GAlignments"),
