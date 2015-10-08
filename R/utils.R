@@ -96,7 +96,7 @@ setMethod("countDeletions", signature("GAlignments"),
  
   cigar_ops <- CharacterList(explodeCigarOps(cigar(alns)))
   
-  if (multi.del == TRUE){
+  if (isTRUE(multi.del)){
     has_del <- any(cigar_ops %in% del.ops)
   } else{
     has_single_del <- sum(cigar_ops %in% del.ops) == 1
@@ -110,11 +110,9 @@ setMethod("countDeletions", signature("GAlignments"),
   has_ins <- any(cigar_ops == "I")
   
   if (multi.del){
-    # multi.del == TRUE and del.and.ins == FALSE
     return(sum(has_del & ! has_ins))
   }
   
-  # multi.del == FALSE and del.and.ins == FALSE
   return(sum(has_single_del & ! has_ins))
 })
 
@@ -139,7 +137,7 @@ setMethod("countInsertions", signature("GAlignments"),
   
   cigar_ops <- CharacterList(explodeCigarOps(cigar(alns)))
   
-  if (multi.ins == TRUE){
+  if (isTRUE(multi.ins)){
     has_ins <- any(cigar_ops == "I")
   } else{
     has_single_ins <- sum(cigar_ops == "I") == 1

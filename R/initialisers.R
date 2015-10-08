@@ -19,7 +19,7 @@
 #'@importFrom reshape2 melt
 #'@importFrom AnnotationDbi select
 #'@importFrom GenomeInfoDb seqlengths
-#'@importFrom S4Vectors remapHits
+#'@importFrom S4Vectors remapHits na.omit
 #'@export
 setGeneric("readsToTarget", function(reads, target, ...) {
   standardGeneric("readsToTarget")})
@@ -74,7 +74,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
               return(crun)
             }
             
-            if (collapse.pairs == TRUE){
+            if (isTRUE(collapse.pairs)){
               if (is.null(names(reads)) |  ! ("flag" %in% names(mcols(reads))) ){
                 stop("Reads must include names and bam flags for collapsing pairs")
               }
@@ -82,7 +82,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             
             if (is.null(chimeras)) {
               chimeras <- GenomicAlignments::GAlignments()
-              if (store.chimeras == TRUE) {
+              if (isTRUE(store.chimeras)) {
                 # There is no way to specify tolerance here, or to use target.loc
                 temp <- separateChimeras(reads, target, by.flag = collapse.pairs, 
                                          verbose = verbose)
@@ -96,8 +96,8 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             bam <- reads[start(reads) <= start(target) & end(reads) >= end(target) & 
                          seqnames(reads) == as.character(seqnames(target))]
               
-            if (verbose == TRUE){
-              cat(sprintf("%s of %s nonchimeric reads span the target range\n",
+            if (isTRUE(verbose)){
+              message(sprintf("%s of %s nonchimeric reads span the target range\n",
                           length(bam), length(reads)))
             }
             
@@ -127,7 +127,7 @@ setMethod("readsToTarget", signature("GAlignments", "GRanges"),
             
             # Collapse pairs of narrowed reads
             
-            if (collapse.pairs == TRUE){
+            if (isTRUE(collapse.pairs)){
               result <- collapsePairs(result, genome.ranges = gen_ranges, 
                                       use.consensus = use.consensus, 
                                       keep.unpaired = keep.unpaired, verbose = verbose)
@@ -270,12 +270,12 @@ setMethod("readsToTargets", signature("character", "GRanges"),
             ntargets <- length(targets)
             
             bams <- BiocParallel::bplapply(seq_along(reads), function(i){
-              if (verbose) cat(sprintf("Loading alignments for %s\n\n", 
+              if (verbose) message(sprintf("Loading alignments for %s\n\n", 
                                        names[i]))
               bam <- GenomicAlignments::readGAlignments(reads[i], 
                                               param = param, use.names = TRUE)
               if (length(bam) == 0){
-                if (verbose) cat("No reads in alignment\n")
+                if (verbose) message("No reads in alignment\n")
                 return(NULL)
               } 
               return(bam)
@@ -317,7 +317,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
     
     byPCR <- BiocParallel::bplapply(reads, function(bam){    
     
-      if (verbose) cat(sprintf("Assigning chimeric reads to targets \n"))
+      if (verbose) message(sprintf("Assigning chimeric reads to targets \n"))
     
       # Change to default: just supply the cut site (target.loc)
       ch_tgts <- resize(resize(targets, target.loc + 1, fix="start"), 2, fix = "end")
@@ -344,7 +344,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
           bl <- length(bam)
           ndups <- sum(duplicated(subjectHits(hits)))
           nndups <- sum(!duplicates)
-          cat(sprintf(msg, rhits, rhits/bl*100, bl, ndups, ndups/rhits*100, 
+          message(sprintf(msg, rhits, rhits/bl*100, bl, ndups, ndups/rhits*100, 
                       nndups, nndups/bl*100))
         } 
         hits <- hits[!duplicates]
@@ -384,8 +384,8 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
       tgt <- tg_gr[[i]]
       chs <- chimerasByPCR[[i]]
       ref <- references[i]
-      if (verbose == TRUE){ 
-        cat(sprintf("\n\nWorking on target %s\n", names(tgt)))
+      if (isTRUE(verbose)){ 
+        message(sprintf("\n\nWorking on target %s\n", names(tgt)))
       }
     
       cset <- alnsToCrisprSet(bams, ref, tgt, reverse.complement, 
@@ -486,7 +486,7 @@ separateChimeras <- function(bam, targets, tolerance = 5,
   alnsByPCR <- lapply(idx_by_primer, function(ids){ bam[ids]})
   chimerasByPCR[names(splits)] <- alnsByPCR
   
-  if (verbose == TRUE){
+  if (isTRUE(verbose)){
     # How many chimeric sets were not assigned?
     n_inc <- length(unique(ibp))
     n_total <- length(ch_idxs)
@@ -496,9 +496,9 @@ separateChimeras <- function(bam, targets, tolerance = 5,
     removed <- original_ln - length(chimeras)
     
     rm_pct <- removed/original_ln * 100
-    cat(sprintf(paste0("%s from %s (%.2f%%) chimeras did not involve guide\n",
-                       "%s from %s (%.2f%%) remaining chimeric reads included\n",
-                       "%s (%.2f%%) assigned to more than one target\n"),
+    message(sprintf(paste0("%s from %s (%.2f%%) chimeras did not involve guide\n",
+                    "%s from %s (%.2f%%) remaining chimeric reads included\n",
+                    "%s (%.2f%%) assigned to more than one target\n"),
                 removed, original_ln, rm_pct, n_inc, n_total, 
                 pct_inc, n_dup, pct_multi))  
   }
@@ -538,7 +538,7 @@ alnsToCrisprSet <- function(alns, reference, target, reverse.complement,
   if (any(to_rm)){
     if (verbose){
       rm_nms <- paste0(names[to_rm], collapse = ",", sep = "\n")
-      cat(sprintf("Excluding samples that have no on target reads:\n%s",
+      message(sprintf("Excluding samples that have no on target reads:\n%s",
                   rm_nms))
     }
     crispr.runs <- crispr.runs[!to_rm]
@@ -611,9 +611,10 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
   #Exclude reads by name or range
   temp <- excludeFromBam(bam, exclude.ranges, exclude.names)    
   
-  if (verbose == TRUE){
+  if (isTRUE(verbose)){
     original <- length(bam)
-    cat(sprintf("Read %s alignments, excluded %s\n", original, original - length(temp)))
+    message(sprintf("Read %s alignments, excluded %s\n", original, 
+                    original - length(temp)))
   }
   bam <- temp 
   
@@ -627,8 +628,8 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
     if( length(chimera_idxs) >= 2){
       bam <- bam[-chimera_idxs]
     }
-    if (verbose == TRUE){
-      cat(sprintf("%s reads after filtering chimeras\n", length(bam)))
+    if (isTRUE(verbose)){
+      message(sprintf("%s reads after filtering chimeras\n", length(bam)))
     }
     return(list(bam = bam, chimeras = GenomicAlignments::GAlignments()))
   } 
@@ -638,7 +639,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
     return(list(bam = temp$bam, chimeras = temp$chimeras[[1]]))    
   }
   if (chimeras == "merge"){
-    cat("Merging chimeras not implemented yet, ignoring chimeras") 
+    warning("Merging chimeras not implemented yet, ignoring chimeras") 
     return(list(bam = bam, chimeras = GenomicAlignments::GAlignments()))
   }
 }
@@ -651,7 +652,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
 #'@return A logical value indicating whether the narrowed alignment should be reverse complemented.
 #'@author Helen Lindsay
 rcAlns <- function(target.strand, reverse.complement){
-  if (target.strand == "-" & reverse.complement == TRUE) return(TRUE)
+  if (target.strand == "-" & isTRUE(reverse.complement)) return(TRUE)
   return(FALSE)
 }
 
@@ -700,7 +701,7 @@ setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
       stop("Metadata col 'seq' must be present if 'qual' is present")  
     }
             
-    if (verbose == TRUE) cat("narrowing alignments\n")
+    if (isTRUE(verbose)) message("narrowing alignments\n")
             
     ref_ranges <- GenomicAlignments::cigarRangesAlongReferenceSpace(cigar(alns))
     genomic <- GenomicRanges::shift(ref_ranges, start(alns)-1) 
@@ -812,7 +813,7 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
   
   # If there are no pairs, no need to do anything further 
   if (length(pairs) == 0){
-    if (keep.unpaired == TRUE){
+    if (isTRUE(keep.unpaired)){
       return(c(list("alignments" = alns), dots))
     } else {
       return(NULL)
@@ -844,13 +845,13 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
               "    %s pairs have the same insertions/deletions\n",
               "    %s pairs have different insertions/deletions\n",
               "Keeping the first member of %s concordant read pairs\n")
-    cat(sprintf(stats, length(alns), nunpaired, length(is_pair),
+    message(sprintf(stats, length(alns), nunpaired, length(is_pair),
                 cc_true, cc_false, cc_true))
   }
   if (keep.unpaired){
     # Keep non-pairs, including non-primary and singletons
     keep <- c(keep, setdiff(c(1:length(alns)),is_pair))
-    if (verbose) cat(sprintf("Keeping %s unpaired reads\n", nunpaired))
+    if (verbose) message(sprintf("Keeping %s unpaired reads\n", nunpaired))
   }
   keep_alns <- alns[keep]
   
@@ -860,7 +861,7 @@ collapsePairs <- function(alns, use.consensus = TRUE, keep.unpaired = TRUE,
  
     ncc_seqs <- mcols(alns[pairs][concordant & !same_seq])$seq
     if (verbose){
-      cat(sprintf("Finding consensus for %s pairs with mismatches\n", 
+      message(sprintf("Finding consensus for %s pairs with mismatches\n", 
                   length(ncc_seqs)/2))
     }
     if (length(ncc_seqs) >= 2){

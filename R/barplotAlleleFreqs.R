@@ -80,9 +80,9 @@ setMethod("barplotAlleleFreqs", signature("matrix"),
     group <- rev(group) # as ggplot plots bottom up
     if (is.null(group.colours)){
       # A range of dark colours chosen for readability and distinctiveness
-      group.colours <- c("#332288","#661100","#0072B2","#117733","#882255","#D55E00",
-                         "#AA4499", "#009E73","#56B4E9","#CC79A7","#44AA99","#999933",
-                         "#CC6677", "#E69F00","#88CCEE")
+      group.colours <- c("#332288","#661100","#0072B2","#117733","#882255",
+                         "#D55E00","#AA4499","#009E73","#56B4E9","#CC79A7",
+                         "#44AA99","#999933","#CC6677", "#E69F00","#88CCEE")
       }
     if (length(levels(group)) > length(group.colours)){
       stop("Too many groups for default colours.  Supply a vector of 
@@ -141,7 +141,8 @@ setMethod("barplotAlleleFreqs", signature("matrix"),
   var_clrs <- clrs[table(af$Variant) > 0]
   
   # barplot
-  p <- ggplot(af, aes(x = Sample, y = Percent, fill = Variant)) + 
+  p <- ggplot(af, aes_q(x = quote(Sample), y = quote(Percent), 
+                        fill = quote(Variant))) + 
     geom_bar(stat = "Identity", size = 10) + 
     scale_y_continuous(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +   
     scale_fill_manual(values = var_clrs, labels = var_labels[common]) + 
@@ -169,7 +170,8 @@ setMethod("barplotAlleleFreqs", signature("matrix"),
   
   dat$Sample <- factor(dat$Sample, levels = rev(unique(af$Sample))) 
   
-  q <- ggplot(dat, aes(x = Col, y = Sample, label = Vals)) + 
+  q <- ggplot(dat, aes_q(x = quote(Col), y = quote(Sample), 
+                         label = quote(Vals))) + 
     geom_tile(fill = "white", colour = "black", size = 1) + geom_text() + 
     scale_y_discrete(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
     theme_bw() + xlab(NULL) + ylab(NULL) + 

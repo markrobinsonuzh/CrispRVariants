@@ -59,7 +59,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   temp_cigs <- cigarRangesAlongQuerySpace(cigar(chimeric.alns))
   is_match <- CharacterList(explodeCigarOps(cigar(chimeric.alns))) == "M"
   sq_ord <- seqnames(chimeric.alns[order( min(start(temp_cigs[is_match])))])
-  seqlevels(chimeric.alns) <- unique(as.character(sq_ord@values))
+  GenomeInfoDb::seqlevels(chimeric.alns) <- unique(as.character(sq_ord@values))
   chimeric.alns <- chimeric.alns[order(seqnames(chimeric.alns))]
     
   # Get M ranges wrt genome and read

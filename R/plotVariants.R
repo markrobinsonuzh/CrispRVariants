@@ -62,7 +62,7 @@ setMethod("plotVariants", signature("CrisprSet"),
   arrange_args <- dots[names(dots) %in% arrange_nms]
   
   target <- obj$target
-  if (add.chr == TRUE & include_txs == TRUE){
+  if (isTRUE(add.chr) & isTRUE(include_txs)){
     # If adding "chr" to target chromosomes matches txdb chromosomes, do so
     target_levels <- GenomeInfoDb::seqlevels(target)
     txdb_levels <- GenomeInfoDb::seqlevels(txdb)
@@ -72,7 +72,7 @@ setMethod("plotVariants", signature("CrisprSet"),
     target <- GenomeInfoDb::renameSeqlevels(target, target_levels)
   }
   
-  if (include_txs == TRUE){
+  if (isTRUE(include_txs)){
     annotate_args <- modifyList(list(txdb = txdb, target = target), annotate_args)
     gene_p <- do.call(annotateGenePlot, annotate_args)
   } else {
@@ -165,7 +165,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
                         plot.title = NULL, all.transcripts = TRUE){
   
   genomicfeatures <- requireNamespace("GenomicFeatures")
-  stopifnot(genomicfeatures == TRUE)
+  stopifnot(isTRUE(genomicfeatures))
   
   trns <- GenomicFeatures::transcripts(txdb)
   exs <- findOverlaps(target, trns, ignore.strand = TRUE)
@@ -180,7 +180,7 @@ annotateGenePlot <- function(txdb, target, target.colour = "red",
               columns = c("GENEID","TXNAME", "EXONSTART", "EXONEND", "TXSTRAND"))
   
   # Find all (possibly non-overlapping) transcripts of overlapping genes
-  if (all.transcripts == TRUE){
+  if (isTRUE(all.transcripts)){
     genes <- suppressWarnings(AnnotationDbi::select(txdb, 
               keys = unique(genes$GENEID), 
               keytype = "GENEID", 

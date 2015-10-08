@@ -145,7 +145,7 @@ setMethod("plotAlignments", signature("DNAString"),
   
   # If pam_loc is given, highlight the pam in the reference
   #  - 0.5 for tile boundaries not centres
-  if (highlight.pam == TRUE){
+  if (isTRUE(highlight.pam)){
     if (! is.na(pam.start)){    
       if (is.na(pam.end)){
         pam.end <- pam.start + 2
@@ -249,7 +249,7 @@ setMethod("plotAlignments", signature("DNAString"),
     p <- p + scale_fill_identity() 
   }
 
-  if (show.plot == TRUE){
+  if (isTRUE(show.plot)){
     print(p)
   }
   return(p)
@@ -270,7 +270,7 @@ transformAlnsToLong <- function(ref, alns, add.other = FALSE){
   aln_chrs <- strsplit(c(rev(alns), Reference = as.character(ref)), "")
   
   # Add a blank row which will get white tiles
-  if (add.other == TRUE){
+  if (isTRUE(add.other)){
     aln_chrs <- c(list(rep("",length(aln_chrs[[1]]))), aln_chrs)
     names(aln_chrs)[[1]] <- "Other"
   }

@@ -49,7 +49,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   } else if (length(header) > 0){
     stop("Header length should equal to the number of columns of obj")
   }
-  if (col.sums == TRUE){
+  if (isTRUE(col.sums)){
     obj <- rbind(Total = rep(NA, ncol(obj)), obj)
   }
 
@@ -80,7 +80,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   counts$Feature <- factor(counts$Feature, levels = rev(levels(counts$Feature)))
   
   # Create coloured tile background
-  if (as.percent == TRUE){
+  if (isTRUE(as.percent)){
     # If a header is provided, assume it is col sums for the entire data set
     if (length(header) > 0){
       totals <- as.numeric(header)
@@ -110,7 +110,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   xranges <- ggplot_build(g)$panel$ranges[[1]]$x.range  
   yranges <- ggplot_build(g)$panel$ranges[[1]]$y.range  
   
-  if (col.sums == TRUE){ 
+  if (isTRUE(col.sums)){ 
     idxs <- which(is.na(counts$Count))
     if (length(header) != ncol(obj)){
       header <- colSums(obj, na.rm = TRUE)
@@ -138,7 +138,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   
   # No colour bar legend if the max count is 1
   if (max(counts$Count) > 1){
-    if (as.percent == TRUE){
+    if (isTRUE(as.percent)){
       g <- g + scale_fill_gradientn(colours = hmcols, na.value = "white", 
                                     guide = "legend", limits = c(0, 100))
     } else {

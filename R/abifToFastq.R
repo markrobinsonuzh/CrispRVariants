@@ -21,12 +21,12 @@
 abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05, 
                         min_seq_len = 20, offset = 33){  
   sangerseqr <- requireNamespace("sangerseqR")
-  stopifnot(sangerseqr == TRUE)
+  stopifnot(isTRUE(sangerseqr))
   
   # Translation of python function
   abif <- sangerseqR::read.abif(fname)
   if (is.null(abif@data$PCON.2)){
-    print(sprintf("failed on %s", seqname))
+    message(sprintf("failed on %s", seqname))
     return()
   }
   

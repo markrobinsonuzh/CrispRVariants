@@ -10,7 +10,7 @@
 #'within an experiment
 #'@param reference The reference sequence, must be the same length as the target region
 #'@param target The target location (GRanges).  Variants will be counted over this region.
-#'Need not correspond to the guide sequence.  
+#'Need not correspond to the guide sequence.
 #'@param rc Should the alignments be reverse complemented, 
 #'i.e. displayed w.r.t the reverse strand? (default: FALSE)
 #'@param short.cigars If TRUE, variants labels are created from the location of their
@@ -63,7 +63,7 @@
 #'@exportClass CrisprSet 
 CrisprSet = setRefClass(
   Class = "CrisprSet",
-  fields = c(crispr_runs = "list", 
+  fields = c(crispr_runs = "list",
              ref = "DNAString",
              insertion_sites = "data.frame",
              cigar_freqs = "matrix",
@@ -73,8 +73,8 @@ CrisprSet = setRefClass(
 )
 
 CrisprSet$methods(
-  initialize = function(crispr.runs, reference, target, rc = FALSE, short.cigars = TRUE, 
-                        names = NULL, renumbered = TRUE, target.loc = NA, 
+  initialize = function(crispr.runs, reference, target, rc = FALSE, short.cigars = TRUE,
+                        names = NULL, renumbered = TRUE, target.loc = NA,
                         match.label = "no variant", mismatch.label = "SNV",
                         split.snv = TRUE, upstream.snv = 8, downstream.snv = 5,
                         verbose = TRUE, ...){
@@ -92,10 +92,10 @@ CrisprSet$methods(
     if (width(target) != length(reference)){
       stop("The target and the reference sequence must be the same width")
     }
-    if (renumbered == TRUE & is.na(target.loc)){
-      stop(paste0("Must specify target.loc for renumbering variant locations.\n",
-                  "The target.loc is the zero point with respect to the reference string.\n",
-                  "This is typically 17 for a 23 bp Crispr-Cas9 guide sequence"))
+    if (isTRUE(renumbered) & is.na(target.loc)){
+      stop("Must specify target.loc for renumbering variant locations.\n",
+           "The target.loc is the zero point with respect to the reference string.\n",
+           "This is typically 17 for a 23 bp Crispr-Cas9 guide sequence")
     }
     
     target <<- target   
@@ -112,31 +112,33 @@ CrisprSet$methods(
       names(.self$crispr_runs) <- names
     }
     nonempty_runs <- sapply(.self$crispr_runs, function(x) {
-      ! ( length(x$alns) == 0 & length(x$chimeras) == 0 ) 
+      ! ( length(x$alns) == 0 & length(x$chimeras) == 0 )
       })
     
     .self$crispr_runs <<- .self$crispr_runs[nonempty_runs]
     if (length(.self$crispr_runs) == 0) stop("no on target reads in any sample")
     
     if (unique( sapply(.self$crispr_runs, function(x) length(x$alns)) == 0)){
-      pars["all_chimeric"] <<- TRUE  
+      pars["all_chimeric"] <<- TRUE
       return()
     }
     
-    if (verbose == TRUE) cat("Renaming cigar strings\n")
+    if (isTRUE(verbose)) message("Renaming cigar strings\n")
     
-    cig_by_run <- .self$.setCigarLabels(renumbered = renumbered, target.loc = target.loc,
-                                        target_start = start(target), target_end = end(target), 
+    cig_by_run <- .self$.setCigarLabels(renumbered = renumbered, 
+                                        target.loc = target.loc,
+                                        target_start = start(target),
+                                        target_end = end(target),
                                         rc = rc, match_label = match.label, 
                                         mismatch_label = mismatch.label, ref = ref, 
                                         short = short.cigars, split.snv = split.snv)
-    if (verbose == TRUE) cat("Counting variant combinations\n")
+    if (isTRUE(verbose)) message("Counting variant combinations\n")
     .self$.countCigars(cig_by_run)
     .self$getInsertions()
   },
   
   show = function(){
-    cat(sprintf(paste0("CrisprSet object containing %s CrisprRun samples\n", 
+    cat(sprintf(paste0("CrisprSet object containing %s CrisprRun samples\n",
                          "Target location:\n"), length(.self$crispr_runs)))
     print(.self$target)
     print("Most frequent variants:")
@@ -149,7 +151,7 @@ CrisprSet$methods(
                              upstream.snv = 8, downstream.snv = 5, ref = NULL){
     g_to_t <- NULL
     
-    if (renumbered == TRUE){
+    if (isTRUE(renumbered)){
       if (any(is.na(c(target_start, target_end, rc)))){
         stop("Must specify target.loc (cut site), target_start, target_end and rc
              for renumbering")
@@ -198,7 +200,7 @@ CrisprSet$methods(
       m <- m[c(is_ref, is_snv, setdiff(1:nrow(m), c(is_ref,is_snv))),,drop = FALSE]
     }
   
-    cigar_freqs <<- m
+    .self$field("cigar_freqs", m)
   },
   
   filterUniqueLowQual = function(min_count = 2, max_n = 0, verbose = TRUE){
@@ -233,16 +235,17 @@ Input parameters:
       return(cset_to_remove)
     }))
     if (verbose){
-      cat(sprintf("Removing %s rare sequence(s) with ambiguities\n", length(rm_cset)))
+      message(sprintf("Removing %s rare sequence(s) with ambiguities\n", 
+                      length(rm_cset)))
     }
     if ( length(rm_cset) > 0){
       .self$field("cigar_freqs", .self$cigar_freqs[-rm_cset,,drop = FALSE])
     }
   },
   
-  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs), 
-                                    min.count = 1, min.freq = 0, 
-                                    include.chimeras = TRUE, 
+  .getFilteredCigarTable = function(top.n = nrow(.self$cigar_freqs),
+                                    min.count = 1, min.freq = 0,
+                                    include.chimeras = TRUE,
                                     include.nonindel = TRUE,
                                     type = c("counts", "proportions")){
     
@@ -251,7 +254,7 @@ Input parameters:
     result <- match.arg(type)
      
     # Add the chimeric alignments to the bottom
-    if (include.chimeras == TRUE){
+    if (isTRUE(include.chimeras)){
       ch_cnts <- sapply(.self$crispr_runs, function(crun) {
         length(unique(names(crun$chimeras)))
       })
@@ -362,7 +365,7 @@ Input parameters:
       
     to_remove <- c(names, cols)
     has_loc <- grepl(":", to_remove)
-    by_loc <- to_remove[has_loc]               
+    by_loc <- to_remove[has_loc]
     by_size <- to_remove[!has_loc]
     loc_mask <- rep(TRUE, length(unlist(vars)))
     size_mask <- loc_mask
@@ -407,7 +410,7 @@ Input parameters:
 
   mutationEfficiency = function(snv = c("non_variant", "include","exclude"),
                                 include.chimeras = TRUE, 
-                                exclude.cols = NULL, 
+                                exclude.cols = NULL,
                                 filter.vars = NULL, filter.cols = NULL){
 '
 Description:
@@ -435,16 +438,16 @@ Return value:
   
     snv <- match.arg(snv)
     freqs <- .self$cigar_freqs
-    if (include.chimeras == TRUE){
+    if (isTRUE(include.chimeras)){
       freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
     
-exclude.idxs <- match(exclude.cols, colnames(freqs))     
-    if (any(is.na(exclude.idxs))){
-      nf <- exclude.cols[is.na(exclude.idxs)]
-      stop(sprintf("Column(s) %s not found in variant counts table", 
+    exclude.idxs <- match(exclude.cols, colnames(freqs))
+      if (any(is.na(exclude.idxs))){
+        nf <- exclude.cols[is.na(exclude.idxs)]
+        stop(sprintf("Column(s) %s not found in variant counts table",
                    paste(nf, collapse = " ")))
-    }
+      }
 
     if (length(filter.vars) > 0 | length(filter.cols) > 0){
       freqs <- .self$filterVariants(cig_freqs = freqs, names = filter.vars,
@@ -512,24 +515,25 @@ Return value:
   (the variant count table)
   '  
     
-    if (verbose) cat("Looking up variant locations\n")
+    if (verbose) message("Looking up variant locations\n")
     
     stopifnot(requireNamespace("VariantAnnotation"))
     
     gr <- .self$.getUniqueIndelRanges(add_chr)
     locs <- VariantAnnotation::locateVariants(gr, txdb, VariantAnnotation::AllVariants())
-    if (verbose == TRUE) cat("Classifying variants\n")  
+    if (isTRUE(verbose)) message("Classifying variants\n")
   
     locs_codes <- paste(seqnames(locs), start(locs), end(locs), sep = "_")
     # Note that all indels have the same range
     indel_codes <- paste(seqnames(gr), start(gr), end(gr), sep = "_")
-    indel_to_loc <- lapply(indel_codes, function(x) locs$LOCATION[which(locs_codes == x)]) 
+    indel_to_loc <- lapply(indel_codes, function(x) locs$LOCATION[which(locs_codes == x)])
     
-    var_levels <- c("spliceSite","coding","intron","fiveUTR","threeUTR","promoter", "intergenic")
+    var_levels <- c("spliceSite","coding","intron","fiveUTR",
+                    "threeUTR","promoter", "intergenic")
     result <- unlist(lapply(indel_to_loc, function(x){
       y <- factor(x,levels = var_levels)
       var_levels[min(as.numeric(y))]}))
-    names(result) <- names(gr)                 
+    names(result) <- names(gr)
     
     classification <- rep("", nrow(.self$cigar_freqs))
     no_var <- grep(.self$pars$match_label, rownames(.self$cigar_freqs))
@@ -564,8 +568,8 @@ Return value:
       
       indel_grp <- rep(sprintf("inframe indel < %s", cutoff), nrow(indels))
       indel_grp[is_short &! inframe] <- sprintf("frameshift indel < %s", cutoff)
-      indel_grp[!is_short & inframe] <- sprintf("inframe indel > %s", cutoff)   
-      indel_grp[!is_short & !inframe] <- sprintf("frameshift indel > %s", cutoff)  
+      indel_grp[!is_short & inframe] <- sprintf("inframe indel > %s", cutoff)
+      indel_grp[!is_short & !inframe] <- sprintf("frameshift indel > %s", cutoff)
       var_type[is_coding] <- indel_grp
     }
     
@@ -658,7 +662,7 @@ Return value:
       ins.sites$start <- starts[ins.sites$start]
     }
 
-    if (renumbered == TRUE){
+    if (isTRUE(renumbered)){
       genomic_coords <- c(start(.self$target):end(.self$target))
       target_coords <- .self$genome_to_target[as.character(genomic_coords)]
       if (as.character(strand(.self$target)) == "-"){
@@ -714,10 +718,11 @@ Return value:
       }))
     }
     if (nrow(all_ins) == 0) {
-      insertion_sites <<- all_ins
+      .self$field("insertion_sites", all_ins)
       return()
     }
-    insertion_sites <<- all_ins[order(all_ins$start, all_ins$seq),, drop = FALSE]
+    new_ins_sites <- all_ins[order(all_ins$start, all_ins$seq),, drop = FALSE]
+    .self$field("insertion_sites", new_ins_sites)
   },
   
   makePairwiseAlns = function(cig_freqs = .self$cigar_freqs, ...){
@@ -784,7 +789,7 @@ Return value:
     gs <- min(sapply(.self$crispr_runs, function(x) min(start(x$alns))))
     ge <- max(sapply(.self$crispr_runs, function(x) max(end(x$alns))))
   
-    if (rc == TRUE){
+    if (isTRUE(rc)){
       tg <- target_end - (target.loc - 1)
       new_numbering <- rev(c(seq(-1*(ge - (tg -1)),-1), c(1:(tg - gs))))
       names(new_numbering) <- c(gs:ge)

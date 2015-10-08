@@ -48,13 +48,15 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                    ignore.strand = TRUE, allow.partial = TRUE, 
                    chimera.idxs = NULL){
             
-            if (verbose) cat("Finding overlaps between reads and primers\n")
-            
+            if (verbose){
+              message("Finding overlaps between reads and primers\n")
+            }
             hits_pcr <- findOverlaps(bam, primers, ignore.strand = ignore.strand, 
                                      type = "equal", maxgap = tolerance)
             if (verbose){
               hits_pcr_l <- length(unique(hits_pcr@queryHits))
-              cat(sprintf("%s from %s (%.2f%%) reads overlap a pcr region almost exactly\n", 
+              message(sprintf("%s from %s (%.2f%%) reads overlap a pcr region
+                              almost exactly\n", 
                           hits_pcr_l, length(bam), hits_pcr_l/length(bam)*100))
             }
             if (any(duplicated(hits_pcr@queryHits))){
@@ -75,7 +77,8 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
               is_dup <- get_dups(queryHits(rhits))
               
               if (verbose & any(is_dup)) {
-                cat(sprintf("Excluded %s reads which map to unique regions of multiple primers\n",
+                message(sprintf("Excluded %s reads which map to unique regions of 
+                                multiple primers\n",
                     length(unique(queryHits(rhits[is_dup])))))
               }
               rhits <- rhits[!is_dup]
@@ -85,7 +88,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                                            levels = c(1:length(primers))))
               if (verbose){
                 rhitsl <- length(unique(rhits@queryHits))   
-                cat(sprintf("Of the %s reads that do not exactly match a pcr region,
+                message(sprintf("Of the %s reads that do not exactly match a pcr region,
 %s (%.2f%%) partially overlap exactly one pcr region\n\n", 
                     (length(bam)-hits_pcr_l),
                     rhitsl, rhitsl/(length(bam)-hits_pcr_l)*100))
@@ -97,7 +100,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                                             verbose = verbose)
             }
             if (verbose){  
-              cat(sprintf("Found matches for %s reads from %s\n\n", 
+              message(sprintf("Found matches for %s reads from %s\n\n", 
                           length(hits_pcr), length(bam)))
             }  
             return(hits_pcr)
@@ -122,7 +125,8 @@ setMethod("addClipped", signature("GAlignments"),
           function(bam, ...){
             l_clip <- as.numeric(gsub(".*[A-Z].*", 0, gsub("[HS].*","", cigar(bam))))
             r_clip <- as.numeric(gsub("^$", 0, gsub('.*M|[HS]$', "", cigar(bam)))) 
-            bamgr <- GRanges(seqnames(bam), IRanges(start(bam) - l_clip, end(bam) + r_clip))
+            bamgr <- GenomicRanges::GRanges(seqnames(bam), 
+                              IRanges(start(bam) - l_clip, end(bam) + r_clip))
             names(bamgr) <- names(bam)
             return(bamgr)
           })
@@ -156,7 +160,7 @@ setMethod("rmMultiPCRChimera", signature("character", "Hits", "integer"),
             dnms <- rle(dnms)   
             one_primer <- rep(dnms$lengths, dnms$lengths) == rep(pcr$lengths, pcr$lengths)
             if (verbose){
-              cat(sprintf("%s (%.2f%%) of the chimeric reads overlap a pcr primer.
+              message(sprintf("%s (%.2f%%) of the chimeric reads overlap a pcr primer.
   For %s (%2.f%% reads) of these, at least 2 segments of the chimera 
 overlap a primer.
     Of these, %s (%.2f%%) overlap different primers\n",

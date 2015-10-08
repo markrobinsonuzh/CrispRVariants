@@ -21,9 +21,23 @@ options(width = 80)
 
 # Introduction
 
-The CRISPR-Cas9 system is an efficient method of introducing mutations into genomic DNA. A guide RNA directs nuclease activity to a 20 nucleotide target region, resulting in efficient mutagenesis.  Repair of the cleaved DNA can introduce insertions and deletions centred around the cleavage site.  Once the target sequence is mutated, the guide RNA will no longer bind and the DNA will not be cleaved again.  SNPs within the target region, depending on their location, may also disrupt cleavage.  The efficiency of a CRISPR-Cas9 experiment is typically measured by amplifying and sequencing the region surrounding the target sequence, then counting the number of sequenced reads that have insertions and deletions at the target site.  The **crispRvariants** package formalizes this process and takes care of various details of managing and manipulating data for such confirmatory and exploratory experiments.
+The CRISPR-Cas9 system is an efficient method of introducing mutations into 
+genomic DNA. A guide RNA directs nuclease activity to a 20 nucleotide target
+region, resulting in efficient mutagenesis.  Repair of the cleaved DNA can 
+introduce insertions and deletions centred around the cleavage site.  Once the
+target sequence is mutated, the guide RNA will no longer bind and the DNA will
+not be cleaved again.  SNPs within the target region, depending on their 
+location, may also disrupt cleavage.  The efficiency of a CRISPR-Cas9 experiment
+is typically measured by amplifying and sequencing the region surrounding the 
+target sequence, then counting the number of sequenced reads that have 
+insertions and deletions at the target site.  The **crispRvariants** package 
+formalizes this process and takes care of various details of managing and 
+manipulating data for such confirmatory and exploratory experiments.
 
-This guide shows an example illustrating how raw data is preprocessed and mapped and how mutation information is extracted relative to the reference sequence.  The package comprehensively summarizes and plots the spectrum of variants introduced by CRISPR-Cas9 or similar genome editing experiments.
+This guide shows an example illustrating how raw data is preprocessed and mapped
+and how mutation information is extracted relative to the reference sequence.
+The package comprehensively summarizes and plots the spectrum of variants 
+introduced by CRISPR-Cas9 or similar genome editing experiments.
 
 # Case study: Analysis of ptena mutant spectrum in zebrafish (data from Mosimann laboratory, UZH)
 

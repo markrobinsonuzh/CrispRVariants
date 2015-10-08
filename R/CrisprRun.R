@@ -43,7 +43,7 @@ CrisprRun$methods(
                         chimeras = GenomicAlignments::GAlignments(), verbose = TRUE){
     
     name <<- ifelse(is.null(name), NA, name)
-    if (verbose == TRUE) cat(sprintf("\nInitialising CrisprRun %s\n", .self$name))
+    if (isTRUE(verbose)) message(sprintf("\nInitialising CrisprRun %s\n", .self$name))
     
     alns <<- bam
     chimeras <<- chimeras 
@@ -109,8 +109,8 @@ Input parameters:
     tseqs <- as.character(mcols(.self$alns)$seq)[idxs]    
     
     if (length(tseqs) == 0) {
-      insertions <<- data.frame()
-      ins_key <<- integer()
+      .self$field("insertions", data.frame())
+      .self$field("ins_key", integer())
       return()
     }    
     
@@ -121,11 +121,13 @@ Input parameters:
     genomic_starts <- unlist(start(genome_ranges[ins])) -1 # -1 for leftmost base
     df <- data.frame(start = ins_starts, seq = ins_seqs, genomic_start = genomic_starts)
     df$seq <- as.character(df$seq)
-    insertions <<- aggregate(rep(1, nrow(df)), by = as.list(df), FUN = table)
-    colnames(insertions) <<- c("start", "seq", "genomic_start", "count")
+    agg <- aggregate(rep(1, nrow(df)), by = as.list(df), FUN = table)
+    colnames(agg) <- c("start", "seq", "genomic_start", "count")
+    .self$field("insertions", agg)
     # Store a key to match the sequences to their insertion
-    ins_key <<- match(interaction(df), interaction(insertions[,c(1:3)]))
-    names(ins_key) <<- idxs
+    ikey <- match(interaction(df), interaction(insertions[,c(1:3)]))
+    names(ikey) <- idxs
+    .self$field("ins_key", ikey)
   },
   
   .checkNonempty = function(){
@@ -163,7 +165,7 @@ Input parameters:
     rranges <- cigarRangesAlongReferenceSpace(cigs, pos = start(.self$alns))[keep]
     # here get snvs, add snv ops
   
-    if (rc == TRUE){
+    if (isTRUE(rc)){
       glocs <- end(rranges)
     } else {
       glocs <- start(rranges)
@@ -173,7 +175,7 @@ Input parameters:
     temp <- as.list(relist(temp, IRanges::PartitioningByEnd(cumsum(sum(keep)))))
     complex <- sum(keep) > 1
 
-    if (rc == TRUE){
+    if (isTRUE(rc)){
       temp[complex] <- sapply(temp[complex], function(x) paste(rev(x), collapse = ","))
     } else {
       temp[complex] <- sapply(temp[complex], paste, collapse = ",")
@@ -206,7 +208,7 @@ Input parameters:
   
   snv_range <- c((cut_site-upstream + 1):(cut_site + downstream))
   sqs <- mcols(.self$alns)$seq[no_var]
-  if (rc == TRUE) sqs <- reverseComplement(sqs)
+  if (isTRUE(rc)) sqs <- reverseComplement(sqs)
 
   no_var_seqs <- as.matrix(sqs)
   no_var_seqs <- no_var_seqs[,snv_range, drop = FALSE]    
