@@ -104,7 +104,7 @@ setGeneric("findSNVs", function(obj, ...) {
 #'@return A vector of SNVs and their frequencies
 setMethod("findSNVs", signature("CrisprSet"),
           function(obj, ..., freq = 0.25, include.chimeras = TRUE){
-            result <- obj$getSNVs(min.freq = freq,
+            result <- obj$.getSNVs(min.freq = freq,
                                   include.chimeras = include.chimeras)
             result
           })

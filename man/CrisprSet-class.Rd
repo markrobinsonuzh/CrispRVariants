@@ -75,42 +75,108 @@ of an experiment.}
 \section{Methods}{
 
 \describe{
+\item{\code{classifyCodingBySize(var_type, cutoff = 10)}}{Description:
+    This is a naive classification of variants as frameshift or in-frame
+    Coding indels are summed, and indels with sum divisible by 3 are
+    considered frameshift.  Note that this may not be correct for variants
+    that span an intron-exon boundary
+Input paramters:
+    var_type:   A vector of var_type. Only variants with var_type == "coding" 
+                are considered.  Intended to work with classifyVariantsByLoc
+    cutoff:     Variants are divided into those less than and greater 
+                than "cutoff" (Default: 10)
+Result:
+    A character vector with a classification for each variant allele}
+
 \item{\code{classifyVariantsByLoc(txdb, add_chr = TRUE, verbose = TRUE)}}{Description:
-  Uses the VariantAnnotation package to look up the location of the 
+  Uses the VariantAnnotation package to look up the location of the
   variants.  VariantAnnotation allows multiple classification tags per variant,
-  this function returns a single tag.  The following preference order is used:  
+  this function returns a single tag.  The following preference order is used:
   spliceSite > coding > intron > fiveUTR > threeUTR > promoter > intergenic
 
 Input parameters:
   txdb:     A BSgenome transcription database
   add_chr:  Add "chr" to chromosome names to make compatible with UCSC (default: TRUE)
   verbose:  Print progress (default: TRUE)
-  
+
 Return value:
-  A vector of classification tags, matching the rownames of .self$cigar_freqs 
+  A vector of classification tags, matching the rownames of .self$cigar_freqs
   (the variant count table)
   }
 
 \item{\code{filterUniqueLowQual(min_count = 2, max_n = 0, verbose = TRUE)}}{Description:
-  Deletes reads containing rare variant combinations and more than 
+  Deletes reads containing rare variant combinations and more than
   a minimum number of ambiguity characters within the target region.
   These are assumed to be alignment errors.
 
 Input parameters:
-  min_count:    the number of times a variant combination must occur across 
+  min_count:    the number of times a variant combination must occur across
                 all samples to keep (default: 2, i.e. a variant must occur
                 at least twice in one or more samples to keep)
   max_n:        maximum number of ambiguity ("N") bases a read with a rare
                 variant combination may contain.  (default: 0)
   verbose:      If TRUE, print the number of sequences removed (default: TRUE)}
 
+\item{\code{filterVariants(cig_freqs = NULL, names = NULL, columns = NULL,
+  include.chimeras = TRUE)}}{Description:
+  Removes specified variants from a table of variant allele counts, 
+  e.g. variants known to exist in control samples.
+  Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D".
+  Alleles that include one variant to be filtered and one other variant,
+  the other variant will be retained. 
+
+Input parameters:
+  cig_freqs:        A table of variant allele counts 
+                    (Default: NULL, i.e. .self$cigar_freqs)
+  names:            Labels of variants alleles to remove (Default: NULL)
+  columns:          Indices or names of control samples.  Remove all variants that 
+                    occur in these columns.  (Default: NULL)
+  include.chimeras: Should chimeric reads be included? (Default: TRUE)}
+
+\item{\code{heatmapCigarFreqs(as.percent = TRUE, x.size = 8, y.size = 8,
+  x.axis.title = NULL, x.angle = 90, min.freq = 0, min.count = 0,
+  top.n = nrow(.self$cigar_freqs), type = c("counts", "proportions"), ...)}}{Description:
+    Internal method for CrispRVariants:plotFreqHeatmap, optionally filters the table
+    of variants, then a table of variant counts, coloured by counts or proportions.
+
+Input parameters:
+    as.percent:   Should colours represent the percentage of reads per sample 
+                  (TRUE) or the actual counts (FALSE)?  (Default: TRUE)
+    x.size:       Font size for x axis labels (Default: 8)
+    y.size:       Font size for y axis labels (Default: 8)
+    x.axis.title: Title for x axis
+    min.freq:     Include only variants with frequency at least min.freq in at 
+                  least one sample
+    min.count:    Include only variants with count at least min.count in at 
+                  least one sample
+    top.n:        Include only the n most common variants
+    type:         Should labels show counts or proportions?  (Default: counts)
+    ...:
+
+Return value:
+    A ggplot2 plot object.  Call "print(obj)" to display
+
+See also:
+    CrispRVariants::plotFreqHeatmap
+    }
+
+\item{\code{makePairwiseAlns(cig_freqs = .self$cigar_freqs, ...)}}{Description:
+Get variants by their cigar string, make the pairwise alignments for the consensus
+sequence for each variant allele
+
+Input parameters:
+cig_freqs:  A table of variant allele frequencies (by default: .self$cigar_freqs,
+            but could also be filtered)
+...:        Extra arguments for CrispRVariants::seqsToAln, e.g. which symbol
+            should be used for representing deleted bases}
+
 \item{\code{mutationEfficiency(snv = c("non_variant", "include", "exclude"),
   include.chimeras = TRUE, exclude.cols = NULL, filter.vars = NULL,
   filter.cols = NULL)}}{Description:
   Calculates summary statistics for the mutation efficiency, i.e.
-  the percentage of reads that contain a variant.  Reads that do not 
-  contain and insertion or deletion, but do contain a single nucleotide 
-  variant (snv) can be considered as mutated, non-mutated, or not 
+  the percentage of reads that contain a variant.  Reads that do not
+  contain and insertion or deletion, but do contain a single nucleotide
+  variant (snv) can be considered as mutated, non-mutated, or not
   included in efficiency calculations as they are ambiguous.
 
 Input parameters:
@@ -128,8 +194,8 @@ Return value:
 
 \item{\code{plotVariants(min.freq = 0, min.count = 0, top.n = nrow(.self$cigar_freqs),
   renumbered = .self$pars["renumbered"], add.other = add.other, ...)}}{Description:
-  Wrapper for CrispRVariants:plotAlignments, optionally filters the table 
-  of variants, then plots variants with respect to the reference sequence, 
+  Internal method for CrispRVariants:plotAlignments, optionally filters the table
+  of variants, then plots variants with respect to the reference sequence,
   collapsing insertions and displaying insertion sequences below the plot.
 
 Input parameters:
@@ -137,11 +203,11 @@ Input parameters:
                     in at least one sample
   min.count         i (integer) include variants that occur at leas i times in
                     at least one sample
-  top.n:            n (integer) Plot only the n most frequent variants 
+  top.n:            n (integer) Plot only the n most frequent variants
                     (default: plot all)
-                    Note that if there are ties in variant ranks, 
-                    top.n only includes ties with all members ranking <= top.n    
-  renumbered:       If TRUE, the x-axis is numbered with respect to the target 
+                    Note that if there are ties in variant ranks,
+                    top.n only includes ties with all members ranking <= top.n
+  renumbered:       If TRUE, the x-axis is numbered with respect to the target
                     (cut) site.  If FALSE, x-axis shows genomic locations.
                     (default: TRUE)
   add.other         Add a blank row named "Other" for chimeric alignments,
@@ -149,7 +215,7 @@ Input parameters:
   ...               additional arguments for plotAlignments
 
 Return value:
-  A ggplot2 plot object.  Call "print(obj)" to display  }
+  A ggplot2 plot object.  Call "print(obj)" to display}
 }}
 \examples{
 # Load the metadata table

@@ -60,6 +60,10 @@ plotVariants(crispr.set, txdb = txdb)
 
 Each of these functions can filter the variant alleles in various ways.  See the individual help pages for more information.
 
+# User Guide
+
+The user guide is found in the "vignettes" directory
+
 # Contact
 
 We are currently finialising the package for inclusion in the next Bioconductor release.  Please contact helen (dot) lindsay (at) uzh (dot) ch for more information. 

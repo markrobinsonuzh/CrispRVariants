@@ -79,10 +79,12 @@ CrisprSet$methods(
                         split.snv = TRUE, upstream.snv = 8, downstream.snv = 5,
                         verbose = TRUE, ...){
 
-    print(sprintf("Initialising CrisprSet %s:%s-%s with %s samples",
+    if (isTRUE(verbose)){
+      message(sprintf("Initialising CrisprSet %s:%s-%s with %s samples",
                   as.character(seqnames(target)), start(target), end(target),
                   length(crispr.runs)))
-    if (class(reference) == "DNAStringSet" | class(reference) == "character"){
+    }
+    if (class(reference) == "DNAStringSet" || class(reference) == "character"){
       if (length(reference) > 1){
         stop("A CrisprSet contains alignments to exactly one reference sequence")
       }
@@ -132,7 +134,7 @@ CrisprSet$methods(
                                         short = short.cigars, split.snv = split.snv)
     if (isTRUE(verbose)) message("Counting variant combinations\n")
     .self$.countCigars(cig_by_run)
-    .self$getInsertions()
+    .self$.getInsertions()
   },
 
   show = function(){
@@ -154,7 +156,7 @@ CrisprSet$methods(
         stop("Must specify target.loc (cut site), target_start, target_end and rc
              for renumbering")
       }
-      g_to_t <- genomeToTargetLocs(target.loc, target_start, target_end, rc)
+      g_to_t <- .self$.genomeToTargetLocs(target.loc, target_start, target_end, rc)
       }
     cut.site <- ifelse(is.na(target.loc), 17, target.loc)
 
@@ -342,12 +344,26 @@ Input parameters:
   filterVariants = function(cig_freqs = NULL, names = NULL, columns = NULL,
                             include.chimeras = TRUE){
 
-    # Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D"
+'
+Description:
+  Removes specified variants from a table of variant allele counts, 
+  e.g. variants known to exist in control samples.
+  Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D".
+  Alleles that include one variant to be filtered and one other variant,
+  the other variant will be retained. 
+
+Input parameters:
+  cig_freqs:        A table of variant allele counts 
+                    (Default: NULL, i.e. .self$cigar_freqs)
+  names:            Labels of variants alleles to remove (Default: NULL)
+  columns:          Indices or names of control samples.  Remove all variants that 
+                    occur in these columns.  (Default: NULL)
+  include.chimeras: Should chimeric reads be included? (Default: TRUE)
+'
 
     # Potential improvements:
     # This relies on having short cigars, remove other options?
     # Column must include only column names from .self$cigar_freqs
-
 
     warning("This function will not correctly count SNVs as variants after filtering")
     if (is.null(cig_freqs)){
@@ -386,7 +402,7 @@ Input parameters:
     cig_freqs
   },
 
-  getSNVs = function(min.freq = 0.25, include.chimeras = TRUE){
+  .getSNVs = function(min.freq = 0.25, include.chimeras = TRUE){
     # Relies on having short cigars, remove other options?
 
     cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
@@ -478,7 +494,13 @@ exclude.idxs <- match(exclude.cols, colnames(freqs))
     result
   },
 
-  classifyVariantsByType = function(){
+  .classifyVariantsByType = function(){
+'
+Description:
+  Classifies variants as insertions, deletions, or complex (combinations).
+  In development
+'
+    
     # Classifies variants as reference, mismatch, insertion, deletion
     # or insertion+deletion
     vars <- rep(NA, nrow(.self$cigar_freqs))
@@ -547,10 +569,20 @@ Return value:
   },
 
   classifyCodingBySize = function(var_type, cutoff = 10){
-    # This is a naive classification of variants as frameshift or in-frame
-    # Coding indels are summed, and indels with sum divisible by 3 are
-    # considered frameshift.  Requires a vector of var_type, and only
-    # considers variants where var_type == "coding"
+'
+Description:
+    This is a naive classification of variants as frameshift or in-frame
+    Coding indels are summed, and indels with sum divisible by 3 are
+    considered frameshift.  Note that this may not be correct for variants
+    that span an intron-exon boundary
+Input paramters:
+    var_type:   A vector of var_type. Only variants with var_type == "coding" 
+                are considered.  Intended to work with classifyVariantsByLoc
+    cutoff:     Variants are divided into those less than and greater 
+                than "cutoff" (Default: 10)
+Result:
+    A character vector with a classification for each variant allele
+'
 
     is_coding <- var_type == "coding"
 
@@ -574,21 +606,37 @@ Return value:
     var_type
   },
 
-  countVariantAlleles = function(counts_t = NULL){
-    # Returns counts of variant alleles
-    # SNV alleles are not considered variants here
-    if (is.null(counts_t)) counts_t <- .self$cigar_freqs
-    counts_t <- counts_t[!rownames(counts_t) == .self$pars["match_label"],,drop = FALSE]
-    alleles <- colSums(counts_t != 0)
-    result <- data.frame(Allele = alleles, Sample = names(alleles))
-    result
-  },
-
   heatmapCigarFreqs = function(as.percent = TRUE, x.size = 8, y.size = 8,
                                x.axis.title = NULL, x.angle = 90,
                                min.freq = 0, min.count = 0,
                                top.n = nrow(.self$cigar_freqs),
                                type = c("counts", "proportions"), ...){
+
+    '
+Description:
+    Internal method for CrispRVariants:plotFreqHeatmap, optionally filters the table
+    of variants, then a table of variant counts, coloured by counts or proportions.
+
+Input parameters:
+    as.percent:   Should colours represent the percentage of reads per sample 
+                  (TRUE) or the actual counts (FALSE)?  (Default: TRUE)
+    x.size:       Font size for x axis labels (Default: 8)
+    y.size:       Font size for y axis labels (Default: 8)
+    x.axis.title: Title for x axis
+    min.freq:     Include only variants with frequency at least min.freq in at 
+                  least one sample
+    min.count:    Include only variants with count at least min.count in at 
+                  least one sample
+    top.n:        Include only the n most common variants
+    type:         Should labels show counts or proportions?  (Default: counts)
+    ...:
+
+Return value:
+    A ggplot2 plot object.  Call "print(obj)" to display
+
+See also:
+    CrispRVariants::plotFreqHeatmap
+    '
 
     # Doesn't currently allow option to exclude non-variant
 
@@ -613,7 +661,7 @@ Return value:
                    renumbered = .self$pars["renumbered"], add.other = add.other, ...){
 '
 Description:
-  Wrapper for CrispRVariants:plotAlignments, optionally filters the table
+  Internal method for CrispRVariants:plotAlignments, optionally filters the table
   of variants, then plots variants with respect to the reference sequence,
   collapsing insertions and displaying insertion sequences below the plot.
 
@@ -684,25 +732,7 @@ Return value:
     return(p)
   },
 
-  plotFrequencySpectrum = function(indel_only = TRUE, ...){
-    # ... are args for postageStampPlot
-
-    freqs <- cset$cigar_freqs
-    if (indel_only){
-      toremove <- sprintf("%s|%s", .self$pars$match_label, .self$pars$mismatch_label)
-      idxs <- grep(toremove, rownames(cset$cigar_freqs))
-      if (length(idxs) > 0) freqs <- cset$cigar_freqs[-idxs,, drop = FALSE]
-    }
-    freq_df <- data.frame(nsamples = rowSums(freqs > 0),
-                          variants = rowSums(freqs))
-
-    freqs <- aggregate(rep(1, nrow(freq_df)), by = as.list(freq_df), FUN = table)
-    colnames(freqs) <- c("samples", "variants", "occurs")
-    freqs$occurs <- as.numeric(freqs$occurs)
-    return(postageStampPlot(freqs, ...))
-  },
-
-  getInsertions = function(with_cigars = TRUE){
+  .getInsertions = function(with_cigars = TRUE){
     # Used by plotVariants for getting a table of insertions
 
     if (with_cigars == FALSE){
@@ -725,7 +755,18 @@ Return value:
   },
 
   makePairwiseAlns = function(cig_freqs = .self$cigar_freqs, ...){
-    # Get alignments by cigar string, make the alignment for the consensus
+'
+Description:
+Get variants by their cigar string, make the pairwise alignments for the consensus
+sequence for each variant allele
+
+Input parameters:
+cig_freqs:  A table of variant allele frequencies (by default: .self$cigar_freqs,
+            but could also be filtered)
+...:        Extra arguments for CrispRVariants::seqsToAln, e.g. which symbol
+            should be used for representing deleted bases
+'
+
     # The short cigars (not renumbered) do not have enough information,
     # use the full cigars for sorting
     # Do this just for the alns to be displayed?
@@ -771,7 +812,7 @@ Return value:
     alns
   },
 
-  genomeToTargetLocs = function(target.loc, target_start, target_end, rc = FALSE){
+  .genomeToTargetLocs = function(target.loc, target_start, target_end, rc = FALSE){
     # target.loc should be relative to the start of the target sequence, even if the
     # target is on the negative strand
     # target.loc is the left side of the cut site (Will be numbered -1)

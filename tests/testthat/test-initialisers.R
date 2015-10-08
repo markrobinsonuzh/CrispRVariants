@@ -18,13 +18,15 @@ test_that("readsToTargets correctly separates reads by PCR primer",{
   references <- Biostrings::DNAStringSet(c("AA","CC"))
 
   # test that reads can't be separated without primer ranges
-  csets <- readsToTargets(galnsl, targets, references = references, target.loc = 1)
+  csets <- readsToTargets(galnsl, targets, references = references, target.loc = 1,
+                          verbose = FALSE)
   # There should be no reads as all are ambiguous
   # and chimeras cannot be distinguished with default tolerance of 5
   expect_equal(length(csets), 0)
   
   csets <- readsToTargets(galnsl, targets, references = references, target.loc = 1,
-                          primer.ranges = primer.ranges, chimera.to.target = 0)
+                          primer.ranges = primer.ranges, chimera.to.target = 0,
+                          verbose = FALSE)
   
   expect_equal(names(csets[[1]]$crispr_runs[[1]]$alns), "A")
   expect_equal(names(csets[[2]]$crispr_runs[[1]]$alns), "B")

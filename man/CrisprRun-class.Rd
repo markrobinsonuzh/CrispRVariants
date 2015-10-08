@@ -26,7 +26,9 @@ i.e. displayed with respect to the negative strand?  (Default: FALSE)}
 }
 \description{
 A ReferenceClass container for a single sample of alignments narrowed
-to a target region
+to a target region.  Typically CrisprRun objects will not be accessed directly,
+but if necessary via a CrisprSet class which contains a list of CrisprRun objects.
+Note that the CrispRVariants plotting functions don't work on CrisprRun objects.
 }
 \section{Fields}{
 
@@ -48,13 +50,62 @@ initialisation of a CrisprRun object.}
 \section{Methods}{
 
 \describe{
+\item{\code{getCigarLabels(target.loc, genome_to_target, ref, separate.snv = TRUE,
+  match.label = "no variant", mismatch.label = "SNV", rc = FALSE,
+  keep.ops = c("I", "D", "N"), upstream = 8, downstream = min(5,
+  width(ref) - cut_site))}}{Description:
+  Sets the "cig_labels" field, returns the cigar labels.
+
+Input parameters:
+  target.loc:       The location of the cut site with respect to the target
+  genome_to_target: A vector with names being genomic locations and values
+                    being locations with respect to the cut site
+  separate.snv:     Should single nucleotide variants be called?  
+                    (Default: TRUE)
+  match.label:      Label for non-variant reads (Default: no variant)
+  mismatch.label:   Label for single nucleotide variants (Default: SNV)
+  rc:               Should the variants be displayed with respect to the 
+                    negative strand? (Default: FALSE)
+  keep.ops:         CIGAR operations to remain in the variant label
+                    (usually indels)
+  upstream:         distance upstream of the cut site to call SNVs
+  downstream:       distance downstream of the cut site to call SNVs}
+
+\item{\code{getInsertionSeqs(ref_ranges, genome_ranges)}}{Description:
+  Set the "insertions" field - a table of the locations of insertions,
+  and the "ins_key" field which relates sequences indices to the insertions 
+  they contain
+Input parameters:
+ref_ranges:     The cigar operations of the reads with respect to the reference
+genome_ranges:  The cigar operations of the reads with respect to the genome,
+                i.e. the reference locations shifted to their genomic start locations}
+
 \item{\code{removeSeqs(idxs)}}{Description:
-  Remove sequences from a CrisprRun object and from the internal CrisprRun 
+  Remove sequences from a CrisprRun object and from the internal CrisprRun
   fields that store insertion locations for plotting.
 
 Input parameters:
   idxs:     Indexes of reads to remove}
 }}
+\examples{
+# readsToTarget with signature("GAlignments", "GRanges") returns a
+# CrisprRun object
+
+bam_fname <- system.file("extdata", "gol_F1_clutch_1_embryo_1_s.bam",
+                        package = "CrispRVariants")
+param <- Rsamtools::ScanBamParam(what = c("seq", "flag"))
+alns <- GenomicAlignments::readGAlignments(bam_fname, param = param,
+         use.names = TRUE)
+
+reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+
+crispr_run <- readsToTarget(alns, target = gd, reference = reference,
+                           name = "Sample name", target.loc = 17)
+
+# Alternatively, CrisprRun objects can be accessed from a CrisprSet object
+# e.g. crispr_set$crispr_runs[[1]]
+}
 \author{
 Helen Lindsay
 }

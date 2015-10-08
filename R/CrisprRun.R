@@ -1,6 +1,8 @@
 #'@title CrisprRun class
 #'@description A ReferenceClass container for a single sample of alignments narrowed
-#'to a target region
+#'to a target region.  Typically CrisprRun objects will not be accessed directly,
+#'but if necessary via a CrisprSet class which contains a list of CrisprRun objects.  
+#'Note that the CrispRVariants plotting functions don't work on CrisprRun objects.
 #'@param bam a GAlignments object containing (narrowed) alignments to the target region.
 #' Filtering of the bam should generally be done before initialising a CrisprRun object
 #'@param target The target location, a GRanges object
@@ -24,6 +26,24 @@
 #'@field chimeras Chimeric, off-target alignments corresponding to alignments in alns
 #'@seealso \code{\link[CrispRVariants]{CrisprSet}}
 #'@author Helen Lindsay
+#'@examples
+#'# readsToTarget with signature("GAlignments", "GRanges") returns a 
+#'# CrisprRun object
+#'
+#'bam_fname <- system.file("extdata", "gol_F1_clutch_1_embryo_1_s.bam",
+#'                         package = "CrispRVariants")
+#'param <- Rsamtools::ScanBamParam(what = c("seq", "flag"))
+#'alns <- GenomicAlignments::readGAlignments(bam_fname, param = param, 
+#'          use.names = TRUE)
+#'
+#'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
+#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'
+#'crispr_run <- readsToTarget(alns, target = gd, reference = reference,
+#'                            name = "Sample name", target.loc = 17)
+#'
+#'# Alternatively, CrisprRun objects can be accessed from a CrisprSet object
+#'# e.g. crispr_set$crispr_runs[[1]]
 #'@export CrisprRun
 #'@exportClass CrisprRun
 CrisprRun = setRefClass(
@@ -47,7 +67,7 @@ CrisprRun$methods(
 
     alns <<- bam
     chimeras <<- chimeras
-    chimera_combs <<- .self$splitChimeras()
+    chimera_combs <<- .self$.splitChimeras()
 
     if (length(bam) == 0) { return() }
 
@@ -102,6 +122,16 @@ Input parameters:
   },
 
   getInsertionSeqs = function(ref_ranges, genome_ranges){
+' 
+Description:
+  Set the "insertions" field - a table of the locations of insertions,
+  and the "ins_key" field which relates sequences indices to the insertions 
+  they contain
+Input parameters:
+ref_ranges:     The cigar operations of the reads with respect to the reference
+genome_ranges:  The cigar operations of the reads with respect to the genome,
+                i.e. the reference locations shifted to their genomic start locations
+'
     # Note that the start of a ref_ranges insertion is its genomic end (rightmost base)
 
     ins <- .self$cigar_ops == "I"
@@ -109,8 +139,8 @@ Input parameters:
     tseqs <- as.character(mcols(.self$alns)$seq)[idxs]
 
     if (length(tseqs) == 0) {
-      insertions <<- data.frame()
-      ins_key <<- integer()
+      .self$field("insertions", data.frame())
+      .self$field("ins_key", integer())
       return()
     }
 
@@ -138,7 +168,7 @@ Input parameters:
     return(TRUE)
   },
 
-  splitChimeras = function(){
+  .splitChimeras = function(){
     splits <- split(cigar(.self$chimeras), names(.self$chimeras))
     if (length(splits) == 0) return(data.frame())
     combination <- sapply(splits, paste, collapse=";")
@@ -148,13 +178,30 @@ Input parameters:
   },
 
 
-
   getCigarLabels = function(target.loc, genome_to_target, ref,
                              separate.snv = TRUE, match.label = "no variant",
                              mismatch.label = "SNV",
                              rc = FALSE, keep.ops = c("I","D","N"), upstream = 8,
                             downstream = min(5, width(ref) - cut_site)){
+    '
+Description:
+  Sets the "cig_labels" field, returns the cigar labels.
 
+Input parameters:
+  target.loc:       The location of the cut site with respect to the target
+  genome_to_target: A vector with names being genomic locations and values
+                    being locations with respect to the cut site
+  separate.snv:     Should single nucleotide variants be called?  
+                    (Default: TRUE)
+  match.label:      Label for non-variant reads (Default: no variant)
+  mismatch.label:   Label for single nucleotide variants (Default: SNV)
+  rc:               Should the variants be displayed with respect to the 
+                    negative strand? (Default: FALSE)
+  keep.ops:         CIGAR operations to remain in the variant label
+                    (usually indels)
+  upstream:         distance upstream of the cut site to call SNVs
+  downstream:       distance downstream of the cut site to call SNVs'
+    
     cigs <- cigar(.self$alns)
     wdths <- explodeCigarOpLengths(cigs)
     ops <- explodeCigarOps(cigs)

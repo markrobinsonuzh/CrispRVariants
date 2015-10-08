@@ -10,7 +10,6 @@
 
 <meta name="author" content="Helen Lindsay" />
 
-<meta name="date" content="2015-01-25" />
 
 <title>Readme</title>
 
@@ -55,15 +54,16 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 <div id="header">
 <h1 class="title">Readme</h1>
 <h4 class="author"><em>Helen Lindsay</em></h4>
-<h4 class="date"><em>25 January 2015</em></h4>
 </div>
 
 
-<p>crispRvariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment. Starting from a set of bam files, crispRvariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of the protospacer adjacent motif (PAM). The target region and zero point can be flexibly specified, and the variants may be shown with respect to either DNA strand.</p>
+<p>CrispRVariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment. Starting from a set of bam files, crispRvariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of the protospacer adjacent motif (PAM). The target region and zero point can be flexibly specified, and the variants may be shown with respect to either DNA strand.</p>
 <p>Variants are numbered from their leftmost starting point. For example, a 3bp deletion starting two bases upstream of the cut site is labeled “-2:3D”. Single nucleotide variants (SNVs) can optionally be called for sequences that do not contain an insertion or deletion, which can be useful for identifying sequences that differ from the reference sequence.</p>
 <div id="installation" class="section level1">
 <h1>Installation</h1>
-<p>crispRvariants can be installed using devtools::install_githup(“markrobinsonuzh/crispRvariants”), or by downloading the source package and installing with repos=NULL</p>
+<p>Assuming the devtools package is installed, CrispRVariants can be installed using:</p>
+<pre class="r"><code>devtools::install_github(&quot;markrobinsonuzh/crispRvariants&quot;)</code></pre>
+<p>or by downloading the source package and installing with repos=NULL</p>
 </div>
 <div id="quickstart-guide" class="section level1">
 <h1>Quickstart guide</h1>
@@ -81,9 +81,13 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 plotVariants(crispr.set, txdb = txdb)</code></pre>
 <p>Each of these functions can filter the variant alleles in various ways. See the individual help pages for more information.</p>
 </div>
+<div id="user-guide" class="section level1">
+<h1>User Guide</h1>
+<p>The user guide is found in the “vignettes” directory</p>
+</div>
 <div id="contact" class="section level1">
 <h1>Contact</h1>
-<p>We are currently in the process of writing documentation and preparing to submit crispRvariants to Bioconductor. Please contact helen (dot) lindsay (at) uzh (dot) ch for more information.</p>
+<p>We are currently finialising the package for inclusion in the next Bioconductor release. Please contact helen (dot) lindsay (at) uzh (dot) ch for more information.</p>
 </div>
 
 
