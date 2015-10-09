@@ -412,7 +412,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
   if (length(targets) != length(references)){
     stop("A reference sequence for each target must be provided")
   }
-  return(TRUE)
+  TRUE
 }
 
 .checkForPaired <- function(bams){
@@ -424,7 +424,7 @@ setMethod("readsToTargets", signature("GAlignmentsList", "GRanges"),
       return(FALSE)
     }
   }
-  return(TRUE)
+  TRUE
 }
 
 separateChimeras <- function(bam, targets, tolerance = 5,
@@ -652,7 +652,7 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
 #'@author Helen Lindsay
 rcAlns <- function(target.strand, reverse.complement){
   if (target.strand == "-" & isTRUE(reverse.complement)) return(TRUE)
-  return(FALSE)
+  FALSE
 }
 
 

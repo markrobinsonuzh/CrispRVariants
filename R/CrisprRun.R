@@ -165,7 +165,7 @@ genome_ranges:  The cigar operations of the reads with respect to the genome,
       message("No on target alignments")
       return(FALSE)
     }
-    return(TRUE)
+    TRUE
   },
 
   .splitChimeras = function(){
