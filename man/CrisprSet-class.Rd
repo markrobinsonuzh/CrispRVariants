@@ -119,11 +119,13 @@ Input parameters:
 
 \item{\code{filterVariants(cig_freqs = NULL, names = NULL, columns = NULL,
   include.chimeras = TRUE)}}{Description:
-  Removes specified variants from a table of variant allele counts, 
-  e.g. variants known to exist in control samples.
+  Relabels specified variants in a table of variant allele counts as 
+  non-variant, e.g. variants known to exist in control samples.
   Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D".
-  Alleles that include one variant to be filtered and one other variant,
-  the other variant will be retained. 
+  For alleles that include one variant to be filtered and one other variant,
+  the other variant will be retained.
+  If SNVs are included, these will be removed entirely, but note that SNVs
+  are only called in reads that do not contain an insertion/deletion variant
 
 Input parameters:
   cig_freqs:        A table of variant allele counts 
@@ -171,8 +173,9 @@ cig_freqs:  A table of variant allele frequencies (by default: .self$cigar_freqs
             should be used for representing deleted bases}
 
 \item{\code{mutationEfficiency(snv = c("non_variant", "include", "exclude"),
-  include.chimeras = TRUE, exclude.cols = NULL, filter.vars = NULL,
-  filter.cols = NULL)}}{Description:
+  include.chimeras = TRUE, exclude.cols = NULL, group = NULL,
+  filter.vars = NULL, filter.cols = NULL, count.alleles = FALSE,
+  per.sample = TRUE)}}{Description:
   Calculates summary statistics for the mutation efficiency, i.e.
   the percentage of reads that contain a variant.  Reads that do not
   contain and insertion or deletion, but do contain a single nucleotide
@@ -186,11 +189,18 @@ Input parameters:
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
   exclude.cols:   A list of column names to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
+  group:          A grouping variable.  Efficiency will be calculated per group,
+                  instead of for individual.
+                  Cannot be used with exclude.cols.
   filter.vars:    Variants that should not be counted as mutations.
   filter.cols:    Column names to be considered controls.  Variants occuring in
                   a control sample will not be counted as mutations.
+  count.alleles:  If TRUE, also report statistics about the number of alleles
+                  per sample/per group. (Default:  FALSE)
+  per.sample:     Return efficiencies for each sample (Default: TRUE)
 Return value:
-  A vector of efficiency statistics per sample and overall}
+  A vector of efficiency statistics per sample and overall, or a
+  matrix if a group is supplied.}
 
 \item{\code{plotVariants(min.freq = 0, min.count = 0, top.n = nrow(.self$cigar_freqs),
   renumbered = .self$pars["renumbered"], add.other = add.other, ...)}}{Description:

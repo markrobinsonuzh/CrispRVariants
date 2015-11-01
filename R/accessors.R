@@ -32,15 +32,10 @@ setMethod("variantCounts", signature("CrisprSet"),
               include.chimeras = TRUE, include.nonindel=TRUE,
               result = "counts"){
 
-    if (is.null(top.n) & min.freq == 0){
-        return(obj$.getFilteredCigarTable(include.chimeras = include.chimeras,
-                                          include.nonindel = include.nonindel))
-    }
-
     top.n <- ifelse(is.null(top.n), nrow(obj$cigar_freqs), top.n)
     result <- obj$.getFilteredCigarTable(top.n, min.freq, min.count,
                                          include.chimeras,
-                                         include.nonindel, result)
+                                         include.nonindel, type = result)
     result
 })
 
@@ -67,20 +62,24 @@ setGeneric("mutationEfficiency", function(obj, ...) {
 #'@param filter.cols A vector of control sample names.  Any variants present in the control
 #'samples will be counted as non-variant, unless they also contain another indel.  Note that
 #'this is not compatible with counting snvs as variants.
+#'@param group A grouping vector.  If provided, efficiency will be calculated
+#'per group (Default: NULL)
 #'@rdname mutationEfficiency
-#'@return A vector of efficiency statistics per sample and overall
+#'@return A vector of efficiency statistics per sample and overall, or 
+#'a matrix of efficiency statistics per group if a group is provided
 #'@examples
 #'data("gol_clutch1")
 #'mutationEfficiency(gol)
 setMethod("mutationEfficiency", signature("CrisprSet"),
           function(obj, ..., snv = c("non_variant", "include","exclude"),
                    include.chimeras = TRUE, exclude.cols = NULL,
-                   filter.vars = NULL, filter.cols = NULL){
+                   filter.vars = NULL, filter.cols = NULL, group = NULL){
     result <- obj$mutationEfficiency(snv = snv,
                                   include.chimeras = include.chimeras,
                                   exclude.cols = exclude.cols,
                                   filter.vars = filter.vars,
-                                  filter.cols = filter.cols)
+                                  filter.cols = filter.cols,
+                                  group = group, ...)
     result
 })
 

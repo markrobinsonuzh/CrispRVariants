@@ -5,7 +5,7 @@
 \title{Read a file in ab1 (Sanger) format and convert to fastq}
 \usage{
 abifToFastq(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
-  min_seq_len = 20, offset = 33)
+  min_seq_len = 20, offset = 33, recall = FALSE)
 }
 \arguments{
 \item{seqname}{name of sequence, to appear in fastq file}
@@ -21,6 +21,9 @@ abifToFastq(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
 \item{min_seq_len}{minimum number of sequenced bases required in order to trim the read}
 
 \item{offset}{phred offset for quality scores}
+
+\item{recall}{Use sangerseqR to resolve the primary sequence if two sequences
+are present.  May cause quality scores to be ignored. (Default: FALSE)}
 }
 \value{
 None.  Sequences are appended to the outfname.

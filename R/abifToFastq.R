@@ -12,6 +12,8 @@
 #'@param cutoff probability cutoff
 #'@param min_seq_len minimum number of sequenced bases required in order to trim the read
 #'@param offset phred offset for quality scores
+#'@param recall Use sangerseqR to resolve the primary sequence if two sequences
+#'are present.  May cause quality scores to be ignored. (Default: FALSE)
 #'@author Helen Lindsay
 #'@return None.  Sequences are appended to the outfname.
 #'@examples
@@ -19,7 +21,7 @@
 #'abifToFastq("IM2033", ab1_fname, "IM2033.fastq")
 #'@export
 abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
-                        min_seq_len = 20, offset = 33){
+                        min_seq_len = 20, offset = 33, recall = FALSE){
   sangerseqr <- requireNamespace("sangerseqR")
   stopifnot(isTRUE(sangerseqr))
 
@@ -32,19 +34,37 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
 
   # Remove the extra character if it exists
   nucseq <- substring(abif@data$PBAS.2, 1, length(abif@data$PLOC.2))
-  # sangerSeqR PCON.2 is a UTF8-encoded character vector in release, an integer vector in devel
+
+  # sangerSeqR PCON.2 is a UTF8-encoded character vector in release, 
+  # an integer vector in devel
   if (! typeof(abif@data$PCON.2) == "integer"){
     num_quals <- utf8ToInt(abif@data$PCON.2)[1:length(abif@data$PLOC.2)]
   } else {
     num_quals <- abif@data$PCON.2[1:length(abif@data$PLOC.2)]
   }
-
+  
+  if (isTRUE(recall)){
+    recalled <- sangerseqR::makeBaseCalls(sangerseqR::sangerseq(abif))
+    nucseq <- sangerseqR::primarySeq(recalled, string = TRUE)
+    if (nchar(nucseq) != length(num_quals)){
+      trim <- FALSE
+      # Set all quality scores equal
+      num_quals <- rep(60, nchar(nucseq)) 
+      # 60 is compatible with all phred offsets, according to Wikipedia
+      # Sanger scores do not usually exceed 60
+      warning("Lengh of quality scores does not equal length of
+              re-called base sequence, ignoring quality scores")
+    }
+  }
+  
   if (trim == FALSE){
-    writeFastq(outfname, list("seq" = nucseq, "quals" = rawToChar(as.raw(num_quals + 33))))
+    writeFastq(outfname, list("seqname" = seqname, "seq" = nucseq,
+                              "quals" = rawToChar(as.raw(num_quals + offset))))
     return()
   }
 
-  trim_msg <- 'Sequence %s can not be trimmed because it is shorter than the trim segment size'
+  trim_msg <- 'Sequence %s can not be trimmed because it is shorter than the trim
+               segment size'
   if (nchar(nucseq) <= min_seq_len){
     warning(sprintf(trim_msg, seqname))
     return()
@@ -70,7 +90,7 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
   }
 
   writeFastq(outfname, list("seqname" = seqname,
-                            "seq" = substring(nucseq, trim_start, trim_finish),
-                            "quals" = rawToChar(as.raw(num_quals[trim_start:trim_finish]+offset))))
+              "seq" = substring(nucseq, trim_start, trim_finish),
+              "quals" = rawToChar(as.raw(num_quals[trim_start:trim_finish]+offset))))
   return()
 }

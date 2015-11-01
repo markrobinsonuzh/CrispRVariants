@@ -346,11 +346,13 @@ Input parameters:
 
 '
 Description:
-  Removes specified variants from a table of variant allele counts, 
-  e.g. variants known to exist in control samples.
+  Relabels specified variants in a table of variant allele counts as 
+  non-variant, e.g. variants known to exist in control samples.
   Accepts either a size, e.g. "1D", or a specific mutation, e.g. "-4:3D".
-  Alleles that include one variant to be filtered and one other variant,
-  the other variant will be retained. 
+  For alleles that include one variant to be filtered and one other variant,
+  the other variant will be retained.
+  If SNVs are included, these will be removed entirely, but note that SNVs
+  are only called in reads that do not contain an insertion/deletion variant
 
 Input parameters:
   cig_freqs:        A table of variant allele counts 
@@ -362,7 +364,6 @@ Input parameters:
 '
 
     # Potential improvements:
-    # This relies on having short cigars, remove other options?
     # Column must include only column names from .self$cigar_freqs
 
     warning("This function will not correctly count SNVs as variants after filtering")
@@ -370,6 +371,7 @@ Input parameters:
       cig_freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
     vars <- strsplit(rownames(cig_freqs), ",")
+ 
     if (length(columns) > 0){
       # Select the rownames that occur in columns
       cols <- rownames(cig_freqs)[rowSums(cig_freqs[,columns, drop=FALSE]) > 0]
@@ -378,9 +380,19 @@ Input parameters:
     }
 
     to_remove <- c(names, cols)
-    has_loc <- grepl(":", to_remove)
+    rm_snv <- grepl(.self$pars$mismatch_label, to_remove)
+    has_loc <- grepl(":", to_remove) & ! rm_snv
     by_loc <- to_remove[has_loc]
-    by_size <- to_remove[!has_loc]
+    by_size <- to_remove[!(has_loc|rm_snv)]
+    
+    # Remove SNVs - SNVS have format SNV:-1,-5, other vars -1:3D etc
+    rm_snv <- gsub(".*:(.*)", "\\1", filter.vars[rm_snv])
+    temp <- gsub(".*:(.*)", "\\1", unlist(vars))
+    rm_snvs <- sapply(relist(temp %in% rm_snv, vars), any)
+    vars[rm_snvs] <- NULL
+    cig_freqs <- cig_freqs[!rm_snvs, , drop=FALSE]
+
+    # Reclassify indel variants as non-variant
     loc_mask <- rep(TRUE, length(unlist(vars)))
     size_mask <- loc_mask
 
@@ -424,8 +436,9 @@ Input parameters:
 
   mutationEfficiency = function(snv = c("non_variant", "include","exclude"),
                                 include.chimeras = TRUE,
-                                exclude.cols = NULL,
-                                filter.vars = NULL, filter.cols = NULL){
+                                exclude.cols = NULL, group = NULL,
+                                filter.vars = NULL, filter.cols = NULL,
+                                count.alleles = FALSE, per.sample = TRUE){
 '
 Description:
   Calculates summary statistics for the mutation efficiency, i.e.
@@ -441,14 +454,23 @@ Input parameters:
   include.chimeras: Should chimeras be counted as variants?  (Default: TRUE)
   exclude.cols:   A list of column names to exclude from calculation, e.g. if one
                   sample is a control (default: NULL, i.e. include all columns)
+  group:          A grouping variable.  Efficiency will be calculated per group,
+                  instead of for individual.
+                  Cannot be used with exclude.cols.
   filter.vars:    Variants that should not be counted as mutations.
   filter.cols:    Column names to be considered controls.  Variants occuring in
                   a control sample will not be counted as mutations.
+  count.alleles:  If TRUE, also report statistics about the number of alleles
+                  per sample/per group. (Default:  FALSE)
+  per.sample:     Return efficiencies for each sample (Default: TRUE)
 Return value:
-  A vector of efficiency statistics per sample and overall
+  A vector of efficiency statistics per sample and overall, or a
+  matrix if a group is supplied.
 
 '
-
+    if (! is.null(group) && ! is.null(exclude.cols)){
+      stop("Only one of group or exclude.cols may be supplied")
+    }
 
     snv <- match.arg(snv)
     freqs <- .self$cigar_freqs
@@ -456,7 +478,7 @@ Return value:
       freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
 
-exclude.idxs <- match(exclude.cols, colnames(freqs))
+    exclude.idxs <- match(exclude.cols, colnames(freqs))
     if (any(is.na(exclude.idxs))){
       nf <- exclude.cols[is.na(exclude.idxs)]
       stop(sprintf("Column(s) %s not found in variant counts table",
@@ -479,18 +501,68 @@ exclude.idxs <- match(exclude.cols, colnames(freqs))
     }
 
     total_seqs <- colSums(freqs)
+    names(total_seqs) <- colnames(freqs)
     not_mutated <- grep(.self$pars$match_label, rownames(freqs))
     if (snv == "non_variant") not_mutated <- c(not_mutated, is_snv)
 
     if (length(not_mutated) > 0) freqs <- freqs[-not_mutated,,drop = FALSE]
 
-    mutants <- colSums(freqs)
-    mutant_efficiency = mutants/total_seqs * 100
-    average <- mean(mutant_efficiency)
-    median <- median(mutant_efficiency)
-    overall <- sum(mutants)/ sum(total_seqs) * 100
-    result <- round(c(mutant_efficiency, average, median, overall, sum(total_seqs)),2)
-    names(result) <- c(colnames(freqs), "Average","Median","Overall","ReadCount")
+    if (! is.null(group)){
+      result <- lapply(levels(group), function(g){
+        eff <- .self$.calculateEfficiency(freqs[,group == g, drop = FALSE],
+                                          total_seqs, count.alleles,
+                                          per.sample)
+        
+      })
+      result <- do.call(rbind, result)
+      rownames(result) <- levels(group)
+      return(result)
+    }
+
+    .self$.calculateEfficiency(freqs, total_seqs, count.alleles, per.sample)
+  },
+
+  .calculateEfficiency = function(freqs, total_seqs, count.alleles, 
+                                  per.sample){
+     mutants <- colSums(freqs)
+     ts <- total_seqs[colnames(freqs)]
+     mutant_efficiency = mutants/ts * 100
+     average <- mean(mutant_efficiency)
+     median <- median(mutant_efficiency)
+     overall <- sum(mutants)/ sum(ts) * 100
+     sds <- sd(mutants)
+     result <- round(c(mutant_efficiency, average, median, overall, sds, 
+                       sum(ts)),2)
+     names(result) <- c(colnames(freqs), "Average","Median","Overall",
+                        "StDev","ReadCount")
+     
+     if (isTRUE(count.alleles)){
+       result <- c(result, .self$.countVariantAlleles(freqs))
+     }
+     if (! isTRUE(per.sample)){
+       result <- result[!names(result) %in% colnames(freqs)]
+     }
+     result
+  },
+
+  .countVariantAlleles = function(freqs){
+    # how many nonzero entries per sample (absolute and percentage)
+    # This step removes variants that never occur in this sample group
+    freqs <- freqs[rowSums(freqs) > 0,, drop = FALSE]
+    if (nrow(freqs) == 0) return(vector())
+    alleles <- colSums(freqs > 0)
+    alleles_pc <- alleles/nrow(freqs)*100
+    
+    # Rate of new alleles (how many sequences per allele)
+    # Produces "NA" if any samples have 0 alleles
+    allele_rate <- colSums(freqs)/alleles
+    nvars <- nrow(freqs)
+    
+    result <- c(mean(alleles), mean(alleles_pc), mean(allele_rate), min(alleles),
+                max(alleles), nvars)
+    result <- sapply(result, round, 2)
+    names(result) <- c("AvAlleles","AvPctAlleles","SeqsPerAllele", 
+                       "MinAlleles", "MaxAlleles","TotalAlleles")
     result
   },
 

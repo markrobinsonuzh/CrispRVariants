@@ -83,7 +83,7 @@ setMethod("plotAlignments", signature("CrisprSet"),
 #'@param tile.height  The height of the tiles within the plot. (Default: 0.55)
 #'@param max.insertion.size  The maximum length of an insertion to be shown in the
 #'legend.  If max.insertion.size = n, an insertion of length m > n will
-#'be annotated as "mI" in the figure.  (Default: 50)
+#'be annotated as "mI" in the figure.  (Default: 20)
 #'@param min.insertion.freq  Display inserted sequences with frequency at least x
 #'amongst the sequences with an insertion of this size and length (Default: 5)
 #'@param line.weight  The line thickness for the vertical line indicating the
@@ -97,7 +97,7 @@ setMethod("plotAlignments", signature("DNAString"),
            ins.size = 3, legend.cols = 3, xlab = NULL, xtick.labs = NULL,
            xtick.breaks = NULL, plot.text.size = 2, axis.text.size = 8,
            legend.text.size = 6, highlight.guide=TRUE, guide.loc = NULL,
-           tile.height = 0.55, max.insertion.size = 50, min.insertion.freq = 5,
+           tile.height = 0.55, max.insertion.size = 20, min.insertion.freq = 5,
            line.weight = 1, legend.symbol.size = ins.size, add.other = FALSE){
 
   # Insertion locations are determined by matching ins.sites$cigar with names(alns)
@@ -216,9 +216,9 @@ setMethod("plotAlignments", signature("DNAString"),
     })
 
     new_seqs <- unlist(x)[unique(xy_locs)]
-    max_seq_ln <- max(sapply(new_seqs, nchar)) + 3
+    max_seq_ln <- max(sapply(gsub("\n.*", "", new_seqs), nchar)) + 3
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
-
+    
     ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
     ins_points$seq <- new_seqs
 

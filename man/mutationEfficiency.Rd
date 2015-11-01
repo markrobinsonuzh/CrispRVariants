@@ -10,7 +10,7 @@ mutationEfficiency(obj, ...)
 
 \S4method{mutationEfficiency}{CrisprSet}(obj, ..., snv = c("non_variant",
   "include", "exclude"), include.chimeras = TRUE, exclude.cols = NULL,
-  filter.vars = NULL, filter.cols = NULL)
+  filter.vars = NULL, filter.cols = NULL, group = NULL)
 }
 \arguments{
 \item{obj}{An object containing variant counts}
@@ -33,9 +33,13 @@ a variant size, e.g. "1D", or a particular variant/variant combination, e.g. -5:
 \item{filter.cols}{A vector of control sample names.  Any variants present in the control
 samples will be counted as non-variant, unless they also contain another indel.  Note that
 this is not compatible with counting snvs as variants.}
+
+\item{group}{A grouping vector.  If provided, efficiency will be calculated
+per group (Default: NULL)}
 }
 \value{
-A vector of efficiency statistics per sample and overall
+A vector of efficiency statistics per sample and overall, or
+a matrix of efficiency statistics per group if a group is provided
 }
 \description{
 Returns the percentage of sequences that contain at least one mutation.
