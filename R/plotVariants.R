@@ -81,7 +81,7 @@ setMethod("plotVariants", signature("CrisprSet"),
     no_ins <- nrow(obj$insertion_sites) == 0
     if (no_ins & ! "left.plot.margin" %in% names(arrange_args)){
       # Sample names tend to clip if there are no insertions, so increase default
-      args[["left.plot.margin"]] <- grid::unit(c(0.1,0,3,0.5), "lines")
+      arrange_args[["left.plot.margin"]] <- grid::unit(c(0.1,0,3,0.5), "lines")
     }
   }
 

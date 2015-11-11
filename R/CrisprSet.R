@@ -35,7 +35,7 @@
 #'@param upstream.snv  If split.snv = TRUE, how many bases upstream of the target.loc
 #' should SNVs be shown?  (default: 8)
 #'@param downstream.snv If split.snv = TRUE, how many bases downstream of the target.loc
-#' should SNVs be shown? (default: 5)
+#' should SNVs be shown? (default: 6)
 #'@param verbose If true, prints information about initialisation progress (default: TRUE)
 #'@field crispr_runs A list of CrisprRun objects, typically corresponding to samples
 #'of an experiment.
@@ -76,7 +76,7 @@ CrisprSet$methods(
   initialize = function(crispr.runs, reference, target, rc = FALSE, short.cigars = TRUE,
                         names = NULL, renumbered = TRUE, target.loc = NA,
                         match.label = "no variant", mismatch.label = "SNV",
-                        split.snv = TRUE, upstream.snv = 8, downstream.snv = 5,
+                        split.snv = TRUE, upstream.snv = 8, downstream.snv = 6,
                         verbose = TRUE, ...){
 
     if (isTRUE(verbose)){
@@ -145,7 +145,7 @@ CrisprSet$methods(
     print(.self$.getFilteredCigarTable(top.n = 6))
   },
 
-  .setCigarLabels = function(renumbered = FALSE, target.loc = NA, target_start = NA,
+  .setCigarLabels = function(renumbered = TRUE, target.loc = NA, target_start = NA,
                              target_end = NA, rc = FALSE, match_label = "no variant",
                              mismatch_label = "SNV", short = TRUE, split.snv = TRUE,
                              upstream.snv = 8, downstream.snv = 5, ref = NULL){
@@ -365,8 +365,8 @@ Input parameters:
 
     # Potential improvements:
     # Column must include only column names from .self$cigar_freqs
+    # Cannot exclude complex variants?
 
-    warning("This function will not correctly count SNVs as variants after filtering")
     if (is.null(cig_freqs)){
       cig_freqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     }
@@ -386,7 +386,7 @@ Input parameters:
     by_size <- to_remove[!(has_loc|rm_snv)]
     
     # Remove SNVs - SNVS have format SNV:-1,-5, other vars -1:3D etc
-    rm_snv <- gsub(".*:(.*)", "\\1", filter.vars[rm_snv])
+    rm_snv <- gsub(".*:(.*)", "\\1", names[rm_snv])
     temp <- gsub(".*:(.*)", "\\1", unlist(vars))
     rm_snvs <- sapply(relist(temp %in% rm_snv, vars), any)
     vars[rm_snvs] <- NULL
@@ -408,7 +408,6 @@ Input parameters:
     vars <- as.list(IRanges::CharacterList(vars)[mask])
     vars <- lapply(vars, paste, sep = ",", collapse = ",")
 
-    # Here: by counting as non-variant, some SNVs may be missed
     vars[vars == ""] <- .self$pars$match_label
     cig_freqs <- rowsum(cig_freqs, unlist(vars))
     cig_freqs

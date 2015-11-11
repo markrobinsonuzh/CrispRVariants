@@ -21,6 +21,7 @@ setGeneric("variantCounts", function(obj, ...) {
 #'(Default:TRUE)
 #'@param result Return variants as either counts ("counts", default) or
 #'proportions ("proportions")
+#'@param filter.vars  Labels of variants alleles to remove (Default: NULL)
 #'@rdname variantCounts
 #'@examples
 #'data("gol_clutch1")
@@ -30,12 +31,17 @@ setGeneric("variantCounts", function(obj, ...) {
 setMethod("variantCounts", signature("CrisprSet"),
           function(obj, ..., top.n = NULL, min.freq = 0, min.count = 1,
               include.chimeras = TRUE, include.nonindel=TRUE,
-              result = "counts"){
+              result = "counts", filter.vars = NULL){
 
     top.n <- ifelse(is.null(top.n), nrow(obj$cigar_freqs), top.n)
-    result <- obj$.getFilteredCigarTable(top.n, min.freq, min.count,
-                                         include.chimeras,
-                                         include.nonindel, type = result)
+    result <- obj$.getFilteredCigarTable(top.n = top.n, min.freq = min.freq,
+                                         min.count = min.count,
+                                         include.chimeras = include.chimeras,
+                                         include.nonindel = include.nonindel,
+                                         type = result)
+    if (! is.null(filter.vars)){
+      result <- filterVariants(cig_freqs = result, names = filter.vars)
+    }
     result
 })
 

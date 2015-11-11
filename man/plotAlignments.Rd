@@ -22,7 +22,7 @@ plotAlignments(obj, ...)
   legend.symbol.size = ins.size, add.other = FALSE)
 }
 \arguments{
-\item{obj}{The object to be plot}
+\item{obj}{The object to be plotted}
 
 \item{...}{Additional arguments}
 

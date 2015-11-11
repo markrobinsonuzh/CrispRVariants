@@ -10,7 +10,7 @@ variantCounts(obj, ...)
 
 \S4method{variantCounts}{CrisprSet}(obj, ..., top.n = NULL, min.freq = 0,
   min.count = 1, include.chimeras = TRUE, include.nonindel = TRUE,
-  result = "counts")
+  result = "counts", filter.vars = NULL)
 }
 \arguments{
 \item{obj}{An object containing variant counts}
@@ -34,6 +34,8 @@ in at least one sample (Default: 0)}
 
 \item{result}{Return variants as either counts ("counts", default) or
 proportions ("proportions")}
+
+\item{filter.vars}{Labels of variants alleles to remove (Default: NULL)}
 }
 \value{
 A matrix of counts where rows are variants and columns are samples

@@ -1,6 +1,6 @@
 #'@title Plot alignments with respect to a reference sequence
 #'@rdname plotAlignments
-#'@param obj The object to be plot
+#'@param obj The object to be plotted
 #'@param ... Additional arguments
 #'@return A ggplot2 figure
 #'@seealso \code{\link{seqsToAln}}, \code{\link[ggplot2]{ggplot}}

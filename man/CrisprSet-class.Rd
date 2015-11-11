@@ -47,7 +47,7 @@ reads without an insertion or deletion? (default: TRUE)}
 should SNVs be shown?  (default: 8)}
 
 \item{downstream.snv}{If split.snv = TRUE, how many bases downstream of the target.loc
-should SNVs be shown? (default: 5)}
+should SNVs be shown? (default: 6)}
 
 \item{verbose}{If true, prints information about initialisation progress (default: TRUE)}
 }
