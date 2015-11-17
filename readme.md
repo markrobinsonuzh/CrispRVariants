@@ -60,7 +60,6 @@ plot displaying alleles and allele counts along with the location of the guide s
 plotVariants(crispr.set, txdb = txdb)
 ```
 
-
 <figure>
 <img src="inst/extdata/wtx_Sanger.png">
 <figcaption>Allele summary plot showing disruption of the <i>wtx</i> gene in Zebrafish by CRISPR-Cas9
