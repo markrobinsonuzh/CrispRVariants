@@ -10,7 +10,7 @@
 plotAlignments(obj, ...)
 
 \S4method{plotAlignments}{CrisprSet}(obj, ..., min.freq = 0, min.count = 1,
-  top.n = 50, renumbered = obj$pars["renumbered"], add.other = TRUE)
+  top.n = 50, renumbered = obj$pars[["renumbered"]], add.other = TRUE)
 
 \S4method{plotAlignments}{DNAString}(obj, ..., alns, ins.sites,
   highlight.pam = TRUE, show.plot = FALSE, target.loc = 17,

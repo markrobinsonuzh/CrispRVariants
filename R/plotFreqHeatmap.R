@@ -24,8 +24,11 @@ setGeneric("plotFreqHeatmap", function(obj, ...) {
 #'@param x.angle  Angle for x-labels (Default: 90, i.e. vertical)
 #'@param legend.text.size Font size for legend (Default: 16)
 #'@param plot.text.size Font size counts within plot (Default: 8)
-#'@param line.width Line thickness of title box
+#'@param line.width Line thickness of title box'
+#'@param x.hjust Horizontal justification of x axis labels (Default: 1)
 #'@param legend.position The position of the legend (Default: right)
+#'@param x.labels X-axis labels (Default: NULL, column.names of the matrix,
+#'doesn't do anything at the moment)
 #'@param legend.key.height The height of the legend key, as a "unit" object.
 #'(See \code{\link[grid]{unit}}).
 #'@param ... additional arguments
@@ -35,14 +38,14 @@ setMethod("plotFreqHeatmap", signature("matrix"),
                    group = NULL, group.colours = NULL, as.percent = TRUE,
                    x.axis.title = NULL, x.size = 6, y.size = 8, x.angle = 90,
                    legend.text.size = 6, plot.text.size = 2, line.width = 1,
-                   legend.position = "right",
+                   x.hjust = 1, legend.position = "right", x.labels = NULL,
                    legend.key.height = grid::unit(2, "lines")) {
 
   # Potential improvements:
   # Allow a separate object for colours
   # param colour.vals A matrix of the same dimensions as obj containing
   # numbers that will be used to colour the heatmap.
-
+  
   # Make space for totals to be added (either header or col.sums)
   if (length(header) == ncol(obj)){
     col.sums <- TRUE
@@ -65,10 +68,13 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 
     # if group.colours are not provided, use defaults
     if (is.null(group.colours)){
-      # defaults are different colours, mostly dark shades
-      clrs <- c("#332288","#661100","#117733","#882255","#D55E00",
-                "#0072B2","#AA4499","#009E73","#56B4E9","#CC79A7",
-                "#44AA99","#999933","#CC6677","#E69F00","#88CCEE")
+      # default is a colourblind safe palette
+      clrs <- c("black","#0072B2","orange","#009E73",
+                "sky blue","vermillion","reddish purple")
+
+      #clrs <- c("#332288","#661100","#117733","#D55E00","#0072B2",
+      #          "#AA4499","#009E73","#56B4E9","#CC79A7","#88CCEE",
+      #          "#44AA99","#999933","#CC6677","#E69F00","#88CCEE")
       clrs <- clrs[group]
     } else {
       clrs <- group.colours[group]
@@ -151,8 +157,10 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   }
 
   # Set plot labels
+   if (is.null(x.labels)) x.labels <- colnames(obj)
   g <- g + ylab(NULL) + xlab(x.axis.title) + theme_bw() +
-    theme(axis.text.x = element_text(size = x.size, angle = x.angle, hjust = 1),
+  theme(axis.text.x = element_text(size = x.size, angle = x.angle, 
+                                     hjust = x.hjust, vjust = 0.5),
           axis.text.y = element_text(size = y.size),
           legend.text = element_text(size = legend.text.size),
           legend.title = element_text(size = legend.text.size),
@@ -162,7 +170,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
   # Colour xlabels by group, make sure not to replace original args
   if (! is.null(group)){
     g <- g + theme(axis.text.x=element_text(colour= clrs,
-                   size = x.size, angle = x.angle, hjust = 1))
+                   size = x.size, angle = x.angle, hjust = x.hjust))
   }
 
   return(g)

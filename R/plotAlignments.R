@@ -29,7 +29,7 @@ setGeneric("plotAlignments", function(obj, ...) {
 #'plotAlignments(gol)
 setMethod("plotAlignments", signature("CrisprSet"),
           function(obj, ..., min.freq = 0, min.count = 1,
-                   top.n = 50, renumbered = obj$pars["renumbered"],
+                   top.n = 50, renumbered = obj$pars[["renumbered"]],
                    add.other = TRUE) {
 
             plot_obj <- obj$plotVariants(min.freq = min.freq,

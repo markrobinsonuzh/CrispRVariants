@@ -271,6 +271,7 @@ Input parameters:
       if (top.n == nrow(.self$cigar_freqs)) top.n <- top.n + 1
     } else {
       m <- .self$cigar_freqs
+      if (nrow(m) == 0) return(NULL)
     }
 
     # Filtering takes precedence over removing nonvariants
@@ -321,7 +322,7 @@ Input parameters:
       cigarRangesAlongReferenceSpace(cigar(alns), pos = start(alns))
     }
 
-    ir <- do.call(c, unlist(lapply(cset$crispr_runs, function(x) get_gr(x$alns)),
+    ir <- do.call(c, unlist(lapply(.self$crispr_runs, function(x) get_gr(x$alns)),
                             use.names = FALSE))
 
     ir <- ir[unique_cigars][idxs]
@@ -414,23 +415,27 @@ Input parameters:
   },
 
   .getSNVs = function(min.freq = 0.25, include.chimeras = TRUE){
+    # Potential improvements:
     # Relies on having short cigars, remove other options?
-
+    # Inconsistency between input (0-1) and output (0-100)
+    
     cig_fqs <- .self$.getFilteredCigarTable(include.chimeras = include.chimeras)
     snv <- .self$pars["mismatch_label"]
     snv_nms <- rownames(cig_fqs)[grep(snv, rownames(cig_fqs))]
     all_snv_locs <- strsplit(gsub(sprintf("%s|:", snv), "", snv_nms), ",")
     snv_locs <- unique(unlist(all_snv_locs))
     asv <- unlist(all_snv_locs)
-    total_count <- sum(cig_fqs)
+    total_count <- colSums(cig_fqs)
+    
     snv_fqs <- structure(vector(length = length(snv_locs)), names = snv_locs)
     for (snv_loc in snv_locs){
+      # Check if this SNV location occurs within the allele
       nms <- snv_nms[sapply(relist(asv == snv_loc, all_snv_locs), any)]
-      snv_count <- sum(cig_fqs[nms,])
-      fq <- snv_count/total_count
-      snv_fqs[snv_loc] <- fq
+      snv_count <- colSums(cig_fqs[nms,, drop = FALSE])
+      fq <- snv_count/total_count * 100
+      snv_fqs[snv_loc] <- max(fq)
     }
-    snv_fqs[snv_fqs >= min.freq]
+    snv_fqs[snv_fqs >= min.freq*100]
   },
 
   mutationEfficiency = function(snv = c("non_variant", "include","exclude"),
@@ -662,7 +667,8 @@ Result:
 
       temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
       indel_grp <- rep(c(1:nrow(indels)), lapply(temp, length))
-      indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))), indel_grp)
+      indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))),
+                         indel_grp)
 
       inframe <- indel_ln %% 3 == 0
       is_short <- indel_ln < cutoff

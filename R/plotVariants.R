@@ -93,7 +93,7 @@ setMethod("plotVariants", signature("CrisprSet"),
   heat_p <- do.call(plotFreqHeatmap, plotFreqHeatmap.args)
   heat_p <- heat_p + theme(plot.background=element_rect(fill = "transparent",
                                                         colour = NA),
-                           plot.margin = unit(c(1, 0.25, 0.5, 0), "lines"))
+                           plot.margin = grid::unit(c(1, 0.25, 0.5, 0), "lines"))
 
   arrange_args = modifyList(list(top.plot = gene_p, left.plot = aln_p,
                                  right.plot = heat_p), arrange_args)

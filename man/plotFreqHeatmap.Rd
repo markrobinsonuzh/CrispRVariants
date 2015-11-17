@@ -12,8 +12,9 @@ plotFreqHeatmap(obj, ...)
 \S4method{plotFreqHeatmap}{matrix}(obj, ..., col.sums = TRUE, header = NULL,
   group = NULL, group.colours = NULL, as.percent = TRUE,
   x.axis.title = NULL, x.size = 6, y.size = 8, x.angle = 90,
-  legend.text.size = 6, plot.text.size = 2, line.width = 1,
-  legend.position = "right", legend.key.height = grid::unit(2, "lines"))
+  legend.text.size = 6, plot.text.size = 2, line.width = 1, x.hjust = 1,
+  legend.position = "right", x.labels = NULL,
+  legend.key.height = grid::unit(2, "lines"))
 
 \S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = 50, min.freq = 0,
   min.count = 1, type = c("counts", "proportions"))
@@ -51,9 +52,14 @@ per sample (TRUE) or the actual counts (FALSE)?  (Default: TRUE)}
 
 \item{plot.text.size}{Font size counts within plot (Default: 8)}
 
-\item{line.width}{Line thickness of title box}
+\item{line.width}{Line thickness of title box'}
+
+\item{x.hjust}{Horizontal justification of x axis labels (Default: 1)}
 
 \item{legend.position}{The position of the legend (Default: right)}
+
+\item{x.labels}{X-axis labels (Default: NULL, column.names of the matrix,
+doesn't do anything at the moment)}
 
 \item{legend.key.height}{The height of the legend key, as a "unit" object.
 (See \code{\link[grid]{unit}}).}

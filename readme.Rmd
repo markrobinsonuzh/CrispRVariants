@@ -3,7 +3,7 @@ title: "Readme"
 author: "Helen Lindsay"
 ---
 
-CrispRVariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment.  Starting from a set of bam files, crispRvariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of 
+CrispRVariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment.  Starting from a set of bam files, CrispRVariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of 
 the protospacer adjacent motif (PAM).  The target region and zero point can be flexibly specified, 
 and the variants may be shown with respect to either DNA strand. 
 
@@ -15,7 +15,7 @@ identifying sequences that differ from the reference sequence.
 
 Assuming the devtools package is installed, CrispRVariants can be installed using:
 ```{r eval=FALSE}
-devtools::install_github("markrobinsonuzh/crispRvariants")
+devtools::install_github("markrobinsonuzh/CrispRVariants")
 ```
   or by downloading the source package and installing with repos=NULL
 
@@ -36,7 +36,7 @@ crispr.set <- readsToTarget(bams, guide, reference = ref, target.loc = 17,
                             names = sample_names)
 ```
 
-Other functions may be used for more complicated experimental designs.  For example, if amplicons overlap, crispRvariants::readsToTargets separates reads by matching the amplicon regions.  However, this function can be memory-intensive for large data sets.
+Other functions may be used for more complicated experimental designs.  For example, if amplicons overlap, CrispRVariants::readsToTargets separates reads by matching the amplicon regions.  However, this function can be memory-intensive for large data sets.
 
 A table of the variants can be obtained using: 
 
@@ -58,6 +58,14 @@ plot displaying alleles and allele counts along with the location of the guide s
 plotVariants(crispr.set, txdb = txdb)
 ```
 
+<figure>
+<img src="inst/extdata/wtx_Sanger.pdf">
+<figcaption>Allele summary plot showing disruption of the <i>wtx</i> gene in Zebrafish by CRISPR-Cas9 
+mutagenesis.  In this figure, each column of the heatmap shows Sanger sequencing data from a single embryo.
+The labels of the heatmap are coloured according to the phenotypes observed.  Data: A. Burger, 
+University of Zurich</figcaption>
+</figure>
+
 Each of these functions can filter the variant alleles in various ways.  See the individual help pages for more information.
 
 # User Guide
@@ -66,6 +74,6 @@ The user guide is found in the "vignettes" directory
 
 # Contact
 
-We are currently finialising the package for inclusion in the next Bioconductor release.  Please contact helen (dot) lindsay (at) uzh (dot) ch for more information. 
+We are currently finialising the package for inclusion Bioconductor.  Please contact helen (dot) lindsay (at) uzh (dot) ch for more information. 
 
 
