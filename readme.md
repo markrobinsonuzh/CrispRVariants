@@ -60,11 +60,15 @@ plot displaying alleles and allele counts along with the location of the guide s
 plotVariants(crispr.set, txdb = txdb)
 ```
 
-![](inst/extdata/wtx_Sanger.pdf?raw=true)
-**Figure 1:** Allele summary plot showing disruption of the <i>wtx</i> gene in Zebrafish by CRISPR-Cas9 
-mutagenesis.  In this figure, each column of the heatmap shows Sanger sequencing data from a single embryo.
-The labels of the heatmap are coloured according to the phenotypes observed.  Data: A. Burger,
-University of Zurich
+
+<figure>
+<img src="inst/extdata/wtx_Sanger.png">
+<figcaption>Allele summary plot showing disruption of the <i>wtx</i> gene in Zebrafish by CRISPR-Cas9
+mutagenesis. In this figure, each column of the heatmap shows Sanger sequencing data from a single embryo.
+The labels of the heatmap are coloured according to the phenotypes observed. Data: A. Burger, 
+University of Zurich</figcaption>
+</figure>
+
 
 Each of the above functions can filter the variant alleles in various ways.  See the individual help pages for more information.
 
