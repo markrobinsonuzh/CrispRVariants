@@ -1,8 +1,3 @@
----
-output:
-  html_document:
-    keep_md: yes
----
 # CrispRVariants
 
 CrispRVariants is an R-based toolkit for counting, localising and plotting targeted insertion and deletion variant combinations, for example, resulting from a CRISPR-Cas9 mutagenesis experiment.  Starting from a set of bam files, CrispRVariants narrows the alignments to the target region and renumbers variants with respect to a zero point, typically the Cas9 cut site three bases upstream of 
@@ -16,7 +11,8 @@ identifying sequences that differ from the reference sequence.
 # Installation
 
 Assuming the devtools package is installed, CrispRVariants can be installed using:
-```{r eval=FALSE}
+
+```r
 devtools::install_github("markrobinsonuzh/CrispRVariants")
 ```
   or by downloading the source package and installing with repos=NULL
@@ -33,7 +29,8 @@ where the double-strand cut occurs.
 
 To count variants within the target region:
 
-```{r, eval=FALSE}
+
+```r
 crispr.set <- readsToTarget(bams, guide, reference = ref, target.loc = 17,
                             names = sample_names)
 ```
@@ -42,20 +39,23 @@ Other functions may be used for more complicated experimental designs.  For exam
 
 A table of the variants can be obtained using: 
 
-```{r,eval = FALSE}
+
+```r
 variantCounts(crispr.set)
 ```
 
 Mutation efficiency (percentage of reads containing an insertion or deletion) is obtained using:
 
-```{r,eval = FALSE}
+
+```r
 mutationEfficiency(crispr.set)
 ```
 
 We recommend looking at the variants prior to calculating efficiency. "plotVariants" produces a summary
 plot displaying alleles and allele counts along with the location of the guide sequence on overlapping transcripts.  The transcripts are identified using a GenomicFeatures Transcript database (TxDb) object.  
 
-```{r,eval = FALSE}
+
+```r
 # where txdb is an object of class TxDb:
 plotVariants(crispr.set, txdb = txdb)
 ```
