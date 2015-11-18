@@ -9,12 +9,13 @@
 \usage{
 barplotAlleleFreqs(obj, ...)
 
-\S4method{barplotAlleleFreqs}{CrisprSet}(obj, ..., txdb)
+\S4method{barplotAlleleFreqs}{CrisprSet}(obj, ..., txdb, min.freq = 0,
+  include.chimeras = TRUE, group = NULL)
 
 \S4method{barplotAlleleFreqs}{matrix}(obj, group = NULL, bar.colours = NULL,
   group.colours = NULL, legend.text.size = 10, axis.text.size = 10,
   legend.symbol.size = 1, snv.label = "SNV", novar.label = "no variant",
-  chimera.label = "Other", include.table = TRUE)
+  chimera.label = "Other", include.table = TRUE, classify = TRUE)
 }
 \arguments{
 \item{obj}{The object to be plotted}
@@ -23,8 +24,14 @@ barplotAlleleFreqs(obj, ...)
 
 \item{txdb}{A transcript database object}
 
-\item{group}{A grouping factor for the columns in obj.  Columns in the
-same group will be displayed in the same text colour (Default: NULL)}
+\item{min.freq}{Include variants with at frequency least min.freq in at least
+one sample.  (Default: 0, i.e. no cutoff)}
+
+\item{include.chimeras}{Should chimeric reads be included in results?
+(Default: TRUE)}
+
+\item{group}{A grouping variable for colouring the sample names.
+(Default: NULL)}
 
 \item{bar.colours}{Colours for the categories in the barplot.
 Colours must be provided if there are more than 6 different categories.}
@@ -47,6 +54,12 @@ variant alleles}
 
 \item{include.table}{Should a table of allele (variant combination)
 counts and total sequences be plotted? (Default: TRUE)}
+
+\item{classify}{If TRUE, performs a naive classification by size
+(Default:TRUE)}
+
+\item{group}{A grouping factor for the columns in obj.  Columns in the
+same group will be displayed in the same text colour (Default: NULL)}
 }
 \value{
 A ggplot2 barplot of the allele distribution and optionally a table
@@ -63,8 +76,7 @@ Accepts all arguments accepted by barplotAlleleFreqs for signature("matrix").
 Requires package "VariantAnnotation"
 
 signature("matrix") Accepts a matrix of allele counts,
-with rownames being alleles and column names samples. Indel variants
-are classified using VariantAnnotation.
+with rownames being alleles and column names samples.
 }
 \examples{
 data("gol_clutch1")

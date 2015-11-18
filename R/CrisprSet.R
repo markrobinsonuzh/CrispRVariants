@@ -628,6 +628,7 @@ Return value:
                     "threeUTR","promoter", "intergenic")
     result <- unlist(lapply(indel_to_loc, function(x){
       y <- factor(x,levels = var_levels)
+      if (length(y) == 0) return(NA)
       var_levels[min(as.numeric(y))]}))
     names(result) <- names(gr)
 
@@ -660,13 +661,13 @@ Result:
     A character vector with a classification for each variant allele
 '
 
-    is_coding <- var_type == "coding"
+    is_coding <- var_type == "coding" & ! is.na(var_type)
 
     indels <- .self$cigar_freqs[is_coding,,drop = FALSE]
     if (length(indels) > 0){
 
       temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
-      indel_grp <- rep(c(1:nrow(indels)), lapply(temp, length))
+      indel_grp <- rep(c(1:nrow(indels)), elementLengths(temp))
       indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))),
                          indel_grp)
 
