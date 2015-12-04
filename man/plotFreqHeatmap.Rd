@@ -14,7 +14,7 @@ plotFreqHeatmap(obj, ...)
   x.axis.title = NULL, x.size = 6, y.size = 8, x.angle = 90,
   legend.text.size = 6, plot.text.size = 2, line.width = 1, x.hjust = 1,
   legend.position = "right", x.labels = NULL,
-  legend.key.height = grid::unit(2, "lines"))
+  legend.key.height = grid::unit(1, "lines"))
 
 \S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = 50, min.freq = 0,
   min.count = 1, type = c("counts", "proportions"))

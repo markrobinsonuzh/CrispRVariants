@@ -39,7 +39,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
                    x.axis.title = NULL, x.size = 6, y.size = 8, x.angle = 90,
                    legend.text.size = 6, plot.text.size = 2, line.width = 1,
                    x.hjust = 1, legend.position = "right", x.labels = NULL,
-                   legend.key.height = grid::unit(2, "lines")) {
+                   legend.key.height = grid::unit(1, "lines")) {
 
   # Potential improvements:
   # Allow a separate object for colours

@@ -52,7 +52,7 @@ abifToFastq <- function(seqname, fname, outfname, trim = TRUE, cutoff = 0.05,
       num_quals <- rep(60, nchar(nucseq)) 
       # 60 is compatible with all phred offsets, according to Wikipedia
       # Sanger scores do not usually exceed 60
-      warning("Lengh of quality scores does not equal length of
+      warning("Length of quality scores does not equal length of
               re-called base sequence, ignoring quality scores")
     }
   }

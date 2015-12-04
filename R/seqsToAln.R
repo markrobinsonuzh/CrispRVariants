@@ -22,10 +22,10 @@ seqsToAln <- function(cigar, dnaseq, target, del_char = "-", aln_start = NULL){
   target_end <- end(target)
   strand <- as.character(strand(target))
   if (strand == "*") strand <- "+"
-
-  sqs <- GenomicAlignments::sequenceLayer(dnaseq, cigar, D.letter = del_char,
+  
+  result <- GenomicAlignments::sequenceLayer(dnaseq, cigar, D.letter = del_char,
                                           N.letter = "N")
-  sq_len <- GenomicAlignments::width(sqs)
+  sq_len <- GenomicAlignments::width(result)
 
   if (! is.null(aln_start) & ! is.null(target_start) & ! is.null(target_end) ){
     trim_start <- target_start - (aln_start - 1)
@@ -38,7 +38,7 @@ seqsToAln <- function(cigar, dnaseq, target, del_char = "-", aln_start = NULL){
     if (any(trim_end > sq_len)){
       stop("dnaseq is not long enough to trim to the target region")
     }
-    result <- subseq(sqs, trim_start,trim_end)
+    result <- subseq(result, trim_start,trim_end)
   }
   if (strand == "-"){
     result <- reverseComplement(result)

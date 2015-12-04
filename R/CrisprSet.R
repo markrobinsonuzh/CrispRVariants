@@ -782,9 +782,10 @@ Return value:
     # "start" for the plot must be reversed
     if (as.character(strand(.self$target) == "-")){
       temp <- seq_along(1:width(.self$target))
-      starts <- rev(temp)
+      starts <- rev(temp) +1 # +1 because considering the leftmost point
       names(starts) <- temp
       ins.sites$start <- starts[ins.sites$start]
+      ins.sites$seq <- as.character(reverseComplement(DNAStringSet(ins.sites$seq)))
     }
 
     if (isTRUE(renumbered)){

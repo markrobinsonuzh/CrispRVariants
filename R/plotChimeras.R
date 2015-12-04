@@ -285,7 +285,7 @@ plotChimeras <- function(chimeric.alns, max.gap = 10, tick.sep = 20,
   if (length(annot_aln) > 0 | length(others) > 0){
 
     annot <- data.frame(yint = c(ycoords[as.character(start(annot_aln))],
-                                 others))
+                                 na.omit(others)))
 
     p <- p + geom_hline(data = annot, aes_q(yintercept = quote(yint)),
                         linetype = "longdash", color = "red", size = 0.75)
