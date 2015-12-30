@@ -1,0 +1,9 @@
+"bam.filename"	"experiment.name"	"clutch"
+"1"	"gol_F1_clutch_1_embryo_1_s.bam"	"gol F1 crispant 1"	1
+"2"	"gol_F1_clutch_1_embryo_2_s.bam"	"gol F1 crispant 2"	1
+"3"	"gol_F1_clutch_1_embryo_3_s.bam"	"gol F1 crispant 3"	1
+"4"	"gol_F1_clutch_1_embryo_4_s.bam"	"gol F1 crispant 4"	1
+"5"	"gol_F1_clutch_1_embryo_5_s.bam"	"gol F1 crispant 5"	1
+"6"	"gol_F1_clutch_1_embryo_6_s.bam"	"gol F1 crispant 6"	1
+"7"	"gol_F1_clutch_1_embryo_7_s.bam"	"gol F1 crispant 7"	1
+"8"	"gol_F1_clutch_1_embryo_8_s.bam"	"gol F1 crispant 8"	1
