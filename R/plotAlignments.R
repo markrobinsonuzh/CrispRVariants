@@ -317,8 +317,8 @@ makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
   # Plot aligned sequences
   p <- ggplot(m) +
     geom_tile(aes_q(x = quote(Var2), y = quote(Var1),
-                    fill = quote(cols), alpha = quote(isref)),
-                    height = tile.height) +
+                    fill = quote(cols), alpha = quote(isref),
+                    height = tile.height)) +
     geom_text(aes_q(x = quote(Var2), y = quote(Var1),
                     fill = quote(cols), label = quote(value),
                     colour = quote(text_cols)), size = plot.text.size) +
