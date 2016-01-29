@@ -682,7 +682,7 @@ Result:
     if (length(indels) > 0){
 
       temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
-      indel_grp <- rep(c(1:nrow(indels)), elementLengths(temp))
+      indel_grp <- rep(c(1:nrow(indels)), elementNROWS(temp))
       indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))),
                          indel_grp)
 

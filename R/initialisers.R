@@ -19,7 +19,7 @@
 #'@importFrom reshape2 melt
 #'@importFrom AnnotationDbi select
 #'@importFrom GenomeInfoDb seqlengths
-#'@importFrom S4Vectors remapHits na.omit
+#'@importFrom S4Vectors elementNROWS remapHits na.omit
 #'@export
 setGeneric("readsToTarget", function(reads, target, ...) {
   standardGeneric("readsToTarget")})
