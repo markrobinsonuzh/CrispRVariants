@@ -54,12 +54,12 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
             hits_pcr <- findOverlaps(bam, primers, ignore.strand = ignore.strand,
                                      type = "equal", maxgap = tolerance)
             if (verbose){
-              hits_pcr_l <- length(unique(hits_pcr@queryHits))
+              hits_pcr_l <- length(unique(queryHits(hits_pcr)))
               message(sprintf("%s from %s (%.2f%%) reads overlap a pcr region
                               almost exactly\n",
                           hits_pcr_l, length(bam), hits_pcr_l/length(bam)*100))
             }
-            if (any(duplicated(hits_pcr@queryHits))){
+            if (any(duplicated(queryHits(hits_pcr))){
               warning("Cannot distinguish all pcr targets with this tolerance")
             }
             if (allow.partial){
@@ -72,7 +72,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
               dj_to_primer <- dj_to_primer[!is_dup]
 
               # find overlaps between the remaining reads and the unique regions
-              remaining <- setdiff(c(1:length(bam)), hits_pcr@queryHits)
+              remaining <- setdiff(c(1:length(bam)), queryHits(hits_pcr))
               rhits <- findOverlaps(bam[remaining], disjoint[queryHits(dj_to_primer)])
               is_dup <- get_dups(queryHits(rhits))
 
@@ -82,12 +82,13 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                     length(unique(queryHits(rhits[is_dup])))))
               }
               rhits <- rhits[!is_dup]
-              rhits_to_primer <- S4Vectors::remapHits(rhits, query.map = factor(remaining,
-                                           levels = c(1:length(bam))),
-                                           subject.map = factor(subjectHits(dj_to_primer),
-                                           levels = c(1:length(primers))))
+              rhits_to_primer <- S4Vectors::remapHits(rhits,
+                  Lnodes.remapping = factor(remaining,
+                                            levels = c(1:length(bam))),
+                  Rnodes.remapping = factor(subjectHits(dj_to_primer),
+                                            levels = c(1:length(primers))))
               if (verbose){
-                rhitsl <- length(unique(rhits@queryHits))
+                rhitsl <- length(unique(queryHits(rhits)))
                 message(sprintf("Of the %s reads that do not exactly match a pcr region,
 %s (%.2f%%) partially overlap exactly one pcr region\n\n",
                     (length(bam)-hits_pcr_l),
