@@ -59,7 +59,7 @@ setMethod("readsByPCRPrimer", signature("GRanges", "GRanges"),
                               almost exactly\n",
                           hits_pcr_l, length(bam), hits_pcr_l/length(bam)*100))
             }
-            if (any(duplicated(queryHits(hits_pcr))){
+            if (any(duplicated(queryHits(hits_pcr)))){
               warning("Cannot distinguish all pcr targets with this tolerance")
             }
             if (allow.partial){
