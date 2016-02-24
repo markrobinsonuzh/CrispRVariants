@@ -183,45 +183,50 @@ setMethod("plotAlignments", signature("DNAString"),
     colnames(ins_points) <- c("x","y","seq", "count")
 
     ## Merge multiple insertions at single plotting location, format to fixed width
-    #ins_points <- ins_points[!duplicated(ins_points),]
     xy_locs <- paste(ins_points$x, ins_points$y, sep = "_")
 
     # Remove low frequency alleles
     temp <- rowsum(ins_points$count, xy_locs)
     totals <- as.vector(temp)
     names(totals) <- rownames(temp)
-    keep <- (ins_points$count/totals[xy_locs])*100 > min.insertion.freq
-    ins_points <- ins_points[keep,]
-    xy_locs <- paste(ins_points$x, ins_points$y, sep = "_")
+  
+    temp <- ! duplicated(xy_locs)
+    wdths <- nchar(as.character(ins_points[temp, "seq"]))
+    
+    omit <- (ins_points$count/totals[xy_locs])*100 < min.insertion.freq
+    ins_points[omit,"seq"] <- NA
 
-    # Join alleles, format strings for legend
-    seqs <- ins.sites[!is.na(ins_ord),"seq"]
+    names(wdths) <- xy_locs[temp]
     splits <- split(ins_points$seq, xy_locs)
-    x <- lapply(splits, function(x) paste(as.character(x), collapse = ", "))
-
+    
     # Collapse sequences longer than max.insertion.size
-    x <- lapply(splits, function(y){
-      result <- as.character(y)
-      if (length(result) > 1){
-        xlen <- nchar(result[1])
-        if (xlen > max.insertion.size){
-          result <- sprintf("%sI (%s common alleles)", xlen, length(result))
-        } else {
+    x <- lapply(seq_along(splits), function(i){
+      result <- as.character(na.omit(splits[[i]]))
+      wdth <- wdths[[names(splits)[i]]]
+      
+      if (length(result) != 1){
+        # If there are multiple sequences
+        if (wdth > max.insertion.size | length(result) == 0){
+          result <- sprintf("%sI (%s common alleles)", wdth, length(result))
+        } else {  
+          # Collapse, one sequence per line
           result <- paste(result, collapse = ",\n")
         }
       } else {
-        if (nchar(result) > max.insertion.size) result <- sprintf("%sI", nchar(result))
+          # If only one sequence
+          if (wdth > max.insertion.size) result <- sprintf("%sI", wdth)
       }
       result
     })
-
+    names(x) <- names(splits)
+    
     new_seqs <- unlist(x)[unique(xy_locs)]
     max_seq_ln <- max(sapply(gsub("\n.*", "", new_seqs), nchar)) + 3
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)
     
     ins_points <- ins_points[!duplicated(ins_points[,c("x","y")]),]
     ins_points$seq <- new_seqs
-
+    
     # Specify colours and shapes for insertion symbols
     ins_points$shapes <- as.factor(1:nrow(ins_points))
     ins_points$colours <- as.factor(rep(clrs, 3)[1:nrow(ins_points)])
@@ -243,7 +248,7 @@ setMethod("plotAlignments", signature("DNAString"),
                                                 size = legend.symbol.size)))
     p <- p + theme(legend.key = element_blank(),
                    legend.text = element_text(size = legend.text.size),
-                   legend.margin = grid::unit(2, "lines"))
+                   legend.margin=grid::unit(0.2,"cm"))
 
   } else{
     p <- p + scale_fill_identity()
@@ -313,7 +318,9 @@ setDNATileColours <- function(m){
 
 makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
                                   xtick.labs, xtick.breaks, tile.height){
-
+  alpha_v <- c(0.5,1)
+  # Change alpha values if only plotting the reference
+  if (length(unique(m$Var1)) == 1) alpha_v <- 1
   # Plot aligned sequences
   p <- ggplot(m) +
     geom_tile(aes_q(x = quote(Var2), y = quote(Var1),
@@ -322,7 +329,7 @@ makeAlignmentTilePlot <- function(m, ref, xlab, plot.text.size, axis.text.size,
     geom_text(aes_q(x = quote(Var2), y = quote(Var1),
                     fill = quote(cols), label = quote(value),
                     colour = quote(text_cols)), size = plot.text.size) +
-    scale_alpha_manual(values = c(0.5,1), guide = "none") +
+    scale_alpha_manual(values = alpha_v, guide = "none") +
     ylab(NULL) + xlab(xlab) + scale_colour_identity() +
     theme_bw() + theme(axis.text.y = element_text(size = axis.text.size),
                        axis.text.x = element_text(size = axis.text.size),

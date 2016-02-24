@@ -118,7 +118,8 @@ bam_fnames <- sapply(md$bam.filename, function(fn){
  system.file("extdata", fn, package = "CrispRVariants")})
 
 reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
+gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399),
+       strand = "+")
 
 crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
                            names = md$experiment.name, target.loc = 17)

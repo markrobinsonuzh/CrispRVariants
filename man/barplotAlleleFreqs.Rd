@@ -10,12 +10,14 @@
 barplotAlleleFreqs(obj, ...)
 
 \S4method{barplotAlleleFreqs}{CrisprSet}(obj, ..., txdb, min.freq = 0,
-  include.chimeras = TRUE, group = NULL)
+  include.chimeras = TRUE, group = NULL, palette = c("rainbow",
+  "bluered"))
 
-\S4method{barplotAlleleFreqs}{matrix}(obj, group = NULL, bar.colours = NULL,
-  group.colours = NULL, legend.text.size = 10, axis.text.size = 10,
-  legend.symbol.size = 1, snv.label = "SNV", novar.label = "no variant",
-  chimera.label = "Other", include.table = TRUE, classify = TRUE)
+\S4method{barplotAlleleFreqs}{matrix}(obj, category.labels = NULL,
+  group = NULL, bar.colours = NULL, group.colours = NULL,
+  legend.text.size = 10, axis.text.size = 10, legend.symbol.size = 1,
+  snv.label = "SNV", novar.label = "no variant", chimera.label = "Other",
+  include.table = TRUE, classify = TRUE)
 }
 \arguments{
 \item{obj}{The object to be plotted}
@@ -30,8 +32,15 @@ one sample.  (Default: 0, i.e. no cutoff)}
 \item{include.chimeras}{Should chimeric reads be included in results?
 (Default: TRUE)}
 
-\item{group}{A grouping variable for colouring the sample names.
-(Default: NULL)}
+\item{group}{A grouping factor for the columns in obj.  Columns in the
+same group will be displayed in the same text colour (Default: NULL)}
+
+\item{palette}{Colour palette.  Options are "rainbow", a quantitative palette
+(default) or "bluered", a gradient palette.}
+
+\item{category.labels}{Labels for each category, corresponding to the
+rows of obj.  Only applicable when categories are provided, i.e.
+"classify" is FALSE.  (Default: NULL)}
 
 \item{bar.colours}{Colours for the categories in the barplot.
 Colours must be provided if there are more than 6 different categories.}
@@ -57,18 +66,19 @@ counts and total sequences be plotted? (Default: TRUE)}
 
 \item{classify}{If TRUE, performs a naive classification by size
 (Default:TRUE)}
-
-\item{group}{A grouping factor for the columns in obj.  Columns in the
-same group will be displayed in the same text colour (Default: NULL)}
 }
 \value{
 A ggplot2 barplot of the allele distribution and optionally a table
 of allele counts
 }
 \description{
-Currently, this function does a very naive classification of variants
-by size.  Frameshift variant combinations are those whose sum is not divisible by
-three.  Intron boundaries are *NOT* considered, use with caution!
+For signature "matrix", this function optionally does a very
+naive classification of variants by size.  Frameshift variant combinations are
+those whose sum is not divisible by three.  Intron boundaries are *NOT* considered,
+use with caution!
+For signature "CrisprSet", the function uses the VariantAnnotation package to
+localize variant alleles with respect to annotated transcripts.  Variants are
+annotated as "coding" when they are coding in any transcript.
 
 (signature("CrisprSet")) Groups variants by size and type
 and produces a barplot showing the variant spectrum for each sample.

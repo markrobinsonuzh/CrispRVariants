@@ -1,0 +1,3 @@
+# CrispRVariants 0.99.4
+
+- readsToTarget now accepts argument split.snv = FALSE to turn off snv calling

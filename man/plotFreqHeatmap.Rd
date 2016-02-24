@@ -17,7 +17,7 @@ plotFreqHeatmap(obj, ...)
   legend.key.height = grid::unit(1, "lines"))
 
 \S4method{plotFreqHeatmap}{CrisprSet}(obj, ..., top.n = 50, min.freq = 0,
-  min.count = 1, type = c("counts", "proportions"))
+  min.count = 1, type = c("counts", "proportions"), order = NULL)
 }
 \arguments{
 \item{obj}{A matrix of counts with rows = feature, columns = sample}
@@ -74,6 +74,9 @@ one sample (default: 0, i.e no frequency cutoff)}
 one sample (default: 0, i.e no count cutoff)}
 
 \item{type}{Plot either "counts" or "proportions"}
+
+\item{order}{A list of column names or indices specifying the order of the
+columns in the plot}
 }
 \value{
 The ggplot2 plot of the variant frequencies

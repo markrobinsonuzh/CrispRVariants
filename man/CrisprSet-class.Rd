@@ -88,7 +88,7 @@ Input paramters:
 Result:
     A character vector with a classification for each variant allele}
 
-\item{\code{classifyVariantsByLoc(txdb, add_chr = TRUE, verbose = TRUE)}}{Description:
+\item{\code{classifyVariantsByLoc(txdb, add_chr = TRUE, verbose = TRUE, ...)}}{Description:
   Uses the VariantAnnotation package to look up the location of the
   variants.  VariantAnnotation allows multiple classification tags per variant,
   this function returns a single tag.  The following preference order is used:
@@ -98,11 +98,21 @@ Input parameters:
   txdb:     A BSgenome transcription database
   add_chr:  Add "chr" to chromosome names to make compatible with UCSC (default: TRUE)
   verbose:  Print progress (default: TRUE)
+  ...:      Filtering arguments for variantCounts
 
 Return value:
   A vector of classification tags, matching the rownames of .self$cigar_freqs
   (the variant count table)
   }
+
+\item{\code{classifyVariantsByType(...)}}{Description:
+  Classifies variants as insertions, deletions, or complex (combinations).
+  In development
+Input parameters:
+  ...   Optional arguments to "variantCounts" for filtering variants
+        before classification
+Return value:
+  A named vector classifying variant alleles as insertions, deletions, etc}
 
 \item{\code{filterUniqueLowQual(min_count = 2, max_n = 0, verbose = TRUE)}}{Description:
   Deletes reads containing rare variant combinations and more than
@@ -137,7 +147,8 @@ Input parameters:
 
 \item{\code{heatmapCigarFreqs(as.percent = TRUE, x.size = 8, y.size = 8,
   x.axis.title = NULL, x.angle = 90, min.freq = 0, min.count = 0,
-  top.n = nrow(.self$cigar_freqs), type = c("counts", "proportions"), ...)}}{Description:
+  top.n = nrow(.self$cigar_freqs), type = c("counts", "proportions"),
+  order = NULL, ...)}}{Description:
     Internal method for CrispRVariants:plotFreqHeatmap, optionally filters the table
     of variants, then a table of variant counts, coloured by counts or proportions.
 
@@ -153,6 +164,7 @@ Input parameters:
                   least one sample
     top.n:        Include only the n most common variants
     type:         Should labels show counts or proportions?  (Default: counts)
+    order:        Reorder the columns according to this order (Default: NULL)
     ...:
 
 Return value:
@@ -175,7 +187,7 @@ cig_freqs:  A table of variant allele frequencies (by default: .self$cigar_freqs
 \item{\code{mutationEfficiency(snv = c("non_variant", "include", "exclude"),
   include.chimeras = TRUE, exclude.cols = NULL, group = NULL,
   filter.vars = NULL, filter.cols = NULL, count.alleles = FALSE,
-  per.sample = TRUE)}}{Description:
+  per.sample = TRUE, min.freq = 0)}}{Description:
   Calculates summary statistics for the mutation efficiency, i.e.
   the percentage of reads that contain a variant.  Reads that do not
   contain and insertion or deletion, but do contain a single nucleotide
@@ -198,6 +210,10 @@ Input parameters:
   count.alleles:  If TRUE, also report statistics about the number of alleles
                   per sample/per group. (Default:  FALSE)
   per.sample:     Return efficiencies for each sample (Default: TRUE)
+  min.freq:       Minimum frequency for counting alleles.  Does not apply to
+                  calculating efficiency.  To filter when calculating 
+                  efficiency, first use "variantCounts".
+                  (Default: 0, i.e. no filtering)
 Return value:
   A vector of efficiency statistics per sample and overall, or a
   matrix if a group is supplied.}
@@ -237,7 +253,7 @@ bam_fnames <- sapply(md$bam.filename, function(fn){
  system.file("extdata", fn, package = "CrispRVariants")})
 
 reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399), strand = "+")
 
 crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
                            names = md$experiment.name, target.loc = 17)

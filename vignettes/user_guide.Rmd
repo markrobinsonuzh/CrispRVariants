@@ -166,8 +166,8 @@ zebrafish genome.  The reference sequence was fetched and saved as follows:
 ```{r, eval=FALSE}
 system("samtools faidx GRCHz10.fa.gz")
 
-reference=system(sprintf("samtools faidx GRCHz10.fa.gz %s:%s-%s", 
-                         seqnames(gdl)[1], start(gdl)[1], end(gdl)[1]) , 
+reference=system(sprintf("samtools faidx GRCHz10.fa.gz %s:%s-%s",
+                         seqnames(gdl)[1], start(gdl)[1], end(gdl)[1]),
                  intern = TRUE)[[2]]
 
 # The guide is on the negative strand, so the reference needs to be reverse complemented

@@ -11,6 +11,11 @@ setGeneric("mergeCrisprSets", function(x,y, ...) {
 #'@param y A second CrisprSet object
 #'@param order A list of sample names, matching the names in x and y,
 #'specifying the order of the samples in the new CrisprSet. (Not implemented yet)
+#'@param x.samples A subset of column names or indices to keep from CrispRSet x
+#'(Default: NULL, i.e. keep all)
+#'@param y.samples A subset of column names or indices to keep from CrispRSet y
+#'(Default: NULL, i.e. keep all)
+#'@param names New names for the merged CrisprSet object (Default: NULL)
 #'@param ... extra arguments
 #'@return A merged CrisprSet object
 #'@examples
@@ -23,7 +28,8 @@ setGeneric("mergeCrisprSets", function(x,y, ...) {
 #'  system.file("extdata", fn, package = "CrispRVariants")})
 #'
 #'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-#'gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399),
+#'       strand = "+")
 #'
 #'crispr_set1 <- readsToTarget(bam_fnames[c(1:4)], target = gd,
 #'       reference = reference, names = md$experiment.name[1:4], target.loc = 17)
@@ -32,7 +38,8 @@ setGeneric("mergeCrisprSets", function(x,y, ...) {
 #'mergeCrisprSets(crispr_set1,crispr_set2)
 #'@export
 setMethod("mergeCrisprSets", signature(x = "CrisprSet", y = "CrisprSet"),
-          function(x,y, ..., order = NULL){
+          function(x,y, ..., x.samples = NULL, y.samples = NULL, names = NULL, 
+                   order = NULL){
             # To do: add order vector
 
             warn_msg <- "CrisprSets must have the same %s for merging"
@@ -48,11 +55,25 @@ setMethod("mergeCrisprSets", signature(x = "CrisprSet", y = "CrisprSet"),
             if (t.loc != y$pars$target.loc){
               stop(sprintf(warn_msg, "target location (zero point)"))
             }
-            names <- c(names(x), names(y))
-
-            cruns <- c(x$crispr_runs, y$crispr_runs)
+            
+            if (is.null(x.samples)) x.samples <- c(1:length(x$crispr_runs))
+            if (is.null(y.samples)) y.samples <- c(1:length(y$crispr_runs))
+            cruns <- c(x$crispr_runs[x.samples], y$crispr_runs[y.samples])
+            
+            new_names <- c(names(x), names(y))
+            if (! is.null(names)){
+              if (! length(cruns) == length(names)){
+                stop("Length of 'names' must equal the number of samples")
+              }
+              new_names <- names
+            }
+            #if (! is.null(order)){
+            #  if (! length(order) == length(cruns)){
+            #    stop("Length of 'order' must equal the number of samples")
+            #  }
+            #}
             cset <- CrisprSet(cruns, reference = ref, target = target,
-                      names = names, target.loc = t.loc)
+                      names = new_names, target.loc = t.loc)
             cset
           })
 

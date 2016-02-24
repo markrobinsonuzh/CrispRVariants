@@ -55,7 +55,7 @@
 #'  system.file("extdata", fn, package = "CrispRVariants")})
 #'
 #'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399), strand = "+")
 #'
 #'crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
 #'                            names = md$experiment.name, target.loc = 17)
@@ -120,8 +120,11 @@ CrisprSet$methods(
     .self$crispr_runs <<- .self$crispr_runs[nonempty_runs]
     if (length(.self$crispr_runs) == 0) stop("no on target reads in any sample")
 
-    if (unique( sapply(.self$crispr_runs, function(x) length(x$alns)) == 0)){
+    if (unique(sapply(.self$crispr_runs, function(x) length(x$alns)) == 0)){
       pars["all_chimeric"] <<- TRUE
+      dummy <- .self$.genomeToTargetLocs(target.loc, start(target),
+                                end(target), rc = rc, gs = start(target),
+                                ge = end(target))
       return()
     }
 
@@ -310,6 +313,7 @@ Input parameters:
     # if "add_chr" == TRUE, chromosome names start with "chr"
     # if add_to_ins == TRUE, adds one to end of insertions, as required for VariantAnnotation
 
+    
     cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$cigar_labels)
     all_cigars <- unlist(cig_by_run)
     unique_cigars <- !duplicated(unlist(cig_by_run))
@@ -319,9 +323,9 @@ Input parameters:
     idxs <- co != "M"
 
     get_gr <- function(alns){
-      cigarRangesAlongReferenceSpace(cigar(alns), pos = start(alns))
+      GenomicAlignments::cigarRangesAlongReferenceSpace(
+          GenomicAlignments::cigar(alns), pos = GenomicAlignments::start(alns))
     }
-
     ir <- do.call(c, unlist(lapply(.self$crispr_runs, function(x) get_gr(x$alns)),
                             use.names = FALSE))
 
@@ -339,7 +343,7 @@ Input parameters:
       chrom <- paste0("chr", chrom)
     }
 
-    GRanges(chrom, ir)
+    GenomicRanges::GRanges(chrom, ir)
   },
 
   filterVariants = function(cig_freqs = NULL, names = NULL, columns = NULL,
@@ -442,7 +446,8 @@ Input parameters:
                                 include.chimeras = TRUE,
                                 exclude.cols = NULL, group = NULL,
                                 filter.vars = NULL, filter.cols = NULL,
-                                count.alleles = FALSE, per.sample = TRUE){
+                                count.alleles = FALSE, per.sample = TRUE,
+                                min.freq = 0){
 '
 Description:
   Calculates summary statistics for the mutation efficiency, i.e.
@@ -467,6 +472,10 @@ Input parameters:
   count.alleles:  If TRUE, also report statistics about the number of alleles
                   per sample/per group. (Default:  FALSE)
   per.sample:     Return efficiencies for each sample (Default: TRUE)
+  min.freq:       Minimum frequency for counting alleles.  Does not apply to
+                  calculating efficiency.  To filter when calculating 
+                  efficiency, first use "variantCounts".
+                  (Default: 0, i.e. no filtering)
 Return value:
   A vector of efficiency statistics per sample and overall, or a
   matrix if a group is supplied.
@@ -515,7 +524,7 @@ Return value:
       result <- lapply(levels(group), function(g){
         eff <- .self$.calculateEfficiency(freqs[,group == g, drop = FALSE],
                                           total_seqs, count.alleles,
-                                          per.sample)
+                                          per.sample, min.freq)
         
       })
       result <- do.call(rbind, result)
@@ -523,11 +532,12 @@ Return value:
       return(result)
     }
 
-    .self$.calculateEfficiency(freqs, total_seqs, count.alleles, per.sample)
+    .self$.calculateEfficiency(freqs, total_seqs, count.alleles, 
+                               per.sample, min.freq)
   },
 
   .calculateEfficiency = function(freqs, total_seqs, count.alleles, 
-                                  per.sample){
+                                  per.sample, min.freq = 0){
      mutants <- colSums(freqs)
      ts <- total_seqs[colnames(freqs)]
      mutant_efficiency = mutants/ts * 100
@@ -541,7 +551,8 @@ Return value:
                         "StDev","ReadCount")
      
      if (isTRUE(count.alleles)){
-       result <- c(result, .self$.countVariantAlleles(freqs))
+       result <- c(result, .self$.countVariantAlleles(freqs, ts,
+                                        min.freq))
      }
      if (! isTRUE(per.sample)){
        result <- result[!names(result) %in% colnames(freqs)]
@@ -549,10 +560,18 @@ Return value:
      result
   },
 
-  .countVariantAlleles = function(freqs){
+  .countVariantAlleles = function(freqs, total_seqs, min.freq){
     # how many nonzero entries per sample (absolute and percentage)
     # This step removes variants that never occur in this sample group
+    
+    freqs/total_seqs * 100
+    
+    if (min.freq > 0){
+      propn <- freqs/total_seqs * 100
+      freqs[propn < min.freq] <- 0
+    }
     freqs <- freqs[rowSums(freqs) > 0,, drop = FALSE]
+    
     if (nrow(freqs) == 0) return(vector())
     alleles <- colSums(freqs > 0)
     alleles_pc <- alleles/nrow(freqs)*100
@@ -570,30 +589,40 @@ Return value:
     result
   },
 
-  .classifyVariantsByType = function(){
+  classifyVariantsByType = function(...){
 '
 Description:
   Classifies variants as insertions, deletions, or complex (combinations).
   In development
+Input parameters:
+  ...   Optional arguments to "variantCounts" for filtering variants
+        before classification
+Return value:
+  A named vector classifying variant alleles as insertions, deletions, etc
 '
     
-    # Classifies variants as reference, mismatch, insertion, deletion
-    # or insertion+deletion
-    vars <- rep(NA, nrow(.self$cigar_freqs))
-    is_snv <- grepl(.self$pars$mismatch_label, rownames(.self$cigar_freqs))
-    is_ref <- grepl(.self$pars$match_label, rownames(.self$cigar_freqs))
-    is_ins <- grepl("I", rownames(.self$cigar_freqs))
-    is_del <- grepl("D", rownames(.self$cigar_freqs))
+    nms <- rownames(.self$.getFilteredCigarTable(...))
+    vars <- rep(NA, length(nms))
+    names(vars) <- nms
+    is_snv <- grepl(.self$pars$mismatch_label, nms)
+    is_ref <- grepl(.self$pars$match_label, nms)
+    is_ins <- grepl("I", nms)
+    is_del <- grepl("D", nms)
+    is_complex <- grepl(",", nms)
     ins_and_del <- is_ins & is_del
     vars[is_ref] <- .self$pars$match_label
     vars[is_snv] <- .self$pars$mismatch_label
+    vars[which(nms == "Other")] <- "Other"
     vars[is_ins] <- "insertion"
     vars[is_del] <- "deletion"
     vars[ins_and_del] <- "insertion/deletion"
+    vars[is_complex & is_ins & ! ins_and_del] <- "multiple insertions"
+    vars[is_complex & is_del & ! ins_and_del] <- "multiple deletions"
+    
     vars
   },
 
-  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE){
+  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE, ...){
   '
 Description:
   Uses the VariantAnnotation package to look up the location of the
@@ -605,6 +634,7 @@ Input parameters:
   txdb:     A BSgenome transcription database
   add_chr:  Add "chr" to chromosome names to make compatible with UCSC (default: TRUE)
   verbose:  Print progress (default: TRUE)
+  ...:      Filtering arguments for variantCounts
 
 Return value:
   A vector of classification tags, matching the rownames of .self$cigar_freqs
@@ -632,15 +662,19 @@ Return value:
       var_levels[min(as.numeric(y))]}))
     names(result) <- names(gr)
 
-    classification <- rep("", nrow(.self$cigar_freqs))
-    no_var <- grep(.self$pars$match_label, rownames(.self$cigar_freqs))
-    classification[no_var] <- .self$pars$match_label
-    snv <- grep(.self$pars$mismatch_label, rownames(.self$cigar_freqs))
-    classification[snv] <- .self$pars$mismatch_label
+    vars <- rownames(.self$.getFilteredCigarTable(...))
+    classification <- rep("", length(vars))
+    names(classification) <- vars
 
-    ord <- match(names(result), rownames(.self$cigar_freqs))
+    no_var <- grep(.self$pars$match_label, vars)
+    classification[no_var] <- .self$pars$match_label
+    snv <- grep(.self$pars$mismatch_label, vars)
+    classification[snv] <- .self$pars$mismatch_label
+    classification[which(vars == "Other")] <- "Other"
+
+    result <- result[names(result) %in% vars]
+    ord <- match(names(result), vars)
     classification[ord] <- result
-    names(classification) <- rownames(.self$cigar_freqs)
 
     classification
   },
@@ -663,7 +697,7 @@ Result:
 
     is_coding <- var_type == "coding" & ! is.na(var_type)
 
-    indels <- .self$cigar_freqs[is_coding,,drop = FALSE]
+    indels <- .self$.getFilteredCigarTable()[is_coding,,drop = FALSE]
     if (length(indels) > 0){
 
       temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
@@ -688,7 +722,8 @@ Result:
                                x.axis.title = NULL, x.angle = 90,
                                min.freq = 0, min.count = 0,
                                top.n = nrow(.self$cigar_freqs),
-                               type = c("counts", "proportions"), ...){
+                               type = c("counts", "proportions"), 
+                               order = NULL, ...){
 
     '
 Description:
@@ -707,6 +742,7 @@ Input parameters:
                   least one sample
     top.n:        Include only the n most common variants
     type:         Should labels show counts or proportions?  (Default: counts)
+    order:        Reorder the columns according to this order (Default: NULL)
     ...:
 
 Return value:
@@ -728,6 +764,10 @@ See also:
       cig_freqs <- round(cig_freqs, 2)
     }
 
+    if (! is.null(order)){
+      cig_freqs <- cig_freqs[,order]
+      header <- header[order]
+    }
     p <- plotFreqHeatmap(cig_freqs, header = header, as.percent = as.percent,
                          x.size = x.size, y.size = y.size,
                          x.axis.title = x.axis.title,
@@ -891,7 +931,8 @@ cig_freqs:  A table of variant allele frequencies (by default: .self$cigar_freqs
     alns
   },
 
-  .genomeToTargetLocs = function(target.loc, target_start, target_end, rc = FALSE){
+  .genomeToTargetLocs = function(target.loc, target_start, target_end, rc = FALSE,
+                                 gs = NULL, ge = NULL){
     # target.loc should be relative to the start of the target sequence, even if the
     # target is on the negative strand
     # target.loc is the left side of the cut site (Will be numbered -1)
@@ -904,10 +945,10 @@ cig_freqs:  A table of variant allele frequencies (by default: .self$cigar_freqs
     # After: -5 -4 -3 -2 -1  1  2  3
     # Left =  original - target.loc - 1
     # Right = original - target.loc
-
-    gs <- min(sapply(.self$crispr_runs, function(x) min(start(x$alns))))
-    ge <- max(sapply(.self$crispr_runs, function(x) max(end(x$alns))))
-
+    if (is.null(gs) | is.null(ge)){
+      gs <- min(sapply(.self$crispr_runs, function(x) min(start(x$alns))))
+      ge <- max(sapply(.self$crispr_runs, function(x) max(end(x$alns))))
+    }
     if (isTRUE(rc)){
       tg <- target_end - (target.loc - 1)
       new_numbering <- rev(c(seq(-1*(ge - (tg -1)),-1), c(1:(tg - gs))))

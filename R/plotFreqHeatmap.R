@@ -58,6 +58,9 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 
   # If a sample group is supplied, reorder the columns of counts
   if (! is.null(group)){
+    if (! length(group) == ncol(obj)){
+      stop("Group should be a vector or factor the same length as ncol(obj)")
+    }
     if (! class(group) == "factor") group <- factor(group, levels = unique(group))
 
     obj <- obj[,order(group), drop = FALSE]
@@ -69,8 +72,8 @@ setMethod("plotFreqHeatmap", signature("matrix"),
     # if group.colours are not provided, use defaults
     if (is.null(group.colours)){
       # default is a colourblind safe palette
-      clrs <- c("black","#0072B2","orange","#009E73",
-                "sky blue","vermillion","reddish purple")
+      clrs <- c("#000000","#0072B2","#E69F00","#009E73",
+                "#56B4E9","#D55E00","#CC79A7")
 
       #clrs <- c("#332288","#661100","#117733","#D55E00","#0072B2",
       #          "#AA4499","#009E73","#56B4E9","#CC79A7","#88CCEE",
@@ -160,7 +163,7 @@ setMethod("plotFreqHeatmap", signature("matrix"),
    if (is.null(x.labels)) x.labels <- colnames(obj)
   g <- g + ylab(NULL) + xlab(x.axis.title) + theme_bw() +
   theme(axis.text.x = element_text(size = x.size, angle = x.angle, 
-                                     hjust = x.hjust, vjust = 0.5),
+                                     hjust = x.hjust, vjust = 1),
           axis.text.y = element_text(size = y.size),
           legend.text = element_text(size = legend.text.size),
           legend.title = element_text(size = legend.text.size),
@@ -185,6 +188,8 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'@param min.count i (integer) only plot variants with count >= i in at least
 #' one sample (default: 0, i.e no count cutoff)
 #'@param type Plot either "counts" or "proportions"
+#'@param order A list of column names or indices specifying the order of the
+#'columns in the plot
 #'@examples
 #'#Load a CrisprSet object for plotting
 #'data("gol_clutch1")
@@ -193,9 +198,9 @@ setMethod("plotFreqHeatmap", signature("matrix"),
 #'plotFreqHeatmap(gol)
 setMethod("plotFreqHeatmap", signature("CrisprSet"),
           function(obj, ..., top.n = 50, min.freq = 0, min.count = 1,
-                   type = c("counts", "proportions")) {
+                   type = c("counts", "proportions"), order = NULL) {
 
   result <- obj$heatmapCigarFreqs(top.n = top.n, min.freq = min.freq,
-                                  min.count = min.count, type = type, ...)
+                     min.count = min.count, type = type, order = order, ...)
   return(result)
 })

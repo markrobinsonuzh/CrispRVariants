@@ -9,13 +9,13 @@
 #'@import BiocParallel
 #'@import Biostrings
 #'@import ggplot2
-#'@import grid
 #'@import gridExtra
 #'@import GenomicAlignments
 #'@import GenomicRanges
 #'@import IRanges
 #'@import methods
 #'@import Rsamtools
+#'@importFrom grid gpar grid.rect
 #'@importFrom reshape2 melt
 #'@importFrom AnnotationDbi select
 #'@importFrom GenomeInfoDb seqlengths
@@ -46,7 +46,8 @@ setGeneric("readsToTarget", function(reads, target, ...) {
 #'  system.file("extdata", fn, package = "CrispRVariants")})
 #'
 #'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-#'gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399),
+#'        strand = "+")
 #'
 #'crispr_set <- readsToTarget(bam_fnames, target = gd, reference = reference,
 #'                            names = md$experiment.name, target.loc = 17)
@@ -590,10 +591,10 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
   if (ch.action == "ignore"){
     # If chimeras are not to be excluded or merged,
     # we only need to read in reads overlapping the target region
-    param <- ScanBamParam(what = c("seq", "flag"), which = target)
+    param <- Rsamtools::ScanBamParam(what = c("seq", "flag"), which = target)
   } else {
     # In this case, must read in the entire bam to be sure of finding chimeric reads
-    param <- ScanBamParam(what = c("seq", "flag"))
+    param <- Rsamtools::ScanBamParam(what = c("seq", "flag"))
   }
   bam <- GenomicAlignments::readGAlignments(file, param = param, use.names = TRUE)
   if (length(bam) == 0){
@@ -678,7 +679,8 @@ setGeneric("narrowAlignments", function(alns, target, ...) {
 #'bam_fname <- system.file("extdata", "gol_F1_clutch_2_embryo_4_s.bam",
 #'                          package = "CrispRVariants")
 #'bam <- GenomicAlignments::readGAlignments(bam_fname, use.names = TRUE)
-#'target <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'target <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399),
+#'           strand = "+")
 #'narrowAlignments(bam, target, reverse.complement = FALSE)
 setMethod("narrowAlignments", signature("GAlignments", "GRanges"),
           function(alns, target, ..., reverse.complement, verbose = FALSE){

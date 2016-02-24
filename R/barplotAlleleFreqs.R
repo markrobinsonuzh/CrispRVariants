@@ -26,31 +26,39 @@ setGeneric("barplotAlleleFreqs", function(obj, ...) {
 #'one sample.  (Default: 0, i.e. no cutoff)
 #'@param include.chimeras Should chimeric reads be included in results?
 #'(Default: TRUE)
-#'@param group A grouping variable for colouring the sample names.  
-#'(Default: NULL)
+#'@param palette  Colour palette.  Options are "rainbow", a quantitative palette
+#'(default) or "bluered", a gradient palette.
 #'@rdname barplotAlleleFreqs
 setMethod("barplotAlleleFreqs", signature("CrisprSet"),
-  function(obj, ..., txdb, min.freq = 0, include.chimeras = TRUE, group = NULL){
+  function(obj, ..., txdb, min.freq = 0, include.chimeras = TRUE, group = NULL,
+           palette = c("rainbow", "bluered")){
 
     # Potential improvements:
     # Do filtering before variant location
     
-    clrs <- c("#D92120","#E6642C","#488BC2","#4065B1","#413B93",
-              "#781C81","#E68E34","#D9AD3C","#B5BD4C","#7FB972",
-              "#63AD99","#55A1B1","Gray")
+    palette <- match.arg(palette)
     
+    if (palette == "bluered"){
+      clrs <- c("#3D52A1", "#3A7FC2", "#62A7DB", "#95CAEE", "#C4E4F9",
+                "#EAF5F6","#FFFAD2", "#FFE6B0", "#FBC98C", "#F3A26E",
+               "#E47353", "#CC443E","#AE1C3E")
+    } else if (palette == "rainbow"){
+      clrs <- c("#D92120","#E6642C","#D9AD3C","#B5BD4C","#7FB972",
+                "#63AD99","#55A1B1","Gray","#E68E34","#488BC2",
+                "#4065B1","#413B93","#781C81")
+    }
     var_order <- c(obj$pars["match_label"], obj$pars["mismatch_label"],
+                   "intron","fiveUTR","threeUTR","promoter", 
+                   "intergenic", "Chimeric", "spliceSite",
                    "inframe indel < 10", "inframe indel > 10",
-                   "frameshift indel < 10", "frameshift indel > 10",
-                   "spliceSite","intron","fiveUTR",
-                   "threeUTR","promoter", "intergenic", "Chimeric")
+                   "frameshift indel < 10", "frameshift indel > 10")
     
     var_labels <- c(obj$pars["match_label"], obj$pars["mismatch_label"],
+                    "intronic","5' UTR", "3' UTR","promoter", "intergenic",
+                    "Chimeric", "splice site",
                     expression("inframe indel" <= 9),
                     "inframe indel > 10",  "frameshift indel < 9",
-                    expression("frameshift indel" >= 10),
-                    "splice site","intronic","5' UTR",
-                    "3' UTR","promoter", "intergenic", "Chimeric")
+                    expression("frameshift indel" >= 10))
     
     var_type <- obj$classifyVariantsByLoc(txdb)
     classification <- obj$classifyCodingBySize(var_type)
@@ -63,13 +71,18 @@ setMethod("barplotAlleleFreqs", signature("CrisprSet"),
     vls <- factor(rownames(ac), levels = var_order)
     ac <- rowsum(ac, vls)
     clrs <- clrs[var_order %in% rownames(ac)]
-    barplotAlleleFreqs(ac, bar.colours = clrs, group = group,
-                       classify = FALSE, ...)
+    var_labels <- var_labels[var_order %in% rownames(ac)]
+    return(barplotAlleleFreqs(ac, category.labels = var_labels,
+                       bar.colours = clrs, group = group,
+                       classify = FALSE, ...))
 })
 
 
 #'@description signature("matrix") Accepts a matrix of allele counts,
 #'with rownames being alleles and column names samples.
+#'@param category.labels Labels for each category, corresponding to the
+#'rows of obj.  Only applicable when categories are provided, i.e.
+#'"classify" is FALSE.  (Default: NULL)
 #'@param group A grouping factor for the columns in obj.  Columns in the
 #'same group will be displayed in the same text colour (Default: NULL)
 #'@param bar.colours Colours for the categories in the barplot.
@@ -95,12 +108,12 @@ setMethod("barplotAlleleFreqs", signature("CrisprSet"),
 #'# Just show the barplot without the counts table:
 #'barplotAlleleFreqs(variantCounts(gol), include.table = FALSE)
 setMethod("barplotAlleleFreqs", signature("matrix"),
-          function(obj, group = NULL, bar.colours = NULL,
-                   group.colours = NULL, legend.text.size = 10,
-                   axis.text.size = 10, legend.symbol.size = 1,
-                   snv.label = "SNV", novar.label = "no variant",
-                   chimera.label = "Other", include.table = TRUE,
-                   classify = TRUE){
+          function(obj, category.labels = NULL, group = NULL, 
+                   bar.colours = NULL, group.colours = NULL, 
+                   legend.text.size = 10, axis.text.size = 10, 
+                   legend.symbol.size = 1, snv.label = "SNV", 
+                   novar.label = "no variant", chimera.label = "Other", 
+                   include.table = TRUE, classify = TRUE){
 
   clrs <- bar.colours
 
@@ -132,8 +145,21 @@ setMethod("barplotAlleleFreqs", signature("matrix"),
     var_labels <- temp$var_labels
     var_clrs <- temp$var_clrs
   } else {
-    var_labels <- rownames(ac)
+    if (! is.null(category.labels)){
+      if (! length(category.labels) == nrow(ac)){
+        warning("Number of categories labels should equal number of rows of obj.
+                Using rownames instead.")
+        var_labels <- rownames(ac)
+      }
+      var_labels <- category.labels
+    }else{
+      var_labels <- rownames(ac)
+    }
     var_clrs <- clrs
+    if (length(var_labels) > length(var_clrs)){
+      stop(sprintf("Not enough colours in default palette.  Please supply %s colours",
+                   length(var_labels)))
+    }
   }
 
   af <- reshape2::melt(sweep(ac, 2, colSums(ac), "/"))
@@ -155,6 +181,7 @@ setMethod("barplotAlleleFreqs", signature("matrix"),
     theme(legend.position = "bottom", legend.title = element_blank(),
           axis.text = element_text(size = axis.text.size),
           legend.text = element_text(size = legend.text.size),
+          legend.key = element_blank(),
           plot.margin = grid::unit(c(0.5,0.7,0.5,0),"lines"),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
@@ -175,12 +202,14 @@ setMethod("barplotAlleleFreqs", signature("matrix"),
 
   q <- ggplot(dat, aes_q(x = quote(Col), y = quote(Sample),
                          label = quote(Vals))) +
-    geom_tile(fill = "white", colour = "black", size = 1) + geom_text() +
+    geom_tile(fill = "white", colour = "black", size = 1) + geom_text(size = 3) +
     scale_y_discrete(expand = c(0,0)) + scale_x_discrete(expand = c(0,0)) +
     theme_bw() + xlab(NULL) + ylab(NULL) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
           axis.text.y = element_blank(), axis.ticks.y = element_blank(),
-          plot.margin = grid::unit(c(0.25,0.25,10,0), "lines"))
+          plot.margin = grid::unit(c(0.25,0.25,10,0), "lines"),
+          plot.background=element_rect(fill = "transparent",
+                                       colour = NA))
 
   pgrob <- ggplot2::ggplotGrob(p)
   ggrob <- ggplot2::ggplotGrob(q)

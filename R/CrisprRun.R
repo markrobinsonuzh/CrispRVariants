@@ -37,7 +37,7 @@
 #'          use.names = TRUE)
 #'
 #'reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-#'gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+#'gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399), strand = "+")
 #'
 #'crispr_run <- readsToTarget(alns, target = gd, reference = reference,
 #'                            name = "Sample name", target.loc = 17)
@@ -229,10 +229,12 @@ Input parameters:
     }
     temp[sum(keep) == 0] <- match.label
     renamed <- as.character(temp)
-    renamed <- .self$.splitNonIndel(ref, renamed, rc, match_label = match.label,
-                                    mismatch_label = mismatch.label, cut_site = target.loc,
-                                    upstream = upstream, downstream = downstream)
-
+    if (isTRUE(separate.snv)){
+      renamed <- .self$.splitNonIndel(ref, renamed, rc, match_label = match.label,
+                                    mismatch_label = mismatch.label,
+                                    cut_site = target.loc, upstream = upstream,
+                                    downstream = downstream)
+    }
     .self$field("cigar_labels", renamed)
     renamed
   },

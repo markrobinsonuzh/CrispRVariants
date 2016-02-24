@@ -98,7 +98,7 @@ alns <- GenomicAlignments::readGAlignments(bam_fname, param = param,
          use.names = TRUE)
 
 reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-gd <- GRanges("18", IRanges(4647377, 4647399), strand = "+")
+gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399), strand = "+")
 
 crispr_run <- readsToTarget(alns, target = gd, reference = reference,
                            name = "Sample name", target.loc = 17)

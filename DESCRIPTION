@@ -2,7 +2,7 @@ Package: CrispRVariants
 Type: Package
 Title: Tools for counting and visualising mutations in a target
         location
-Version: 0.99.2
+Version: 0.99.3
 Authors@R: c(person(given = "Helen", family = "Lindsay", role = c("aut", "cre"),
     email = "helen.lindsay@uzh.ch"))
 Author: Helen Lindsay [aut, cre]
@@ -16,10 +16,10 @@ Description: CrispRVariants provides tools for analysing the results of a
 biocViews: GenomicVariation, VariantDetection, GeneticVariability,
         DataRepresentation, Visualization
 LazyData: true
-Depends: R (>= 3.2), GenomicAlignments, ggplot2
+Depends: R (>= 3.2), ggplot2
 License: GPL-2
 Imports: AnnotationDbi, BiocParallel, Biostrings, methods,
-        GenomeInfoDb, GenomicRanges, grid, gridExtra, IRanges,
+        GenomeInfoDb, GenomicAlignments, GenomicRanges, grid, gridExtra, IRanges,
         reshape2, Rsamtools, S4Vectors
 Suggests: BiocStyle, gdata, GenomicFeatures, knitr, rmarkdown,
         sangerseqR, testthat

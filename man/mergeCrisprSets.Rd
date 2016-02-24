@@ -8,7 +8,8 @@
 \usage{
 mergeCrisprSets(x, y, ...)
 
-\S4method{mergeCrisprSets}{CrisprSet,CrisprSet}(x, y, ..., order = NULL)
+\S4method{mergeCrisprSets}{CrisprSet,CrisprSet}(x, y, ..., x.samples = NULL,
+  y.samples = NULL, names = NULL, order = NULL)
 }
 \arguments{
 \item{x}{A CrisprSet object}
@@ -16,6 +17,14 @@ mergeCrisprSets(x, y, ...)
 \item{y}{A second CrisprSet object}
 
 \item{...}{extra arguments}
+
+\item{x.samples}{A subset of column names or indices to keep from CrispRSet x
+(Default: NULL, i.e. keep all)}
+
+\item{y.samples}{A subset of column names or indices to keep from CrispRSet y
+(Default: NULL, i.e. keep all)}
+
+\item{names}{New names for the merged CrisprSet object (Default: NULL)}
 
 \item{order}{A list of sample names, matching the names in x and y,
 specifying the order of the samples in the new CrisprSet. (Not implemented yet)}
@@ -36,7 +45,8 @@ bam_fnames <- sapply(md$bam.filename, function(fn){
  system.file("extdata", fn, package = "CrispRVariants")})
 
 reference <- Biostrings::DNAString("GGTCTCTCGCAGGATGTTGCTGG")
-gd <- GenomicRanges::GRanges("18", IRanges(4647377, 4647399), strand = "+")
+gd <- GenomicRanges::GRanges("18", IRanges::IRanges(4647377, 4647399),
+      strand = "+")
 
 crispr_set1 <- readsToTarget(bam_fnames[c(1:4)], target = gd,
       reference = reference, names = md$experiment.name[1:4], target.loc = 17)

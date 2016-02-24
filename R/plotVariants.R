@@ -75,6 +75,7 @@ setMethod("plotVariants", signature("CrisprSet"),
   if (isTRUE(include_txs)){
     annotate_args <- modifyList(list(txdb = txdb, target = target), annotate_args)
     gene_p <- do.call(annotateGenePlot, annotate_args)
+    gene_p <- ggplot2::ggplotGrob(gene_p)
   } else {
     arrange_args[["row.ht.ratio"]] <- c(0,1)
     gene_p <- grid::grid.rect(gp=grid::gpar(col="white"), draw = FALSE)
@@ -87,7 +88,7 @@ setMethod("plotVariants", signature("CrisprSet"),
 
   plotAlignments.args$obj = obj
   aln_p <- do.call(plotAlignments, plotAlignments.args)
-  aln_p <- aln_p + theme(legend.margin=unit(-0.5,"cm"))
+  aln_p <- aln_p + theme(legend.margin=grid::unit(0.2,"cm"))
 
   plotFreqHeatmap.args$obj = obj
   heat_p <- do.call(plotFreqHeatmap, plotFreqHeatmap.args)
