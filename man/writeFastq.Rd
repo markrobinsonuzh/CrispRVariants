@@ -6,7 +6,11 @@
 
 Used by abifToFastq}
 \usage{
+<<<<<<< HEAD
 writeFastq(outf, vals, allow_spaces = FALSE, check = TRUE)
+=======
+writeFastq(outf, vals, allow_spaces = FALSE)
+>>>>>>> 4a21cff30afc8fa3e1b8d39b32be2865aebc2222
 }
 \arguments{
 \item{outf}{Name of fastq file to append sequence}
@@ -16,9 +20,12 @@ writeFastq(outf, vals, allow_spaces = FALSE, check = TRUE)
 
 \item{allow_spaces}{Should spaces in the sequence name be
 substituted with underscores?  TRUE or FALSE}
+<<<<<<< HEAD
 
 \item{check}{Check whether reads with the same name already
 exist in the output fastq.  (Default: TRUE)}
+=======
+>>>>>>> 4a21cff30afc8fa3e1b8d39b32be2865aebc2222
 }
 \value{
 None.  The sequences in "vals" are written to outf

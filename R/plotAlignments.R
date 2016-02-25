@@ -219,7 +219,7 @@ setMethod("plotAlignments", signature("DNAString"),
       result
     })
     names(x) <- names(splits)
-    
+
     new_seqs <- unlist(x)[unique(xy_locs)]
     max_seq_ln <- max(sapply(gsub("\n.*", "", new_seqs), nchar)) + 3
     new_seqs <- sprintf(paste0("%-",max_seq_ln,"s"), new_seqs)

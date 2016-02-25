@@ -89,7 +89,6 @@ setMethod("plotVariants", signature("CrisprSet"),
   plotAlignments.args$obj = obj
   aln_p <- do.call(plotAlignments, plotAlignments.args)
   aln_p <- aln_p + theme(legend.margin=grid::unit(0.2,"cm"))
-
   plotFreqHeatmap.args$obj = obj
   heat_p <- do.call(plotFreqHeatmap, plotFreqHeatmap.args)
   heat_p <- heat_p + theme(plot.background=element_rect(fill = "transparent",

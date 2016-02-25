@@ -234,7 +234,9 @@ Input parameters:
                                     mismatch_label = mismatch.label,
                                     cut_site = target.loc, upstream = upstream,
                                     downstream = downstream)
+      
     }
+
     .self$field("cigar_labels", renamed)
     renamed
   },

@@ -313,7 +313,6 @@ Input parameters:
     # if "add_chr" == TRUE, chromosome names start with "chr"
     # if add_to_ins == TRUE, adds one to end of insertions, as required for VariantAnnotation
 
-    
     cig_by_run <- lapply(.self$crispr_runs, function(crun) crun$cigar_labels)
     all_cigars <- unlist(cig_by_run)
     unique_cigars <- !duplicated(unlist(cig_by_run))
@@ -326,6 +325,7 @@ Input parameters:
       GenomicAlignments::cigarRangesAlongReferenceSpace(
           GenomicAlignments::cigar(alns), pos = GenomicAlignments::start(alns))
     }
+
     ir <- do.call(c, unlist(lapply(.self$crispr_runs, function(x) get_gr(x$alns)),
                             use.names = FALSE))
 
@@ -622,7 +622,7 @@ Return value:
     vars
   },
 
-  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE, ...){
+  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE){
   '
 Description:
   Uses the VariantAnnotation package to look up the location of the
@@ -675,7 +675,6 @@ Return value:
     result <- result[names(result) %in% vars]
     ord <- match(names(result), vars)
     classification[ord] <- result
-
     classification
   },
 
@@ -699,9 +698,8 @@ Result:
 
     indels <- .self$.getFilteredCigarTable()[is_coding,,drop = FALSE]
     if (length(indels) > 0){
-
       temp <- lapply(rownames(indels), function(x) strsplit(x, ",")[[1]])
-      indel_grp <- rep(c(1:nrow(indels)), elementLengths(temp))
+      indel_grp <- rep(c(1:nrow(indels)), elementNROWS(temp))
       indel_ln <- rowsum(as.numeric(gsub("^.*:([0-9]+)[DI]", "\\1", unlist(temp))),
                          indel_grp)
 
