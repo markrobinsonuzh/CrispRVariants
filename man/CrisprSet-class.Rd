@@ -88,7 +88,7 @@ Input paramters:
 Result:
     A character vector with a classification for each variant allele}
 
-\item{\code{classifyVariantsByLoc(txdb, add_chr = TRUE, verbose = TRUE)}}{Description:
+\item{\code{classifyVariantsByLoc(txdb, add_chr = TRUE, verbose = TRUE, ...)}}{Description:
   Uses the VariantAnnotation package to look up the location of the
   variants.  VariantAnnotation allows multiple classification tags per variant,
   this function returns a single tag.  The following preference order is used:
