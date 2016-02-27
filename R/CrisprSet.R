@@ -601,7 +601,9 @@ Return value:
   A named vector classifying variant alleles as insertions, deletions, etc
 '
     
-    nms <- rownames(.self$.getFilteredCigarTable(...))
+    nms <- rownames(dispatchDots(.self$.getFilteredCigarTable, ..., call = TRUE))
+ ##   nms <- rownames(.self$.getFilteredCigarTable())
+
     vars <- rep(NA, length(nms))
     names(vars) <- nms
     is_snv <- grepl(.self$pars$mismatch_label, nms)
@@ -622,7 +624,7 @@ Return value:
     vars
   },
 
-  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE){
+  classifyVariantsByLoc = function(txdb, add_chr = TRUE, verbose = TRUE, ...){
   '
 Description:
   Uses the VariantAnnotation package to look up the location of the
@@ -662,7 +664,7 @@ Return value:
       var_levels[min(as.numeric(y))]}))
     names(result) <- names(gr)
 
-    vars <- rownames(.self$.getFilteredCigarTable(...))
+    vars <- rownames(dispatchDots(.self$.getFilteredCigarTable, ..., call = TRUE))
     classification <- rep("", length(vars))
     names(classification) <- vars
 

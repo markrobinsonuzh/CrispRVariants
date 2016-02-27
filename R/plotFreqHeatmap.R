@@ -1,4 +1,6 @@
 #'@title Plot a table of counts with colours indicating frequency
+#'@description Creates a heatmap from a matrix of counts or proportions,
+#'where tiles are coloured by the proportion and labeled with the value.
 #'@rdname plotFreqHeatmap
 #'@export
 setGeneric("plotFreqHeatmap", function(obj, ...) {

@@ -203,3 +203,35 @@ setMethod("indelPercent", signature("GAlignments"),
           function(alns){
   return((countIndels(alns) / length(alns))*100)
 })
+
+#'@title dispatchDots
+#'@description Update default values for func with values from dot args
+#'@author Helen Lindsay
+#'@param func Function to call
+#'@param call If TRUE, call the function with the argument list and
+#'return this result (Default: FALSE)
+#'@param ... dot args to pass to function
+#'@return A list of arguments to pass to func, or if call is TRUE, the result
+#'of calling func with these arguments.
+#'@rdname dispatchDots
+#'@examples
+#'# Set up a function to dispatch dot arguments to:
+#'f <- function(a=1, b=2, c=3){
+#'  print(c(a,b,c))
+#'}
+#'# Set up a function for passing dots:
+#'g <- function(...){
+#'  CrispRVariants:::dispatchDots(f, ...)
+#'}
+#'
+#'g(a = 5)
+#'g(a = 5, call = TRUE)
+#'# Unrelated arguments will not be passed on
+#'g(a = 5, d = 6)
+dispatchDots <- function(func, ..., call = FALSE){
+  func_defaults <- formals(func)
+  result <- modifyList(func_defaults, list(...))[names(func_defaults)]
+  if (isTRUE(call)) return(do.call(func, result))
+  result
+}
+

@@ -1,7 +1,8 @@
 #'@title Append a sequence to a fastq file
-#'
-#'Used by abifToFastq
-#'
+#'@description  Used by abifToFastq to write sanger sequences
+#'to fastq format  As abifToFastq appends output to files,
+#' writeFastq checks that sequence names are unique.  This
+#' function is faster with checking switched off.
 #'@param outf Name of fastq file to append sequence
 #'@param vals A list containing entries named "seq" (sequence) and
 #'"quals" (quality scores, in ASCII format)

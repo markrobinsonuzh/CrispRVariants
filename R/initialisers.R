@@ -9,17 +9,17 @@
 #'@import BiocParallel
 #'@import Biostrings
 #'@import ggplot2
-#'@import gridExtra
 #'@import GenomicAlignments
 #'@import GenomicRanges
 #'@import IRanges
 #'@import methods
 #'@import Rsamtools
 #'@importFrom grid gpar grid.rect
+#'@importFrom gridExtra grid.arrange arrangeGrob
 #'@importFrom reshape2 melt
 #'@importFrom AnnotationDbi select
 #'@importFrom GenomeInfoDb seqlengths
-#'@importFrom S4Vectors elementNROWS remapHits na.omit
+#'@importFrom S4Vectors elementNROWS remapHits na.omit queryHits subjectHits
 #'@export
 setGeneric("readsToTarget", function(reads, target, ...) {
   standardGeneric("readsToTarget")})
@@ -647,6 +647,9 @@ readTargetBam <- function(file, target, exclude.ranges = GRanges(),
 
 #'@title Internal CrispRVariants function for deciding whether to reverse
 #'complement aligned reads
+#'@description Guides on the negative strand may be displayed with respect
+#' to either strand.  This function checks whether a guide is on the negative
+#' strand and should be reverse complemented.
 #'@param target.strand Strand of the target region
 #'@param reverse.complement Should the alignment be oriented to match the strand
 #'@return A logical value indicating whether the narrowed alignment should be reverse complemented.

@@ -6,20 +6,41 @@ Authors@R: c(person(given = "Helen", family = "Lindsay", role = c("aut", "cre"),
           "helen.lindsay@uzh.ch"))
 Author: Helen Lindsay [aut, cre]
 Maintainer: Helen Lindsay <helen.lindsay@uzh.ch>
-Description: CrispRVariants provides tools for analysing the results of a CRISPR-Cas9
-          mutagenesis sequencing experiment, or other sequencing experiments where variants
-          within a given region are of interest.  These tools allow users to localize variant
-          allele combinations with respect to any genomic location (e.g. the Cas9 cut site),
-          plot allele combinations and calculate mutation rates with flexible filtering of
-          unrelated variants.
-biocViews: GenomicVariation, VariantDetection, GeneticVariability, DataRepresentation,
-          Visualization
+Description: CrispRVariants provides tools for analysing the results of a
+    CRISPR-Cas9 mutagenesis sequencing experiment, or other sequencing experiments
+    where variants within a given region are of interest. These tools allow users to
+    localize variant allele combinations with respect to any genomic location (e.g.
+    the Cas9 cut site), plot allele combinations and calculate mutation rates with
+    flexible filtering of unrelated variants.
+biocViews: GenomicVariation, VariantDetection, GeneticVariability,
+    DataRepresentation, Visualization
 LazyData: true
-Depends: R (>= 3.2), ggplot2
+Depends:
+    R (>= 3.2),
+    ggplot2
 License: GPL-2
-Imports: AnnotationDbi, BiocParallel, Biostrings, methods, GenomeInfoDb,
-          GenomicAlignments, GenomicRanges, grid, gridExtra, IRanges, reshape2,
-          Rsamtools, S4Vectors (>= 0.9.38),
-Suggests: BiocStyle, gdata, GenomicFeatures, knitr, rmarkdown, sangerseqR, testthat
+Imports:
+    AnnotationDbi,
+    BiocParallel,
+    Biostrings,
+    methods,
+    GenomeInfoDb,
+    GenomicAlignments,
+    GenomicRanges,
+    grid,
+    gridExtra,
+    IRanges,
+    reshape2,
+    Rsamtools,
+    S4Vectors (>= 0.9.38),
+Suggests:
+    BiocStyle,
+    gdata,
+    GenomicFeatures,
+    knitr,
+    rmarkdown,
+    sangerseqR,
+    testthat
 VignetteBuilder: knitr
 NeedsCompilation: no
+RoxygenNote: 5.0.1

@@ -135,6 +135,9 @@ setMethod("addClipped", signature("GAlignments"),
 
 
 #'@title Remove chimeric reads overlapping multiple primers
+#'@description Finds and removes sets of chimeric read alignments
+#' that overlap more than one guide, i.e. that cannot be unambiguously
+#' assigned to a single guide. 
 #'@param readnames A set of read names, used for identifying chimeric read sets
 #'@param pcrhits A mapping between indices of reads and a set of pcr primers
 #'@param chimera_idxs location of chimeric reads within the bam

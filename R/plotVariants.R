@@ -1,4 +1,7 @@
 #'@title Plot alignments, frequencies and location of target sequence
+#'@description Combines a plot of transcript structure, alleles
+#' aligned with respect to a reference genome and a heatmap of
+#' counts or proportions of each allele in a set of data.
 #'@rdname plotVariants
 #'@param obj The object to be plotted
 #'@return A ggplot2 plot of the variants
