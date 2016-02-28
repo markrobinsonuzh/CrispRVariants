@@ -5,6 +5,9 @@ date: "7 October 2015"
 output: 
   BiocStyle::pdf_document:
     fig_caption: true
+vignette: >
+  %\VignetteIndexEntry{CrispRVariants}
+  %\VignetteEngine{knitr::rmarkdown}
 ---
 
 <!-- can build with:

@@ -6,20 +6,20 @@
 #'@author Helen Lindsay
 #'@rdname readsToTarget
 #'
+#'@import methods
 #'@import BiocParallel
 #'@import Biostrings
 #'@import ggplot2
 #'@import GenomicAlignments
 #'@import GenomicRanges
 #'@import IRanges
-#'@import methods
 #'@import Rsamtools
 #'@importFrom grid gpar grid.rect
 #'@importFrom gridExtra grid.arrange arrangeGrob
+#'@importFrom S4Vectors elementNROWS remapHits na.omit queryHits subjectHits
 #'@importFrom reshape2 melt
 #'@importFrom AnnotationDbi select
 #'@importFrom GenomeInfoDb seqlengths
-#'@importFrom S4Vectors elementNROWS remapHits na.omit queryHits subjectHits
 #'@export
 setGeneric("readsToTarget", function(reads, target, ...) {
   standardGeneric("readsToTarget")})
