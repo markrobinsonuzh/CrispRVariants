@@ -5,10 +5,14 @@ date: "7 October 2015"
 output: 
   BiocStyle::pdf_document:
     fig_caption: true
+    toc: true
 vignette: >
   %\VignetteIndexEntry{CrispRVariants}
   %\VignetteEngine{knitr::rmarkdown}
 ---
+
+\tableofcontents
+\newpage
 
 <!-- can build with:
 rmarkdown::render("user_guide.Rmd", rmarkdown::pdf_document())
@@ -42,8 +46,9 @@ and how mutation information is extracted relative to the reference sequence.
 The package comprehensively summarizes and plots the spectrum of variants 
 introduced by CRISPR-Cas9 or similar genome editing experiments.
 
-# Case study: Analysis of ptena mutant spectrum in zebrafish 
-# (data from Mosimann laboratory, UZH)
+# Case study: Analysis of ptena mutant spectrum in zebrafish
+
+The data used in this case study is from the Mosimann laboratory, UZH.
 
 ## Convert AB1-format Sanger sequences to FASTQ
 
@@ -372,4 +377,457 @@ mutationEfficiency(crispr_set, filter.cols = "control", exclude.cols = "control"
 
 We see that the mutation effiency for "ptena 4" is now 75%, i.e. 3 genuine variant
 sequences, 1 sequence counted as "non-variant" because it occurs in the control,
-and the chimeric read excluded completely.
+and the chimeric read excluded completely
+
+# Changing the appearance of plots
+
+Note that arguments for CrispRVariants::plotAlignments described below 
+can be passed to CrispRVariants::plotVariants as a list, 
+e.g. ```plotAlignments.args = list(axis.text.size = 14)```.  Similarly,
+arguments for CrispRVariants::plotFreqHeatmap are passed through plotVariants
+via ```plotFreqHeatmap.args```.
+
+## Filtering data in plotVariants
+
+For the following examples, we will use the *ptena* data set.
+We must first load the data and create a ```CrispRVariants::CrisprSet```
+object.
+
+```{r, message = FALSE}
+# Setup for ptena data set
+library("CrispRVariants")
+library("rtracklayer")
+library("GenomicFeatures")
+library("gdata")
+
+# Load the guide location
+gd_fname <- system.file(package="CrispRVariants", "extdata/bed/guide.bed")
+gd <- rtracklayer::import(gd_fname)
+gdl <- resize(gd, width(gd) + 10, fix = "center")
+
+# The saved reference sequence corresponds to the guide 
+# plus 5 bases on either side, i.e. gdl
+ref_fname <- system.file(package="CrispRVariants", 
+                         "extdata/ptena_GRCHz10_ref.rda")
+load(ref_fname)
+
+# Load the metadata table, which gives the sample names
+md_fname <- system.file(package="CrispRVariants",
+                        "extdata/metadata/metadata.xls")
+md <- gdata::read.xls(md_fname, 1)
+
+# Get the list of bam files
+bam_dir <- system.file(package="CrispRVariants", "extdata/bam")
+bam_fnames <- file.path(bam_dir, md$bamfile)
+
+# Check that all files were found
+all(file.exists(bam_fnames))
+
+crispr_set <- readsToTarget(bam_fnames, target = gdl, reference = reference,
+                            names = md$Short.name, target.loc = 22,
+                            verbose = FALSE)
+
+# Load the transcript database
+txdb_fname <- system.file("extdata/GRCz10_81_ptena_txdb.sqlite", 
+                          package="CrispRVariants")
+txdb <- AnnotationDbi::loadDb(txdb_fname)
+
+```
+
+Here is the ptena data set plotted with default options:
+
+```{r, fig.height = 5}
+p <- plotVariants(crispr_set, txdb = txdb)
+```
+
+The layout of this plot is controlled mainly by two parameters:
+```row.ht.ratio``` and ```col.wdth.ratio```.  ```row.ht.ratio```
+(default ```c(1,6)```) controls the relative sizes of the transcript
+plot and the other plots.  Below we show how to change the ratio
+so that the transcript plot is relatively larger:
+
+```{r, fig.height = 5}
+p <- plotVariants(crispr_set, txdb = txdb, row.ht.ratio = c(1,3))
+```
+Similarly, ```col.wdth.ratio``` controls the width ratio of the
+alignment plot and the heatmap (default ```c(2,1)```, i.e. the
+alignment plot is twice as wide as the heatmap).  Below we alter
+this to make the alignment plot comparatively wider:
+
+```{r, fig.height = 5, message = FALSE}
+p <- plotVariants(crispr_set, txdb = txdb, col.wdth.ratio = c(4,1))
+```
+
+The remaining examples in this section use the *gol* data set.
+
+```{r}
+# Load gol data set
+library("CrispRVariants")
+data(gol_clutch1)
+```
+The data used in ```plotAlignments``` and ```plotFreqHeatmap``` can
+be filtered by either frequency via ```min.freq```, count via 
+```min.count```, or to show a set number of alleles sorted by frequency,
+via ```top.n```.  Within ```plotVariants```, these filtering options
+need to be set for both ```plotAlignments`` and ```plotFreqHeatmap```.
+We also add space to the bottom of the plot to prevent clipping of the
+labels.
+
+```{r, fig.height = 2.5, message = FALSE}
+library(GenomicFeatures)
+p <- plotVariants(gol, plotAlignments.args = list(top.n = 3),
+             plotFreqHeatmap.args = list(top.n = 3),
+             left.plot.margin = ggplot2::unit(c(0.1,0,5,0.2), "lines"))
+```
+
+At present, filtering by sample (column) is possible for ```plotFreqHeatmap```
+via the ```order``` parameter (which can also be used to reorder columns),
+but not ```plotAlignments``.
+
+```{r, fig.height = 2.5, message = FALSE}
+plotVariants(gol, plotAlignments.args = list(top.n = 3),
+             plotFreqHeatmap.args = list(top.n = 3, order = c(1,5,3)),
+             left.plot.margin = ggplot2::unit(c(0.1,0,5,0.2), "lines"))
+```
+
+## plotAlignments
+
+### Insertion symbols
+
+The symbols indicating insertions are controlled by four parameters.
+```ins.size``` (default 3) controls the size of the symbols within the
+plot area.
+
+```{r, fig.height = 2.5}
+plotAlignments(gol, top.n = 3, ins.size = 6)
+```
+
+By default the symbols in the legend are the same size as those in the
+plot, but this can be controlled separately with ```legend.symbol.size```.
+
+```{r, fig.height = 2.5}
+plotAlignments(gol, top.n = 3, legend.symbol.size = 6)
+```
+
+As long sequences can make the plot difficult to read, by default
+only the length of insertions greater then 20bp is shown.  This can
+be changed with the ```max.insertion.size``` parameter.  If there is
+more than one allele, the number of (frequent) alleles is indicated.
+
+```{r, fig.height = 3}
+plotAlignments(gol, top.n = 5, max.insertion.size = 25)
+```
+
+Finally, the parameter ```min.insertion.freq``` (default 5%) controls how
+many alleles are displayed at each insertion locus.  In large data sets,
+there will be a substantial proportion of reads with sequencing errors, 
+and we may only wish to display the most common sequences.
+
+```{r, fig.height = 3}
+# Here we set a fairly high value of 50% for min.insertion.freq
+# As ambiguous nucleotides occur frequently in this data set,
+# there are no alleles passing this cutoff.
+plotAlignments(gol, top.n = 5, min.insertion.freq = 50)
+```
+
+```max.insertion.size``` and ```min.insertion.freq``` can be combined.
+In this case, alleles longer than ```max.insertion.size``` but less
+frequent than ```min.insertion.freq``` will be collapsed.
+
+```{r, fig.height = 3}
+plotAlignments(gol, top.n = 5, max.insertion.size = 25, min.insertion.freq = 50)
+```
+
+### Whitespace between rows
+
+The space between rows is controlled with the ```tile.height``` parameter (default 0.55).
+Values closer to 0 increase the space between rows, whilst values closer to 1 decrease the
+space between rows.
+
+```{r, fig.height = 2.5}
+# No white space between rows
+plotAlignments(gol, top.n = 3, tile.height = 1)
+```
+
+
+```{r, fig.height = 3}
+# More white space between rows
+plotAlignments(gol, top.n = 3, tile.height = 0.3)
+```
+
+### Box around guide
+
+The black box around the guide sequence can be removed by setting 
+```highlight.guide = FALSE```.
+
+```{r, fig.height = 2.5}
+plotAlignments(gol, top.n = 3, highlight.guide = FALSE)
+```
+
+By default, the box around the guide is drawn from 17 bases upstream of the
+```target.loc``` to 6 bases downstream.  For experiments with a truncated guide,
+or other non-standard guide location, the box must be manually specified.
+The guide location can be altered by setting the ```guide.loc``` parameter.
+This can be either an IRanges::IRanges or GenomicRanges::GRanges object.
+
+```{r, fig.height = 3, message = FALSE}
+library(IRanges)
+guide <- IRanges::IRanges(15,28)
+plotAlignments(gol, top.n = 3, guide.loc = guide)
+```
+
+### Text sizes
+
+The text within the alignments is controlled by ```plot.text.size``` (default 0),
+and can be removed completely by setting ```plot.text.size = 0```.  The axis
+labels and legend labels are controlled with ```axis.text.size``` (default 8) and
+```legend.text.size``` (default 6) respectively.  The number of columns in the
+legend is controlled by ```legend.cols``` (default 3).  
+
+```{r, fig.height = 2.5}
+# Here we increase the size of the axis labels and make
+# two columns for the legend
+plotAlignments(gol, top.n = 3, axis.text.size = 12, 
+               legend.text.size = 12, legend.cols = 2)
+
+```
+
+### Box around PAM
+
+The argument ```highlight.pam``` determines whether a box around the PAM should be drawn.
+
+```{r, fig.height = 3}
+# Don't highlight the PAM sequence
+plotAlignments(gol, top.n = 3, highlight.pam = FALSE)
+```
+
+By default this box is drawn 3 nucleotides downstream of the ```target.loc```.  Other
+applications might require a different region highlighted.  This can be achieved by
+explicitly setting the start and end positions of the box, with respect to the reference
+sequence.
+
+```{r, fig.height = 3}
+
+# Highlight 3 bases upstream to 3 bases downstream of the target.loc
+plotAlignments(gol, top.n = 3, pam.start = 19, pam.end = 25)
+```
+
+The boxes around the guide and the PAM can both be changed to arbitrary locations,
+however note that the guide box is specified by a ranges object whilst the PAM
+box is specified by start and end coordinates.  Both coordinates are with respect
+to the start of the reference sequence.  The box around the guide is slightly wider
+than the box around the PAM.
+
+```{r, fig.height = 3}
+
+plotAlignments(gol, top.n = 3, guide.loc = IRanges(5,10),
+               pam.start = 8, pam.end = 13)
+
+```
+
+The thickness of the lines showing the cut site, the guide and the PAM are 
+controlled with ```line.weight``` (default 1).
+
+```{r, fig.height = 3}
+plotAlignments(gol, top.n = 3, line.weight = 3)
+```
+
+## plotFreqHeatmap
+
+Here is the result of calling ```plotFreqHeatmap``` with default
+values, showing the three most common variant alleles.
+
+```{r, fig.height = 2.5, fig.width = 4, fig.align='center'}
+plotFreqHeatmap(gol, top.n = 3)
+```
+
+### Controlling the data plotted
+
+The tiles may be coloured by either the percentage of the column totals
+(default), or by the counts, by setting ```as.percent = FALSE```.  The
+column headers show the total number of sequences in the data.  Typically,
+rare variants are excluded, so the displayed variants do not add up to the
+column totals.
+
+```{r, fig.height = 2.5, fig.width = 4, fig.align='center'}
+plotFreqHeatmap(gol, top.n = 3, as.percent = FALSE)
+```
+
+When calling ```plotFreqHeatmap.CrisprSet```, the data can be
+displayed as percentages instead of raw counts by setting
+```type = "proportions"``` instead of the default ```type = "counts"```.
+
+```{r, fig.height = 2.5, fig.width = 4, fig.align='center'}
+plotFreqHeatmap(gol, top.n = 3, type = "proportions")
+
+```
+
+### Changing colours of x-labels
+
+The x-labels can be coloured by experimental group.  To do this,
+a grouping vector must be supplied by setting parameter ```group```.
+Columns are ordered according to the levels of the group.  There
+should be one group value per column in the data.
+
+```{r, fig.height = 2.5, fig.width = 4, fig.align='center'}
+ncolumns <- ncol(variantCounts(gol))
+ncolumns
+grp <- rep(c(1,2), each = ncolumns/2)
+plotFreqHeatmap(gol, top.n = 3, group = grp)
+```
+
+The default colours are designed to be readable on a white background
+and colour-blind safe.  These can be changed by supplying a vector of 
+colours for each level of the group.  Colours must be supplied if there
+are more than 7 experimental groups.
+
+```{r, fig.height = 2.5, fig.width = 4, fig.align='center'}
+grp_clrs <- c("red", "purple")
+plotFreqHeatmap(gol, top.n = 3, group = grp, group.colours = grp_clrs)
+```
+
+
+### Controlling the appearance of the legend
+
+The legend position is controlled via ```legend.position```, which
+is passed to ```ggplot2::theme```.  Similarly ```legend.key.height```
+controls the height of the legend. See the 
+[ggplot docs](http://docs.ggplot2.org/current/theme.html) for 
+more information.  
+
+```{r, fig.height = 3, fig.width = 4, fig.align='center'}
+plotFreqHeatmap(gol, top.n = 3, legend.position = "bottom")
+```
+
+
+```{r, fig.height = 2.5, fig.width = 4, fig.align='center'}
+plotFreqHeatmap(gol, top.n = 3, 
+                legend.key.height = ggplot2::unit(1.5, "lines"))
+
+```
+
+## barplotAlleleFreqs
+
+```barplotAlleleFreqs``` includes two different colour schemes - a default rainbow
+scheme and a blue-red gradient.  Note that the transcript database ```txdb``` must
+be passed by name as this function accepts ellipsis arguments.
+
+Here ```barplotAlleleFreqs``` is run with the default parameters:
+
+```{r, fig.height = 2.5}
+barplotAlleleFreqs(crispr_set, txdb = txdb)
+```
+
+In this case ```barplotAlleleFreqs``` is run with the alternative palette.
+
+```{r, fig.height = 2.5, message = FALSE}
+barplotAlleleFreqs(crispr_set, txdb = txdb, palette = "bluered")
+```
+
+By default, a table of the number of sequences and alleles is plotted next to
+the barplot.  This can be switched off.  In this case, ```barplotAlleleFreqs```
+will return an ```ggplot``` object, allowing further alteration of the appearance
+through the usual ```ggplot2::theme``` settings.
+
+```{r, fig.height = 2.5, message = FALSE}
+barplotAlleleFreqs(crispr_set, txdb = txdb, include.table = FALSE)
+```
+
+```barplotAlleleFreqs.CrisprSet``` uses ```VariantAnnotation::locateVariants```
+to look up the variant locations with respect to a transcript database.  The default
+behaviour of ```barplotAlleleFreqs.matrix``` is to perform a naive classification of
+the variants as frameshift or non-frameshift by size.  This approach ignores transcript
+scructure, but can be useful to give a faster overview, or in cases where the transcript
+structure is unknown.
+
+```{r, fig.height = 2.5}
+var_counts <- variantCounts(crispr_set)
+barplotAlleleFreqs(var_counts)
+```
+
+If the parameter ```classify``` is set to FALSE, the variants are plotted with no
+further aggregation.  If there are more than seven variants, colours must be provided.
+
+```{r, fig.height = 2.5}
+rainbowPal9 <- c("#781C81","#3F4EA1","#4683C1",
+                 "#57A3AD","#6DB388","#B1BE4E",
+                 "#DFA53A","#E7742F","#D92120")
+
+barplotAlleleFreqs(var_counts, classify = FALSE, bar.colours = rainbowPal9)
+
+```
+
+An arbitrary classification can also be used.  ```CrispRVariants``` provides some utility
+functions to assist in classifying variants.  Note that methods of the ```CrisprSet```
+class are accessed with ```crisprSet$function()``` rather than ```function(crisprSet)```.
+
+Here are some examples of variant classification:
+
+```{r, fig.height = 2.5}
+# Classify variants as insertion/deletion/mixed
+byType <- crispr_set$classifyVariantsByType()
+byType
+
+# Classify variants by their location, without considering size
+byLoc <- crispr_set$classifyVariantsByLoc(txdb=txdb)
+byLoc
+# Coding variants can then be classified by setting a size cutoff
+byLoc <- crispr_set$classifyCodingBySize(byLoc, cutoff = 6)
+byLoc
+
+# Combine filtering and variant classification, using barplotAlleleFreqs.matrix
+vc <- variantCounts(crispr_set)
+
+# Select variants that occur in at least two samples
+keep <- names(which(rowSums(vc > 0) > 1))
+keep
+
+# Use this classification and the selected variants
+barplotAlleleFreqs(vc[keep,], category.labels = byLoc[keep])
+```
+
+
+### Other modifications
+
+```plotAlignments``` and ```plotFreqHeatmap``` both return ```ggplot``` objects,
+which can be adjusted via ```theme()```.  For example, to decrease the space
+between the legend and the plot:
+
+```{r, fig.height = 2.5}
+p <- plotAlignments(gol, top.n = 3)
+p + theme(legend.margin = ggplot2::unit(0, "cm"))
+```
+
+# Using CrispRVariants plotting functions independently
+
+The CrispRVariants plotting functions are intended to be used within a typical
+CrispRVariants pipeline, where the correct arguments are extracted from a
+CrisprSet object.  However, with some data formatting, it is also possible to
+use these functions with standard R objects. 
+
+An example adapting ```CrispRVariants::plotVariants``` to display pairwise
+alignment can be found in the code accompanying the CrispRVariants paper:
+https://github.com/markrobinsonuzh/CrispRvariants_manuscript
+
+## Plot the reference sequence
+
+Processing large data with CrispRVariants requires some time.  It can be useful
+to first plot the reference sequence to check that the intended target location
+is specified.  Here we use the reference sequence from the *gol* data set
+included in CrispRVariants.  Any Biostrings::DNAString can be used.  Note that
+CrispRVariants::plotAlignments accepts elliptical arguments in its signature,
+so non-signature arguments must be supplied by name.  The code below shows the
+minimum arguments required for running CrispRVariants::plotAlignments.
+
+```{r, fig.height = 1}
+
+# Get a reference sequence
+library("CrispRVariants")
+data(gol_clutch1)
+ref <- gol$ref
+
+#Then to make the plot:
+plotAlignments(ref, alns = NULL, target.loc = 22, ins.sites = data.frame())
+
+```
+

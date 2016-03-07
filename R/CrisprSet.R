@@ -600,10 +600,9 @@ Input parameters:
 Return value:
   A named vector classifying variant alleles as insertions, deletions, etc
 '
-    
-    nms <- rownames(dispatchDots(.self$.getFilteredCigarTable, ..., call = TRUE))
- ##   nms <- rownames(.self$.getFilteredCigarTable())
-
+   
+    filter_pars <- dispatchDots(.self$.getFilteredCigarTable, ...) 
+    nms <- rownames(do.call(.self$.getFilteredCigarTable, filter_pars))
     vars <- rep(NA, length(nms))
     names(vars) <- nms
     is_snv <- grepl(.self$pars$mismatch_label, nms)
@@ -664,7 +663,8 @@ Return value:
       var_levels[min(as.numeric(y))]}))
     names(result) <- names(gr)
 
-    vars <- rownames(dispatchDots(.self$.getFilteredCigarTable, ..., call = TRUE))
+    filter_pars <- dispatchDots(.self$.getFilteredCigarTable, ...)
+    vars <- rownames(do.call(.self$.getFilteredCigarTable, filter_pars))
     classification <- rep("", length(vars))
     names(classification) <- vars
 

@@ -230,7 +230,7 @@ setMethod("indelPercent", signature("GAlignments"),
 #'g(a = 5, d = 6)
 dispatchDots <- function(func, ..., call = FALSE){
   func_defaults <- formals(func)
-  result <- modifyList(func_defaults, list(...))[names(func_defaults)]
+  result <- utils::modifyList(func_defaults, list(...))[names(func_defaults)]
   if (isTRUE(call)) return(do.call(func, result))
   result
 }

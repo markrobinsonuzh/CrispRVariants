@@ -16,7 +16,7 @@ biocViews: GenomicVariation, VariantDetection, GeneticVariability,
     DataRepresentation, Visualization
 LazyData: true
 Depends:
-    R (>= 3.2),
+    R (>= 3.3),
     ggplot2
 License: GPL-2
 Imports:
@@ -39,8 +39,10 @@ Suggests:
     GenomicFeatures,
     knitr,
     rmarkdown,
+    rtracklayer,
     sangerseqR,
-    testthat
+    testthat,
+    VariantAnnotation
 VignetteBuilder: knitr
 NeedsCompilation: no
 RoxygenNote: 5.0.1
