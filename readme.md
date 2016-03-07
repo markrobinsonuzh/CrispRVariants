@@ -10,12 +10,15 @@ identifying sequences that differ from the reference sequence.
 
 # Installation
 
-Assuming the devtools package is installed, CrispRVariants can be installed using:
+[CrispRVariants](https://www.bioconductor.org/packages/3.3/bioc/html/CrispRVariants.html) can be installed by following the instructions at [Bioconductor](https://www.bioconductor.org/install/).
+
+Alternatively, after first installing the [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package, CrispRVariants can be installed using:
 
 ```r
 devtools::install_github("markrobinsonuzh/CrispRVariants")
 ```
-  or by downloading the source package and installing with repos=NULL
+
+Note that this repository contains a developmental version of CrispRVariants and is not compatible with the latest version of Bioconductor devel.  This repository will be merged with the Bioconductor repository in future.
 
 # Quickstart guide
 
@@ -77,6 +80,6 @@ The user guide is found in the "vignettes" directory
 
 # Contact
 
-We are currently finialising the package for inclusion Bioconductor.  Please contact helen (dot) lindsay (at) uzh (dot) ch for more information. 
+CrispRVariants is available from [Bioconductor](https://www.bioconductor.org/packages/3.3/bioc/html/CrispRVariants.html).  Please contact helen (dot) lindsay (at) uzh (dot) ch for more information. 
 
 
