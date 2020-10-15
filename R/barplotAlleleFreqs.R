@@ -27,6 +27,7 @@ setGeneric("barplotAlleleFreqs", function(obj, ...) {
 #'@param include.chimeras Should chimeric reads be included in results?
 #'(Default: TRUE)
 #'@param palette  Colour palette.  Options are "rainbow", a quantitative palette
+#'@param add_chr Add "chr" to chromosome names to make compatible with UCSC (default: TRUE)
 #'(default) or "bluered", a gradient palette.
 #'@rdname barplotAlleleFreqs
 setMethod("barplotAlleleFreqs", signature("CrisprSet"),
