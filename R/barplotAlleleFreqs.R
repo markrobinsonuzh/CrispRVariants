@@ -31,7 +31,7 @@ setGeneric("barplotAlleleFreqs", function(obj, ...) {
 #'@rdname barplotAlleleFreqs
 setMethod("barplotAlleleFreqs", signature("CrisprSet"),
   function(obj, ..., txdb, min.freq = 0, include.chimeras = TRUE, group = NULL,
-           palette = c("rainbow", "bluered")){
+           palette = c("rainbow", "bluered"), add_chr = TRUE){
 
     # Potential improvements:
     # Do filtering before variant location
@@ -60,7 +60,7 @@ setMethod("barplotAlleleFreqs", signature("CrisprSet"),
                     "inframe indel > 10",  "frameshift indel < 9",
                     expression("frameshift indel" >= 10))
     
-    var_type <- obj$classifyVariantsByLoc(txdb)
+    var_type <- obj$classifyVariantsByLoc(txdb, add_chr = add_chr)
     classification <- obj$classifyCodingBySize(var_type)
     classification["Other"] <- "Chimeric"
     
